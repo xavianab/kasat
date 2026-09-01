@@ -1,0 +1,187 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../core/kasat_config.dart';
+import '../../theme/kasat_theme.dart';
+import '../../widgets/mono_badge.dart';
+import '../lookup/lookup_view.dart';
+import '../report/report_form_view.dart';
+import '../resources/resources_view.dart';
+
+enum ShellTab {
+  report(label: 'Report', icon: Icons.edit_note_rounded),
+  track(label: 'Track', icon: Icons.radar_rounded),
+  resources(label: 'Help', icon: Icons.support_agent_rounded);
+
+  const ShellTab({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+}
+
+class ShellView extends StatefulWidget {
+  const ShellView({super.key, this.initialTab = ShellTab.report});
+
+  final ShellTab initialTab;
+
+  @override
+  State<ShellView> createState() => _ShellViewState();
+}
+
+class _ShellViewState extends State<ShellView> {
+  late ShellTab _tab = widget.initialTab;
+  final _lookupKey = GlobalKey<LookupViewState>();
+
+  /// Sends the survivor to the tracking tab with a code pre-loaded — used
+  /// straight after submission so the receipt has somewhere to go.
+  void openTracking(String trackingId) {
+    setState(() => _tab = ShellTab.track);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _lookupKey.currentState?.loadTrackingId(trackingId);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: KC.canvas,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const _TopBar(),
+            Expanded(
+              child: IndexedStack(
+                index: _tab.index,
+                children: [
+                  ReportFormView(onTrackRequested: openTracking),
+                  LookupView(key: _lookupKey),
+                  const ResourcesView(),
+                ],
+              ),
+            ),
+            _TabBar(
+              current: _tab,
+              onChanged: (t) {
+                HapticFeedback.selectionClick();
+                setState(() => _tab = t);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopBar extends StatelessWidget {
+  const _TopBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: KSpace.sm),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: KC.border)),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back_rounded, size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            color: KC.muted,
+          ),
+          const SizedBox(width: KSpace.xs),
+          Text(
+            KasatConfig.appName,
+            style: KType.mono(size: 12, weight: FontWeight.w800, tracking: 3),
+          ),
+          const Spacer(),
+          const LiveDot(),
+          const SizedBox(width: 6),
+          Text(
+            'SECURE CHANNEL',
+            style: KType.mono(size: 9, weight: FontWeight.w700, color: KC.accent, tracking: 1),
+          ),
+          const SizedBox(width: KSpace.sm),
+        ],
+      ),
+    );
+  }
+}
+
+class _TabBar extends StatelessWidget {
+  const _TabBar({required this.current, required this.onChanged});
+
+  final ShellTab current;
+  final ValueChanged<ShellTab> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: KC.surface,
+        border: Border(top: BorderSide(color: KC.border)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 52,
+          child: Row(
+            children: [
+              for (final tab in ShellTab.values)
+                Expanded(
+                  child: _TabButton(
+                    tab: tab,
+                    selected: tab == current,
+                    onTap: () => onChanged(tab),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  const _TabButton({required this.tab, required this.selected, required this.onTap});
+
+  final ShellTab tab;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? KC.accent : KC.faint;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: selected ? KC.accent : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(tab.icon, size: 17, color: color),
+            const SizedBox(height: 3),
+            Text(
+              tab.label.toUpperCase(),
+              style: KType.mono(size: 9, weight: FontWeight.w700, color: color, tracking: 1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
