@@ -46,6 +46,9 @@ create table incidents (
   location_precision location_precision,
   location_note text,
 
+  -- ISO 3166-1 alpha-2 chosen at onboarding. Never derived from IP or locale.
+  country_code text not null default 'ET' check (country_code ~ '^[A-Z]{2}$'),
+
   assigned_station text references stations (code),
   submitted_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -53,6 +56,7 @@ create table incidents (
 
 create index incidents_status_idx on incidents (status, submitted_at desc);
 create index incidents_priority_idx on incidents (priority, submitted_at desc);
+create index incidents_country_idx on incidents (country_code, submitted_at desc);
 
 alter table incidents enable row level security;
 

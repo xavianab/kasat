@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { PriorityBadge, StatusPill } from "@/components/badges";
 import { fixtureIncidents } from "@/lib/fixtures";
-import { CATEGORY_LABELS, STATUS_LABELS } from "@/lib/types";
+import { CATEGORY_LABELS, COUNTRY_LABELS, STATUS_LABELS } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +46,10 @@ export default async function IncidentPage({
         </div>
         <div className="panel-body">
           <Row label="Category" value={CATEGORY_LABELS[incident.category]} />
+          <Row
+            label="Country"
+            value={COUNTRY_LABELS[incident.countryCode] ?? incident.countryCode}
+          />
           <Row label="Submitted" value={incident.submittedAt} />
           <Row label="Station" value={incident.assignedStation ?? "UNASSIGNED"} />
           <Row

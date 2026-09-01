@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/time_format.dart';
+import '../../models/country.dart';
 import '../../models/incident.dart';
 import '../../theme/kasat_theme.dart';
-import '../../widgets/grid_backdrop.dart';
 import '../../widgets/kasat_button.dart';
 import '../../widgets/panel.dart';
+import '../../widgets/soft_backdrop.dart';
 import '../../widgets/status_pill.dart';
 
 /// Post-submission confirmation. The tracking code is the entire payload of
@@ -20,75 +21,89 @@ class ReceiptView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final country = countryByCode(incident.countryCode);
+
     return Scaffold(
       backgroundColor: KC.canvas,
-      body: GridBackdrop(
+      body: SoftBackdrop(
         child: SafeArea(
           child: Column(
             children: [
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.all(KSpace.lg),
+                  padding: const EdgeInsets.fromLTRB(
+                      KSpace.xl, KSpace.xl, KSpace.xl, KSpace.lg),
                   children: [
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                            color: KC.accent.withValues(alpha: 0.12),
-                            border: Border.all(color: KC.accent),
-                            borderRadius: BorderRadius.circular(5),
+                          width: 34,
+                          height: 34,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: KC.calmSoft,
+                            shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.check_rounded, size: 14, color: KC.accent),
+                          child: const Icon(Icons.check_rounded,
+                              size: 19, color: KC.calm),
                         ),
-                        const SizedBox(width: KSpace.sm),
-                        Text(
-                          'REPORT ACCEPTED',
-                          style: KType.mono(
-                            size: 12,
-                            weight: FontWeight.w800,
-                            color: KC.accent,
-                            tracking: 1.6,
-                          ),
+                        const SizedBox(width: KSpace.md),
+                        Expanded(
+                          child: Text('It has been sent', style: KType.serif(size: 24)),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: KSpace.md),
+                    Text(
+                      'Thank you. Nothing about who you are went with it.',
+                      style: KType.sans(size: 14.5, color: KC.muted, height: 1.55),
                     ),
                     const SizedBox(height: KSpace.xl),
                     _TrackingCard(trackingId: incident.trackingId),
                     const SizedBox(height: KSpace.md),
+                    const KNote(
+                      title: 'Please write this code down',
+                      icon: Icons.edit_note_rounded,
+                      color: KC.secondary,
+                      body: 'It is the only way back to your case. There is no '
+                          'email address or phone number on file to recover it '
+                          'with — if the code is lost, your report stays with the '
+                          'office but you can no longer follow it.',
+                    ),
+                    const SizedBox(height: KSpace.md),
                     KPanel(
-                      title: 'Filed payload',
+                      title: 'What was sent',
                       trailing: StatusPill(incident.status),
                       child: Column(
                         children: [
-                          KMetaRow('Category', incident.category.label),
+                          KMetaRow('Kind', incident.category.label),
                           KMetaRow(
                             'Priority',
                             incident.priority.label,
                             valueColor: incident.priority.color,
                           ),
-                          KMetaRow('Filed at', TimeFormat.stamp(incident.submittedAt)),
+                          KMetaRow('Country', country?.name ?? incident.countryCode),
+                          KMetaRow('Sent', TimeFormat.stamp(incident.submittedAt)),
                           KMetaRow(
-                            'Evidence',
+                            'Photos',
                             incident.attachments.isEmpty
-                                ? 'None attached'
-                                : '${incident.attachments.length} file(s) · metadata stripped',
+                                ? 'None'
+                                : '${incident.attachments.length}, cleaned first',
                           ),
                           KMetaRow(
-                            'Location',
-                            incident.location?.coordinateLabel ?? 'Not provided',
+                            'Place',
+                            incident.location?.coordinateLabel ?? 'Not given',
                           ),
-                          KMetaRow('Originator', 'NOT RECORDED', valueColor: KC.accent),
+                          KMetaRow('Your name', 'Never asked', valueColor: KC.calm),
                         ],
                       ),
                     ),
-                    const SizedBox(height: KSpace.md),
-                    const _CustodyWarning(),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.all(KSpace.md),
+                padding: const EdgeInsets.fromLTRB(
+                    KSpace.lg, KSpace.md, KSpace.lg, KSpace.sm),
                 decoration: const BoxDecoration(
                   color: KC.surface,
                   border: Border(top: BorderSide(color: KC.border)),
@@ -97,8 +112,8 @@ class ReceiptView extends StatelessWidget {
                   children: [
                     Expanded(
                       child: KButton(
-                        label: 'Close',
-                        kind: KButtonKind.outline,
+                        label: 'Done',
+                        kind: KButtonKind.soft,
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ),
@@ -106,8 +121,8 @@ class ReceiptView extends StatelessWidget {
                     Expanded(
                       flex: 2,
                       child: KButton(
-                        label: 'Track this case',
-                        icon: Icons.radar_rounded,
+                        label: 'Follow my case',
+                        icon: Icons.schedule_outlined,
                         onPressed: () {
                           Navigator.of(context).pop();
                           onTrack();
@@ -133,34 +148,32 @@ class _TrackingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(KSpace.lg),
+      padding: const EdgeInsets.all(KSpace.xl),
       decoration: BoxDecoration(
         color: KC.surface,
-        border: Border.all(color: KC.accent),
-        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: KC.primary, width: 1.6),
+        borderRadius: KRadius.rXl,
+        boxShadow: KShadow.card,
       ),
       child: Column(
         children: [
           Text(
-            'YOUR TRACKING CODE',
-            style: KType.mono(size: 9.5, weight: FontWeight.w700, color: KC.muted, tracking: 2),
+            'Your code',
+            style: KType.sans(size: 13, weight: FontWeight.w600, color: KC.muted),
           ),
           const SizedBox(height: KSpace.md),
           FittedBox(
             child: Text(
               trackingId,
-              style: KType.mono(
-                size: 38,
-                weight: FontWeight.w800,
-                color: KC.accent,
-                tracking: 3,
-              ),
+              // The one place monospace survives the warm redesign: this gets
+              // copied onto paper, where an ambiguous character is a lost case.
+              style: KType.code(size: 36, weight: FontWeight.w700, color: KC.primary),
             ),
           ),
-          const SizedBox(height: KSpace.md),
+          const SizedBox(height: KSpace.lg),
           KButton(
-            label: 'Copy code',
-            kind: KButtonKind.outline,
+            label: 'Copy',
+            kind: KButtonKind.secondary,
             icon: Icons.content_copy_rounded,
             compact: true,
             onPressed: () async {
@@ -168,62 +181,18 @@ class _TrackingCard extends StatelessWidget {
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  backgroundColor: KC.surfaceHi,
+                  backgroundColor: KC.text,
                   behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    side: const BorderSide(color: KC.accentDeep),
-                  ),
+                  margin: const EdgeInsets.all(KSpace.lg),
+                  shape: const RoundedRectangleBorder(borderRadius: KRadius.rMd),
                   duration: const Duration(seconds: 2),
                   content: Text(
-                    '$trackingId copied to clipboard',
-                    style: KType.mono(size: 11, color: KC.accent),
+                    'Copied',
+                    style: KType.sans(size: 14, color: Colors.white),
                   ),
                 ),
               );
             },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CustodyWarning extends StatelessWidget {
-  const _CustodyWarning();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(KSpace.md),
-      decoration: BoxDecoration(
-        color: KC.warn.withValues(alpha: 0.06),
-        border: Border.all(color: KC.warn.withValues(alpha: 0.35)),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: Icon(Icons.warning_amber_rounded, size: 15, color: KC.warn),
-          ),
-          const SizedBox(width: KSpace.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('WRITE THIS CODE DOWN', style: KType.label(color: KC.warn)),
-                const SizedBox(height: 5),
-                Text(
-                  'It is the only link between you and this case. We hold no '
-                  'email, phone number or account to recover it with — if the '
-                  'code is lost, the report stays filed but you can no longer '
-                  'follow it.',
-                  style: KType.sans(size: 11.5, color: KC.muted, height: 1.45),
-                ),
-              ],
-            ),
           ),
         ],
       ),

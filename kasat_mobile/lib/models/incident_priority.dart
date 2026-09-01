@@ -4,9 +4,9 @@ import '../theme/kasat_theme.dart';
 
 enum IncidentPriority {
   low(code: 'P4', label: 'Low', color: KC.muted),
-  medium(code: 'P3', label: 'Medium', color: KC.info),
-  high(code: 'P2', label: 'High', color: KC.warn),
-  critical(code: 'P1', label: 'Critical', color: KC.danger);
+  medium(code: 'P3', label: 'Medium', color: KC.primary),
+  high(code: 'P2', label: 'High', color: KC.secondary),
+  critical(code: 'P1', label: 'Critical', color: KC.urgent);
 
   const IncidentPriority({
     required this.code,

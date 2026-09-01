@@ -6,22 +6,22 @@ enum IncidentStatus {
   received(
     code: 'RECEIVED',
     label: 'Received',
-    blurb: 'Payload sealed and queued. No officer has opened it yet.',
-    color: KC.info,
+    blurb: 'Your report has arrived. Nobody has opened it yet.',
+    color: KC.primary,
     step: 0,
   ),
   underInvestigation(
     code: 'UNDER_INVESTIGATION',
     label: 'Under Investigation',
-    blurb: 'A station has claimed this case and is actively working it.',
-    color: KC.warn,
+    blurb: 'Someone has opened your case and is working on it.',
+    color: KC.secondary,
     step: 1,
   ),
   resolved(
     code: 'RESOLVED',
     label: 'Resolved',
-    blurb: 'The case has been closed out by the assigned station.',
-    color: KC.accent,
+    blurb: 'Your case has been closed by the office handling it.',
+    color: KC.calm,
     step: 2,
   );
 

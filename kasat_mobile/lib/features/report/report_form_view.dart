@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../app.dart';
+import '../../core/crisis_detection.dart';
 import '../../core/kasat_config.dart';
 import '../../core/tracking_id.dart';
 import '../../models/approx_location.dart';
@@ -11,10 +12,11 @@ import '../../models/incident_category.dart';
 import '../../theme/kasat_theme.dart';
 import '../../widgets/k_field.dart';
 import '../../widgets/kasat_button.dart';
-import '../../widgets/mono_badge.dart';
 import '../../widgets/panel.dart';
+import '../../widgets/soft_badge.dart';
 import 'receipt_view.dart';
 import 'widgets/category_sheet.dart';
+import 'widgets/crisis_banner.dart';
 import 'widgets/location_picker.dart';
 import 'widgets/media_dropzone.dart';
 import 'widgets/transmit_overlay.dart';
@@ -52,8 +54,16 @@ class _ReportFormViewState extends State<ReportFormView> {
   }
 
   int get _charCount => _description.text.characters.length;
-  bool get _descriptionOk => _description.text.trim().length >= KasatConfig.descriptionMinLength;
+  bool get _descriptionOk =>
+      _description.text.trim().length >= KasatConfig.descriptionMinLength;
   bool get _canSubmit => _category != null && _descriptionOk && !_submitting;
+
+  /// Runs on every keystroke, entirely on this device, against text that has
+  /// not been sent anywhere.
+  CrisisSignal get _crisis => CrisisDetection.evaluate(
+        category: _category,
+        description: _description.text,
+      );
 
   void _recomputeLocation() {
     final lat = double.tryParse(_lat.text.trim());
@@ -97,7 +107,7 @@ class _ReportFormViewState extends State<ReportFormView> {
       setState(() => _attachments = [..._attachments, ...added]);
     } catch (_) {
       if (!mounted) return;
-      _toast('Attachment could not be processed. Nothing was stored.', error: true);
+      _toast('That photo could not be added. Nothing was saved.', error: true);
     } finally {
       if (mounted) setState(() => _pickingMedia = false);
     }
@@ -106,38 +116,47 @@ class _ReportFormViewState extends State<ReportFormView> {
   Future<void> _removeAttachment(Attachment attachment) async {
     await KasatScope.of(context).attachments.delete(attachment);
     if (!mounted) return;
-    setState(() => _attachments = _attachments.where((a) => a.id != attachment.id).toList());
+    setState(
+        () => _attachments = _attachments.where((a) => a.id != attachment.id).toList());
   }
 
   Future<void> _submit() async {
     final category = _category;
     if (category == null || !_descriptionOk) return;
 
+    final scope = KasatScope.of(context);
+    final countryCode = scope.settings.countryCode;
+    if (countryCode == null) {
+      _toast('Your country has not been set. Please restart setup.', error: true);
+      return;
+    }
+
     FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
 
-    // Minted here, on the handset. The backend receives an identifier it had
-    // no part in choosing and cannot map back to a person.
+    // Minted here, on the handset. The backend receives a code it had no part
+    // in choosing and cannot map back to a person.
     final trackingId = TrackingId.generate();
 
     final draft = IncidentDraft(
       category: category,
       description: _description.text,
       priority: category.defaultPriority,
+      countryCode: countryCode,
       location: _location,
       attachments: _attachments,
     );
 
     final incident = await runTransmit(
       context,
-      KasatScope.of(context).repository.submit(draft, trackingId: trackingId),
+      scope.repository.submit(draft, trackingId: trackingId),
     );
 
     if (!mounted) return;
     setState(() => _submitting = false);
 
     if (incident == null) {
-      _toast('Transmission failed. Your report was not sent.', error: true);
+      _toast('That did not send. Nothing has been submitted.', error: true);
       return;
     }
 
@@ -168,15 +187,13 @@ class _ReportFormViewState extends State<ReportFormView> {
   void _toast(String message, {bool error = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: KC.surfaceHi,
+        backgroundColor: error ? KC.urgent : KC.text,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(6),
-          side: BorderSide(color: error ? KC.danger : KC.border),
-        ),
+        margin: const EdgeInsets.all(KSpace.lg),
+        shape: const RoundedRectangleBorder(borderRadius: KRadius.rMd),
         content: Text(
           message,
-          style: KType.mono(size: 11, color: error ? KC.danger : KC.text),
+          style: KType.sans(size: 14, color: Colors.white, height: 1.4),
         ),
       ),
     );
@@ -185,46 +202,53 @@ class _ReportFormViewState extends State<ReportFormView> {
   @override
   Widget build(BuildContext context) {
     final category = _category;
+    final countryCode = KasatScope.of(context).settings.countryCode;
 
     return Column(
       children: [
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(KSpace.md, KSpace.md, KSpace.md, KSpace.xl),
+            padding: const EdgeInsets.fromLTRB(
+                KSpace.lg, KSpace.xs, KSpace.lg, KSpace.xxl),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
-              const _IntakeHeader(),
-              const SizedBox(height: KSpace.md),
+              Text(
+                'Take your time. You can leave anything out.',
+                style: KType.sans(size: 14, color: KC.muted, height: 1.5),
+              ),
+              const SizedBox(height: KSpace.lg),
               KPanel(
-                index: '01',
-                title: 'Incident classification',
-                trailing: const MonoBadge('REQUIRED', color: KC.accent, size: 9, dense: true),
+                step: 1,
+                title: 'What kind of thing happened?',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     KSelectField(
                       value: category?.label,
-                      placeholder: 'Select incident type',
+                      placeholder: 'Choose one',
                       onTap: () async {
-                        final picked = await showCategorySheet(context, current: category);
+                        final picked =
+                            await showCategorySheet(context, current: category);
                         if (picked != null) setState(() => _category = picked);
                       },
                     ),
                     if (category != null) ...[
-                      const SizedBox(height: KSpace.sm),
+                      const SizedBox(height: KSpace.md),
                       Row(
                         children: [
-                          MonoBadge(category.code, size: 9, dense: true),
-                          const SizedBox(width: 6),
-                          MonoBadge(
-                            'PRIORITY ${category.defaultPriority.code}',
+                          SoftBadge(
+                            '${category.defaultPriority.label} priority',
                             color: category.defaultPriority.color,
-                            filled: true,
-                            size: 9,
                             dense: true,
+                            size: 12,
                           ),
-                          const Spacer(),
-                          Text('AUTO-DERIVED', style: KType.mono(size: 8.5, color: KC.faint)),
+                          const SizedBox(width: KSpace.sm),
+                          Expanded(
+                            child: Text(
+                              'Set from what you chose',
+                              style: KType.sans(size: 12.5, color: KC.faint),
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -233,41 +257,48 @@ class _ReportFormViewState extends State<ReportFormView> {
               ),
               const SizedBox(height: KSpace.md),
               KPanel(
-                index: '02',
-                title: 'What happened',
+                step: 2,
+                title: 'What happened?',
                 trailing: _Counter(count: _charCount, ok: _descriptionOk),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     KTextField(
                       controller: _description,
-                      hint: 'Describe what happened, when, and who was involved. '
-                          'Leave out anything that would identify you unless it '
-                          'is essential to the case.',
+                      hint: 'You can write as much or as little as you want. '
+                          'Leave out anything that would point back to you '
+                          'unless it matters to the case.',
                       minLines: 6,
                       maxLines: 12,
                       maxLength: KasatConfig.descriptionMaxLength,
                       onChanged: (_) => setState(() {}),
                     ),
-                    const SizedBox(height: 7),
+                    const SizedBox(height: KSpace.sm),
                     Text(
-                      'Minimum ${KasatConfig.descriptionMinLength} characters. '
-                      'Nothing here is analysed or indexed before an officer opens it.',
-                      style: KType.sans(size: 10.5, color: KC.faint, height: 1.4),
+                      'At least ${KasatConfig.descriptionMinLength} characters. '
+                      'Nobody reads this until an officer opens your case.',
+                      style: KType.sans(size: 12.5, color: KC.faint, height: 1.45),
                     ),
                   ],
                 ),
               ),
+              if (_crisis.triggered) ...[
+                const SizedBox(height: KSpace.md),
+                CrisisBanner(signal: _crisis, countryCode: countryCode),
+              ],
               const SizedBox(height: KSpace.md),
               KPanel(
-                index: '03',
-                title: 'Evidence',
-                trailing: MonoBadge(
-                  '${_attachments.length}/${KasatConfig.maxAttachments}',
-                  color: _attachments.isEmpty ? KC.faint : KC.accent,
-                  size: 9,
-                  dense: true,
-                ),
+                step: 3,
+                title: 'Anything to show?',
+                subtitle: 'Photos are optional.',
+                trailing: _attachments.isEmpty
+                    ? null
+                    : SoftBadge(
+                        '${_attachments.length} of ${KasatConfig.maxAttachments}',
+                        color: KC.primary,
+                        dense: true,
+                        size: 11.5,
+                      ),
                 child: MediaDropzone(
                   attachments: _attachments,
                   busy: _pickingMedia,
@@ -277,9 +308,9 @@ class _ReportFormViewState extends State<ReportFormView> {
               ),
               const SizedBox(height: KSpace.md),
               KPanel(
-                index: '04',
-                title: 'Approximate location',
-                trailing: const MonoBadge('OPTIONAL', size: 9, dense: true, color: KC.faint),
+                step: 4,
+                title: 'Roughly where?',
+                subtitle: 'Never exact. You can skip this.',
                 child: LocationPicker(
                   latController: _lat,
                   lngController: _lng,
@@ -308,37 +339,6 @@ class _ReportFormViewState extends State<ReportFormView> {
   }
 }
 
-class _IntakeHeader extends StatelessWidget {
-  const _IntakeHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Anonymous intake',
-                style: KType.sans(size: 19, weight: FontWeight.w800, tracking: -0.4),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                'Four fields. No account, no contact details, no device identifiers.',
-                style: KType.sans(size: 11.5, color: KC.muted, height: 1.35),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: KSpace.sm),
-        const MonoBadge('E2E', color: KC.accent, filled: true, size: 9),
-      ],
-    );
-  }
-}
-
 class _Counter extends StatelessWidget {
   const _Counter({required this.count, required this.ok});
 
@@ -348,10 +348,10 @@ class _Counter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final over = count > KasatConfig.descriptionMaxLength;
-    final color = over ? KC.danger : (ok ? KC.accent : KC.faint);
+    final color = over ? KC.urgent : (ok ? KC.calm : KC.faint);
     return Text(
-      '$count / ${KasatConfig.descriptionMaxLength}',
-      style: KType.mono(size: 9.5, weight: FontWeight.w700, color: color, tracking: 0.5),
+      '$count',
+      style: KType.sans(size: 13, weight: FontWeight.w600, color: color),
     );
   }
 }
@@ -371,18 +371,19 @@ class _SubmitBar extends StatelessWidget {
   final bool descriptionOk;
   final VoidCallback onSubmit;
 
-  String get _blocker {
-    if (category == null) return 'SELECT A CLASSIFICATION TO CONTINUE';
+  String get _hint {
+    if (category == null) return 'Choose what kind of thing happened to continue';
     if (!descriptionOk) {
-      return 'DESCRIPTION NEEDS ${KasatConfig.descriptionMinLength}+ CHARACTERS';
+      return 'A little more detail — at least '
+          '${KasatConfig.descriptionMinLength} characters';
     }
-    return 'PAYLOAD READY · IDENTIFIER MINTED ON SEND';
+    return 'Ready. Your private code is created when you send.';
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(KSpace.md, KSpace.sm, KSpace.md, KSpace.sm),
+      padding: const EdgeInsets.fromLTRB(KSpace.lg, KSpace.md, KSpace.lg, KSpace.sm),
       decoration: const BoxDecoration(
         color: KC.surface,
         border: Border(top: BorderSide(color: KC.border)),
@@ -394,26 +395,25 @@ class _SubmitBar extends StatelessWidget {
             children: [
               Icon(
                 enabled ? Icons.lock_outline_rounded : Icons.info_outline_rounded,
-                size: 12,
-                color: enabled ? KC.accent : KC.faint,
+                size: 15,
+                color: enabled ? KC.calm : KC.faint,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  _blocker,
-                  style: KType.mono(
-                    size: 9,
-                    weight: FontWeight.w700,
-                    color: enabled ? KC.accent : KC.faint,
-                    tracking: 0.7,
+                  _hint,
+                  style: KType.sans(
+                    size: 12.5,
+                    color: enabled ? KC.muted : KC.faint,
+                    height: 1.35,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: KSpace.sm),
+          const SizedBox(height: KSpace.md),
           KButton(
-            label: 'Transmit report',
+            label: 'Send',
             icon: Icons.send_rounded,
             busy: busy,
             onPressed: enabled ? onSubmit : null,

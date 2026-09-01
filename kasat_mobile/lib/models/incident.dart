@@ -43,6 +43,7 @@ class IncidentDraft {
     required this.category,
     required this.description,
     required this.priority,
+    required this.countryCode,
     this.location,
     this.attachments = const [],
   });
@@ -50,6 +51,12 @@ class IncidentDraft {
   final IncidentCategory category;
   final String description;
   final IncidentPriority priority;
+
+  /// ISO 3166-1 alpha-2 of the jurisdiction the survivor selected at
+  /// onboarding. Carried so the operator portal can route and filter by
+  /// country even while only one is live.
+  final String countryCode;
+
   final ApproxLocation? location;
   final List<Attachment> attachments;
 }
@@ -64,6 +71,7 @@ class Incident {
     required this.description,
     required this.priority,
     required this.status,
+    required this.countryCode,
     required this.submittedAt,
     required this.updatedAt,
     required this.history,
@@ -77,6 +85,11 @@ class Incident {
   final String description;
   final IncidentPriority priority;
   final IncidentStatus status;
+
+  /// ISO 3166-1 alpha-2. Set from the survivor's onboarding selection and
+  /// never derived from the network or the device locale.
+  final String countryCode;
+
   final DateTime submittedAt;
   final DateTime updatedAt;
   final List<StatusEvent> history;
@@ -96,6 +109,7 @@ class Incident {
       description: description,
       priority: priority,
       status: status ?? this.status,
+      countryCode: countryCode,
       submittedAt: submittedAt,
       updatedAt: updatedAt ?? this.updatedAt,
       history: history ?? this.history,
@@ -111,6 +125,7 @@ class Incident {
         'description': description,
         'priority': priority.code,
         'status': status.code,
+        'countryCode': countryCode,
         'submittedAt': submittedAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
         'history': history.map((e) => e.toJson()).toList(),
@@ -126,6 +141,7 @@ class Incident {
       description: json['description'] as String,
       priority: IncidentPriority.fromCode(json['priority'] as String),
       status: IncidentStatus.fromCode(json['status'] as String),
+      countryCode: json['countryCode'] as String? ?? 'ET',
       submittedAt: DateTime.parse(json['submittedAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       history: (json['history'] as List<dynamic>? ?? [])

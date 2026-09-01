@@ -16,6 +16,7 @@ export const fixtureIncidents: Incident[] = [
       "Armed group moving through the eastern quarter after curfew. Several residents locked inside a compound.",
     priority: "P1",
     status: "RECEIVED",
+    countryCode: "ET",
     submittedAt: hoursAgo(0.4),
     updatedAt: hoursAgo(0.4),
     history: [{ status: "RECEIVED", at: hoursAgo(0.4), actor: "INTAKE", note: null }],
@@ -30,6 +31,7 @@ export const fixtureIncidents: Incident[] = [
       "Repeated unwanted contact from a former colleague over three weeks, escalating to threats made outside my workplace.",
     priority: "P3",
     status: "UNDER_INVESTIGATION",
+    countryCode: "ET",
     submittedAt: hoursAgo(31),
     updatedAt: hoursAgo(25),
     history: [
@@ -63,6 +65,7 @@ export const fixtureIncidents: Incident[] = [
       "Fraudulent transfer requests sent from a spoofed account claiming to be my landlord.",
     priority: "P4",
     status: "RESOLVED",
+    countryCode: "ET",
     submittedAt: hoursAgo(216),
     updatedAt: hoursAgo(72),
     history: [

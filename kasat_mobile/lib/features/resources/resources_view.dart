@@ -1,217 +1,191 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../app.dart';
+import '../../core/dialer.dart';
+import '../../models/country.dart';
 import '../../theme/kasat_theme.dart';
-import '../../widgets/kasat_button.dart';
-import '../../widgets/mono_badge.dart';
 import '../../widgets/panel.dart';
+import '../../widgets/soft_badge.dart';
 import 'emergency_contacts.dart';
 
+/// Help lines for the survivor's own country.
+///
+/// Everything here comes from [emergencyContactsByCountry] keyed on the country
+/// chosen at onboarding. Nothing on this screen is hardcoded to a jurisdiction,
+/// so launching a new one is a table entry.
 class ResourcesView extends StatelessWidget {
   const ResourcesView({super.key});
 
-  Future<void> _dial(BuildContext context, EmergencyContact contact) async {
-    HapticFeedback.mediumImpact();
-    final uri = Uri(scheme: 'tel', path: contact.dialable);
-
-    var launched = false;
-    try {
-      launched = await launchUrl(uri);
-    } catch (_) {
-      launched = false;
-    }
-
-    // The iOS Simulator has no dialer, and some locked-down handsets block the
-    // tel: scheme. Falling back to a copyable number keeps the screen useful
-    // instead of failing silently.
-    if (!launched && context.mounted) {
-      await _showManualDial(context, contact);
-    }
-  }
-
-  Future<void> _showManualDial(BuildContext context, EmergencyContact contact) {
-    return showDialog<void>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.82),
-      builder: (context) => Center(
-        child: Container(
-          width: 290,
-          padding: const EdgeInsets.all(KSpace.lg),
-          decoration: BoxDecoration(
-            color: KC.surface,
-            border: Border.all(color: KC.border),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('DIALER UNAVAILABLE', style: KType.label(color: KC.warn)),
-              const SizedBox(height: KSpace.md),
-              Text(
-                contact.name,
-                textAlign: TextAlign.center,
-                style: KType.sans(size: 13, weight: FontWeight.w700),
-              ),
-              const SizedBox(height: KSpace.sm),
-              SelectableText(
-                contact.number,
-                style: KType.mono(size: 20, weight: FontWeight.w800, color: KC.accent),
-              ),
-              const SizedBox(height: KSpace.lg),
-              Row(
-                children: [
-                  Expanded(
-                    child: KButton(
-                      label: 'Copy',
-                      kind: KButtonKind.outline,
-                      compact: true,
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: contact.number));
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: KSpace.sm),
-                  Expanded(
-                    child: KButton(
-                      label: 'Close',
-                      kind: KButtonKind.ghost,
-                      compact: true,
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final grouped = <ContactKind, List<EmergencyContact>>{};
-    for (final contact in emergencyContacts) {
-      grouped.putIfAbsent(contact.kind, () => []).add(contact);
-    }
+    final code = KasatScope.of(context).settings.countryCode;
+    final country = countryByCode(code);
+    final grouped = groupedContactsForCountry(code);
+    final unverified = contactsForCountry(code).where((c) => !c.verified).length;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(KSpace.md, KSpace.md, KSpace.md, KSpace.xl),
+      padding: const EdgeInsets.fromLTRB(KSpace.lg, KSpace.xs, KSpace.lg, KSpace.xxl),
       children: [
-        Text(
-          'Support directory',
-          style: KType.sans(size: 19, weight: FontWeight.w800, tracking: -0.4),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          'One tap dials. Kasat does not observe, log, or route these calls.',
-          style: KType.sans(size: 11.5, color: KC.muted, height: 1.35),
-        ),
-        const SizedBox(height: KSpace.md),
-        for (final entry in grouped.entries) ...[
-          KPanel(
-            title: entry.key.label,
-            trailing: MonoBadge(
-              '${entry.value.length}',
-              size: 9,
-              dense: true,
-              color: entry.key.color,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'People you can talk to in ${country?.name ?? 'your country'}.',
+                style: KType.sans(size: 14, color: KC.muted, height: 1.5),
+              ),
             ),
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                for (var i = 0; i < entry.value.length; i++) ...[
-                  if (i > 0) const Divider(height: 1, color: KC.border),
-                  _ContactRow(
-                    contact: entry.value[i],
-                    onDial: () => _dial(context, entry.value[i]),
-                  ),
-                ],
-              ],
-            ),
+            if (country != null) ...[
+              const SizedBox(width: KSpace.sm),
+              SoftBadge(country.code, color: KC.secondary, dense: true),
+            ],
+          ],
+        ),
+        const SizedBox(height: KSpace.lg),
+        if (unverified > 0) ...[
+          KNote(
+            title: 'These numbers are not confirmed yet',
+            icon: Icons.info_outline_rounded,
+            color: KC.secondary,
+            body: '$unverified of the lines below are placeholders while they '
+                'are being verified for ${country?.name ?? 'your country'}. This '
+                'app will not dial an unconfirmed number. If you are in danger '
+                'now, use a number you know.',
           ),
           const SizedBox(height: KSpace.md),
         ],
-        Container(
-          padding: const EdgeInsets.all(KSpace.md),
-          decoration: BoxDecoration(
-            border: Border.all(color: KC.border),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            'Numbers shown are placeholders for the MVP. A jurisdiction-specific '
-            'directory must be loaded before deployment.',
-            style: KType.sans(size: 11, color: KC.faint, height: 1.45),
-          ),
-        ),
+        if (grouped.isEmpty)
+          const KNote(
+            title: 'No lines for your country yet',
+            icon: Icons.travel_explore_outlined,
+            color: KC.secondary,
+            body: 'Kasat has not been set up for your country. Reporting still '
+                'works, but this screen cannot suggest anyone to call.',
+          )
+        else
+          for (final entry in grouped.entries) ...[
+            _KindSection(kind: entry.key, contacts: entry.value),
+            const SizedBox(height: KSpace.md),
+          ],
       ],
     );
   }
 }
 
-class _ContactRow extends StatelessWidget {
-  const _ContactRow({required this.contact, required this.onDial});
+class _KindSection extends StatelessWidget {
+  const _KindSection({required this.kind, required this.contacts});
 
-  final EmergencyContact contact;
-  final VoidCallback onDial;
+  final ContactKind kind;
+  final List<EmergencyContact> contacts;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onDial,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: KSpace.md, vertical: KSpace.md),
-        child: Row(
-          children: [
-            Icon(contact.kind.icon, size: 17, color: contact.kind.color),
-            const SizedBox(width: KSpace.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    contact.name,
-                    style: KType.sans(size: 13, weight: FontWeight.w700, height: 1.2),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
+    return KPanel(
+      title: kind.label,
+      padding: const EdgeInsets.symmetric(horizontal: KSpace.md, vertical: KSpace.md),
+      trailing: Container(
+        width: 30,
+        height: 30,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: kind.color.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(kind.icon, size: 16, color: kind.color),
+      ),
+      child: Column(
+        children: [
+          for (final contact in contacts)
+            _ContactRow(
+              contact: contact,
+              onTap: () => Dialer.call(context, contact),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContactRow extends StatelessWidget {
+  const _ContactRow({required this.contact, required this.onTap});
+
+  final EmergencyContact contact;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: KSpace.sm),
+      child: Material(
+        color: KC.surfaceAlt,
+        borderRadius: KRadius.rMd,
+        child: InkWell(
+          borderRadius: KRadius.rMd,
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(KSpace.md),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        contact.number,
-                        style: KType.mono(
-                          size: 11,
-                          weight: FontWeight.w700,
-                          color: contact.kind.color,
+                        contact.name,
+                        style: KType.sans(
+                          size: 14.5,
+                          weight: FontWeight.w600,
+                          height: 1.35,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      MonoBadge(contact.region, size: 8.5, dense: true, color: KC.faint),
-                      const SizedBox(width: 4),
-                      MonoBadge(contact.hours, size: 8.5, dense: true, color: KC.faint),
+                      const SizedBox(height: 4),
+                      Text(
+                        contact.blurb,
+                        style: KType.sans(size: 12.5, color: KC.muted, height: 1.45),
+                      ),
+                      const SizedBox(height: KSpace.sm),
+                      Row(
+                        children: [
+                          if (contact.verified)
+                            Text(
+                              contact.number,
+                              style: KType.code(size: 13, color: KC.secondary),
+                            )
+                          else
+                            const SoftBadge(
+                              'Not confirmed yet',
+                              color: KC.faint,
+                              dense: true,
+                              size: 11.5,
+                            ),
+                          const SizedBox(width: KSpace.sm),
+                          Text(
+                            contact.hours,
+                            style: KType.sans(size: 11.5, color: KC.faint),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    contact.blurb,
-                    style: KType.sans(size: 11, color: KC.muted, height: 1.35),
+                ),
+                const SizedBox(width: KSpace.md),
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: contact.verified ? KC.primary : KC.border,
+                    shape: BoxShape.circle,
                   ),
-                ],
-              ),
+                  child: Icon(
+                    contact.verified ? Icons.call_rounded : Icons.info_outline_rounded,
+                    size: 19,
+                    color: contact.verified ? Colors.white : KC.faint,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: KSpace.sm),
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: contact.kind.color.withValues(alpha: 0.12),
-                border: Border.all(color: contact.kind.color.withValues(alpha: 0.45)),
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Icon(Icons.call_rounded, size: 15, color: contact.kind.color),
-            ),
-          ],
+          ),
         ),
       ),
     );

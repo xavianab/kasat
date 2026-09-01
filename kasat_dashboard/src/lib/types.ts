@@ -62,12 +62,25 @@ export interface StatusEvent {
   note: string | null;
 }
 
+export const COUNTRIES = ["ET", "KE", "SO", "DJ", "SS"] as const;
+export type CountryCode = (typeof COUNTRIES)[number];
+
+export const COUNTRY_LABELS: Record<CountryCode, string> = {
+  ET: "Ethiopia",
+  KE: "Kenya",
+  SO: "Somalia",
+  DJ: "Djibouti",
+  SS: "South Sudan",
+};
+
 export interface Incident {
   trackingId: string;
   category: CategoryCode;
   description: string;
   priority: Priority;
   status: IncidentStatus;
+  /** ISO 3166-1 alpha-2 chosen at onboarding. Used to filter and route. */
+  countryCode: CountryCode;
   submittedAt: string;
   updatedAt: string;
   history: StatusEvent[];

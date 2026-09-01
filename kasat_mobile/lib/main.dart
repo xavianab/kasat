@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'app.dart';
 import 'data/attachment_store.dart';
 import 'data/local_incident_repository.dart';
+import 'data/settings_store.dart';
 import 'theme/kasat_theme.dart';
 
 Future<void> main() async {
@@ -20,10 +21,14 @@ Future<void> main() async {
   final repository = LocalIncidentRepository();
   await repository.init();
 
+  final settings = SettingsStore();
+  await settings.init();
+
   runApp(
     KasatApp(
       repository: repository,
       attachments: AttachmentStore(),
+      settings: settings,
     ),
   );
 }

@@ -4,37 +4,37 @@ enum IncidentCategory {
   harassment(
     code: 'HRSMT',
     label: 'Harassment',
-    hint: 'Stalking, threats, coercion, repeated unwanted contact.',
+    hint: 'Being followed, threatened, or contacted again and again.',
     defaultPriority: IncidentPriority.medium,
   ),
   physicalAssault(
     code: 'ASSLT',
-    label: 'Physical Assault',
-    hint: 'Bodily harm, battery, or violence against a person.',
+    label: 'Physical assault',
+    hint: 'Someone hurt you or used force against you.',
     defaultPriority: IncidentPriority.high,
   ),
   fraud(
     code: 'FRAUD',
     label: 'Fraud',
-    hint: 'Financial deception, extortion, identity or document fraud.',
+    hint: 'Money taken by deception, or documents used against you.',
     defaultPriority: IncidentPriority.low,
   ),
   trafficking(
     code: 'TRFCK',
     label: 'Trafficking',
-    hint: 'Forced labour, movement of persons, exploitation.',
+    hint: 'Being forced to work, or moved somewhere against your will.',
     defaultPriority: IncidentPriority.high,
   ),
   corruption(
     code: 'CRRPT',
-    label: 'Abuse of Power',
-    hint: 'Bribery, official misconduct, retaliation by authority.',
+    label: 'Abuse of power',
+    hint: 'Someone in authority using their position against you.',
     defaultPriority: IncidentPriority.medium,
   ),
   criticalEmergency(
     code: 'CRTCL',
-    label: 'Critical Emergency',
-    hint: 'Life at immediate risk. Routed to the top of dispatch.',
+    label: 'Critical emergency',
+    hint: 'Someone is in danger right now. Seen first.',
     defaultPriority: IncidentPriority.critical,
   );
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { CATEGORY_LABELS, type Incident } from "@/lib/types";
+import { CATEGORY_LABELS, COUNTRY_LABELS, type Incident } from "@/lib/types";
 import { PriorityBadge, StatusPill, TrackingBadge } from "./badges";
 
 function stamp(iso: string) {
@@ -21,6 +21,7 @@ export function TriageTable({ incidents }: { incidents: Incident[] }) {
       <thead>
         <tr>
           <th>Tracking ID</th>
+          <th>Country</th>
           <th>Type</th>
           <th>Priority</th>
           <th>Submitted</th>
@@ -36,6 +37,9 @@ export function TriageTable({ incidents }: { incidents: Incident[] }) {
               <Link href={`/dispatch/${incident.trackingId}`}>
                 <TrackingBadge trackingId={incident.trackingId} />
               </Link>
+            </td>
+            <td className="mono" style={{ fontSize: 11 }}>
+              {COUNTRY_LABELS[incident.countryCode] ?? incident.countryCode}
             </td>
             <td>{CATEGORY_LABELS[incident.category]}</td>
             <td>

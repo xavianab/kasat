@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/kasat_config.dart';
 import '../../theme/kasat_theme.dart';
-import '../../widgets/mono_badge.dart';
 import '../lookup/lookup_view.dart';
 import '../report/report_form_view.dart';
 import '../resources/resources_view.dart';
 
 enum ShellTab {
-  report(label: 'Report', icon: Icons.edit_note_rounded),
-  track(label: 'Track', icon: Icons.radar_rounded),
-  resources(label: 'Help', icon: Icons.support_agent_rounded);
+  report(label: 'Report', icon: Icons.edit_outlined),
+  track(label: 'My case', icon: Icons.schedule_outlined),
+  resources(label: 'Help', icon: Icons.favorite_outline_rounded);
 
   const ShellTab({required this.label, required this.icon});
 
@@ -49,7 +47,7 @@ class _ShellViewState extends State<ShellView> {
         bottom: false,
         child: Column(
           children: [
-            const _TopBar(),
+            _TopBar(title: _tab.label),
             Expanded(
               child: IndexedStack(
                 index: _tab.index,
@@ -75,38 +73,24 @@ class _ShellViewState extends State<ShellView> {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar();
+  const _TopBar({required this.title});
+
+  final String title;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 44,
+      height: 52,
       padding: const EdgeInsets.symmetric(horizontal: KSpace.sm),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: KC.border)),
-      ),
       child: Row(
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded, size: 18),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            icon: const Icon(Icons.arrow_back_rounded, size: 22),
             color: KC.muted,
           ),
           const SizedBox(width: KSpace.xs),
-          Text(
-            KasatConfig.appName,
-            style: KType.mono(size: 12, weight: FontWeight.w800, tracking: 3),
-          ),
-          const Spacer(),
-          const LiveDot(),
-          const SizedBox(width: 6),
-          Text(
-            'SECURE CHANNEL',
-            style: KType.mono(size: 9, weight: FontWeight.w700, color: KC.accent, tracking: 1),
-          ),
-          const SizedBox(width: KSpace.sm),
+          Text(title, style: KType.serif(size: 19)),
         ],
       ),
     );
@@ -129,7 +113,7 @@ class _TabBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 52,
+          height: 60,
           child: Row(
             children: [
               for (final tab in ShellTab.values)
@@ -157,30 +141,32 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? KC.accent : KC.faint;
+    final color = selected ? KC.primary : KC.faint;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: selected ? KC.accent : Colors.transparent,
-              width: 1.5,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(horizontal: KSpace.lg, vertical: 5),
+            decoration: BoxDecoration(
+              color: selected ? KC.primarySoft : Colors.transparent,
+              borderRadius: KRadius.rPill,
+            ),
+            child: Icon(tab.icon, size: 21, color: color),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            tab.label,
+            style: KType.sans(
+              size: 11.5,
+              weight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: color,
             ),
           ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(tab.icon, size: 17, color: color),
-            const SizedBox(height: 3),
-            Text(
-              tab.label.toUpperCase(),
-              style: KType.mono(size: 9, weight: FontWeight.w700, color: color, tracking: 1),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

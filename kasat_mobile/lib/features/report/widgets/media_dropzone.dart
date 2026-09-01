@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../core/kasat_config.dart';
 import '../../../models/attachment.dart';
 import '../../../theme/kasat_theme.dart';
-import '../../../widgets/dashed_border.dart';
-import '../../../widgets/mono_badge.dart';
+import '../../../widgets/soft_backdrop.dart';
+import '../../../widgets/soft_badge.dart';
 
 class MediaDropzone extends StatelessWidget {
   const MediaDropzone({
@@ -30,41 +30,51 @@ class MediaDropzone extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Opacity(
-          opacity: _full ? 0.4 : 1,
+          opacity: _full ? 0.45 : 1,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: (_full || busy) ? null : onAdd,
             child: DashedBorder(
-              color: busy ? KC.accent : KC.borderHi,
+              color: busy ? KC.primary : KC.borderStrong,
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 18, horizontal: KSpace.md),
+                padding: const EdgeInsets.symmetric(
+                    vertical: KSpace.xl, horizontal: KSpace.lg),
                 alignment: Alignment.center,
                 child: Column(
                   children: [
-                    if (busy)
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 1.6, color: KC.accent),
-                      )
-                    else
-                      const Icon(Icons.add_photo_alternate_outlined, size: 20, color: KC.muted),
-                    const SizedBox(height: KSpace.sm),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: KC.primarySoft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: busy
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: KC.primary),
+                            )
+                          : const Icon(Icons.add_photo_alternate_outlined,
+                              size: 22, color: KC.primary),
+                    ),
+                    const SizedBox(height: KSpace.md),
                     Text(
-                      busy ? 'SCRUBBING METADATA…' : 'TAP TO ATTACH EVIDENCE',
-                      style: KType.mono(
-                        size: 10.5,
-                        weight: FontWeight.w700,
-                        color: busy ? KC.accent : KC.text,
-                        tracking: 1,
+                      busy ? 'Cleaning your photos…' : 'Add a photo',
+                      style: KType.sans(
+                        size: 15,
+                        weight: FontWeight.w600,
+                        color: busy ? KC.primary : KC.text,
                       ),
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      'Images are decoded and re-encoded on this device.\n'
-                      'EXIF, GPS and camera serials never leave it.',
+                      'Where the photo was taken, and which camera took it, '
+                      'are removed on this phone before it is saved.',
                       textAlign: TextAlign.center,
-                      style: KType.sans(size: 11, color: KC.muted, height: 1.4),
+                      style: KType.sans(size: 12.5, color: KC.muted, height: 1.45),
                     ),
                   ],
                 ),
@@ -95,52 +105,49 @@ class _AttachmentRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: KSpace.sm),
-      padding: const EdgeInsets.all(7),
+      padding: const EdgeInsets.all(KSpace.sm),
       decoration: BoxDecoration(
-        color: KC.canvas,
-        border: Border.all(color: KC.border),
-        borderRadius: BorderRadius.circular(5),
+        color: KC.surfaceAlt,
+        borderRadius: KRadius.rMd,
       ),
       child: Row(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(3),
+            borderRadius: KRadius.rSm,
             child: SizedBox(
-              width: 38,
-              height: 38,
+              width: 46,
+              height: 46,
               child: attachment.isImage
                   ? Image.file(File(attachment.storagePath), fit: BoxFit.cover)
                   : Container(
-                      color: KC.surfaceHi,
-                      child: const Icon(Icons.description_outlined, size: 16),
+                      color: KC.border,
+                      child: const Icon(Icons.description_outlined, size: 18),
                     ),
             ),
           ),
-          const SizedBox(width: KSpace.sm),
+          const SizedBox(width: KSpace.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  attachment.label,
-                  style: KType.mono(size: 11, weight: FontWeight.w700, tracking: 0.6),
+                  'Photo ${attachment.label.split('-').last}',
+                  style: KType.sans(size: 14, weight: FontWeight.w600),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${attachment.sizeLabel} · ${attachment.dimensionLabel} · PNG',
-                  style: KType.mono(size: 9.5, color: KC.faint),
+                  attachment.sizeLabel,
+                  style: KType.sans(size: 12.5, color: KC.muted),
                 ),
               ],
             ),
           ),
           if (attachment.strippedMetadata)
-            const MonoBadge('SCRUBBED', color: KC.accent, filled: true, size: 9, dense: true),
+            const SoftBadge('Cleaned', color: KC.calm, dense: true, size: 11.5),
           IconButton(
             onPressed: onRemove,
-            icon: const Icon(Icons.close_rounded, size: 15),
+            icon: const Icon(Icons.close_rounded, size: 18),
             color: KC.faint,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 30, height: 30),
           ),
         ],
       ),

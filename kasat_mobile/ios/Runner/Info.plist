@@ -30,10 +30,33 @@
 	<array>
 		<string>tel</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Unlock without typing your code.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Attach photos as evidence. Kasat strips EXIF, GPS and camera metadata on this device before anything is stored or sent.</string>
+	<string>Attach a photo. Location and camera details are removed on this phone before anything is saved.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Capture evidence for an anonymous report. Location and device metadata are never written to the image.</string>
+	<string>Take a photo. Location and camera details are not kept with it.</string>
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconName</key>
+			<string>AppIcon</string>
+		</dict>
+		<key>CFBundleAlternateIcons</key>
+		<dict>
+			<key>AltIconNotes</key>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AltIconNotes</string>
+			</dict>
+			<key>AltIconCalculator</key>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AltIconCalculator</string>
+			</dict>
+		</dict>
+	</dict>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIApplicationSceneManifest</key>

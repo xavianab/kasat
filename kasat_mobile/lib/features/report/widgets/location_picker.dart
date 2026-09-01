@@ -4,14 +4,14 @@ import 'package:flutter/services.dart';
 import '../../../models/approx_location.dart';
 import '../../../theme/kasat_theme.dart';
 import '../../../widgets/k_field.dart';
-import '../../../widgets/mono_badge.dart';
+import '../../../widgets/soft_badge.dart';
 
 /// Coordinate entry that never accepts an exact fix.
 ///
-/// The survivor types (or pastes) a coordinate, picks how coarse it should be,
-/// and sees the snapped result before submitting. There is no "use my current
-/// location" button on purpose: a GPS fix taken at the moment of reporting is
-/// often the single most identifying field in a report.
+/// The survivor types (or pastes) a coordinate, chooses how vague it should be,
+/// and sees the result before submitting. There is no "use my current location"
+/// button on purpose: a GPS fix taken at the moment of reporting is often the
+/// single most identifying field in a report.
 class LocationPicker extends StatelessWidget {
   const LocationPicker({
     super.key,
@@ -55,8 +55,8 @@ class LocationPicker extends StatelessWidget {
                   const KFieldLabel('Latitude'),
                   KTextField(
                     controller: latController,
-                    hint: '-6.7924',
-                    mono: true,
+                    hint: '9.0108',
+                    code: true,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                       signed: true,
@@ -67,7 +67,7 @@ class LocationPicker extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: KSpace.sm),
+            const SizedBox(width: KSpace.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -75,8 +75,8 @@ class LocationPicker extends StatelessWidget {
                   const KFieldLabel('Longitude'),
                   KTextField(
                     controller: lngController,
-                    hint: '39.2083',
-                    mono: true,
+                    hint: '38.7613',
+                    code: true,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                       signed: true,
@@ -89,22 +89,22 @@ class LocationPicker extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: KSpace.md),
-        const KFieldLabel('Reported precision'),
+        const SizedBox(height: KSpace.lg),
+        const KFieldLabel('How vague should this be?'),
         KSegmented<LocationPrecision>(
           options: LocationPrecision.values,
           value: precision,
           labelOf: (p) => p.label,
           onChanged: onPrecisionChanged,
         ),
-        const SizedBox(height: KSpace.md),
-        const KFieldLabel('Landmark (optional)'),
+        const SizedBox(height: KSpace.lg),
+        const KFieldLabel('A nearby landmark', optional: true),
         KTextField(
           controller: noteController,
-          hint: 'e.g. near the north bus terminal',
+          hint: 'near the bus terminal',
           onChanged: (_) => onChanged(),
         ),
-        const SizedBox(height: KSpace.md),
+        const SizedBox(height: KSpace.lg),
         _SnapPreview(resolved: resolved, precision: precision, dirty: hasInput),
       ],
     );
@@ -124,24 +124,27 @@ class _SnapPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final active = resolved != null;
+
     return Container(
       decoration: BoxDecoration(
-        color: KC.canvas,
-        border: Border.all(color: resolved == null ? KC.border : KC.accentDeep),
-        borderRadius: BorderRadius.circular(5),
+        color: KC.surfaceAlt,
+        borderRadius: KRadius.rMd,
+        border: Border.all(color: active ? KC.primary : KC.border, width: 1.4),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           SizedBox(
-            height: 92,
+            height: 104,
             width: double.infinity,
-            child: CustomPaint(painter: _CellPainter(active: resolved != null)),
+            child: CustomPaint(painter: _CellPainter(active: active)),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: KSpace.sm, vertical: 7),
+            padding: const EdgeInsets.symmetric(
+                horizontal: KSpace.md, vertical: KSpace.md),
             decoration: const BoxDecoration(
-              color: KC.surfaceHi,
+              color: KC.surface,
               border: Border(top: BorderSide(color: KC.border)),
             ),
             child: Row(
@@ -150,21 +153,19 @@ class _SnapPreview extends StatelessWidget {
                   child: Text(
                     switch ((resolved, dirty)) {
                       (final ApproxLocation l, _) => l.coordinateLabel,
-                      (null, true) => 'AWAITING VALID COORDINATE',
-                      (null, false) => 'NO LOCATION ATTACHED',
+                      (null, true) => 'Waiting for a valid coordinate',
+                      (null, false) => 'No place attached',
                     },
-                    style: KType.mono(
-                      size: 11,
-                      weight: FontWeight.w700,
-                      color: resolved == null ? KC.faint : KC.accent,
-                    ),
+                    style: active
+                        ? KType.code(size: 14, color: KC.secondary)
+                        : KType.sans(size: 13.5, color: KC.faint),
                   ),
                 ),
-                MonoBadge(
-                  '±${precision.radiusLabel}',
-                  color: resolved == null ? KC.faint : KC.accent,
+                SoftBadge(
+                  'within ${precision.radiusLabel}',
+                  color: active ? KC.primary : KC.faint,
                   dense: true,
-                  size: 9,
+                  size: 11.5,
                 ),
               ],
             ),
@@ -175,9 +176,10 @@ class _SnapPreview extends StatelessWidget {
   }
 }
 
-/// Abstract cell diagram: a grid with one highlighted square standing in for
+/// Abstract area diagram: a soft grid with one highlighted cell standing in for
 /// the area the report will be filed against. It is not a map and does not
-/// pretend to be — showing real tiles would mean a network call.
+/// pretend to be — showing real tiles would mean a network call, which is
+/// exactly what this screen is avoiding.
 class _CellPainter extends CustomPainter {
   _CellPainter({required this.active});
 
@@ -185,10 +187,10 @@ class _CellPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const cell = 18.0;
+    const cell = 26.0;
     final grid = Paint()
       ..color = KC.border
-      ..strokeWidth = 0.5;
+      ..strokeWidth = 1;
 
     for (var x = 0.0; x <= size.width; x += cell) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
@@ -199,25 +201,21 @@ class _CellPainter extends CustomPainter {
 
     if (!active) return;
 
-    final cx = (size.width / 2 / cell).floor() * cell;
-    final cy = (size.height / 2 / cell).floor() * cell;
-    final rect = Rect.fromLTWH(cx - cell, cy - cell, cell * 3, cell * 3);
-
-    canvas.drawRect(rect, Paint()..color = KC.accent.withValues(alpha: 0.13));
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..color = KC.accent
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
+    final center = Offset(size.width / 2, size.height / 2);
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: center, width: cell * 3, height: cell * 3),
+      const Radius.circular(KRadius.sm),
     );
 
-    final center = rect.center;
-    final cross = Paint()
-      ..color = KC.accent
-      ..strokeWidth = 1;
-    canvas.drawLine(center.translate(-5, 0), center.translate(5, 0), cross);
-    canvas.drawLine(center.translate(0, -5), center.translate(0, 5), cross);
+    canvas.drawRRect(rect, Paint()..color = KC.primary.withValues(alpha: 0.16));
+    canvas.drawRRect(
+      rect,
+      Paint()
+        ..color = KC.primary
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8,
+    );
+    canvas.drawCircle(center, 5, Paint()..color = KC.primary);
   }
 
   @override

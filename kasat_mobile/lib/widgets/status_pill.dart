@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/incident_status.dart';
 import '../theme/kasat_theme.dart';
-import 'mono_badge.dart';
+import 'soft_badge.dart';
 
 class StatusPill extends StatelessWidget {
   const StatusPill(this.status, {super.key, this.live = false});
@@ -13,32 +13,26 @@ class StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(7, 3.5, 8, 3.5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: status.color.withValues(alpha: 0.13),
-        border: Border.all(color: status.color.withValues(alpha: 0.4)),
-        borderRadius: BorderRadius.circular(4),
+        color: status.color.withValues(alpha: 0.11),
+        borderRadius: KRadius.rPill,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (live)
-            LiveDot(color: status.color, size: 5)
+            PulseDot(color: status.color, size: 7)
           else
             Container(
-              width: 5,
-              height: 5,
+              width: 7,
+              height: 7,
               decoration: BoxDecoration(color: status.color, shape: BoxShape.circle),
             ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 7),
           Text(
-            status.label.toUpperCase(),
-            style: KType.mono(
-              size: 10,
-              weight: FontWeight.w700,
-              color: status.color,
-              tracking: 0.9,
-            ),
+            status.label,
+            style: KType.sans(size: 12.5, weight: FontWeight.w600, color: status.color),
           ),
         ],
       ),
@@ -46,7 +40,7 @@ class StatusPill extends StatelessWidget {
   }
 }
 
-/// Horizontal Received → Under Investigation → Resolved tracker.
+/// Received → Under Investigation → Resolved, as a soft stepper.
 class StatusTrack extends StatelessWidget {
   const StatusTrack(this.status, {super.key});
 
@@ -56,14 +50,20 @@ class StatusTrack extends StatelessWidget {
   Widget build(BuildContext context) {
     final steps = IncidentStatus.values;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (var i = 0; i < steps.length; i++) ...[
           if (i > 0)
             Expanded(
               child: Container(
-                height: 1,
-                margin: const EdgeInsets.symmetric(horizontal: 6),
-                color: steps[i].step <= status.step ? status.color : KC.border,
+                height: 3,
+                margin: const EdgeInsets.only(top: 7, left: 4, right: 4),
+                decoration: BoxDecoration(
+                  color: steps[i].step <= status.step
+                      ? status.color.withValues(alpha: 0.45)
+                      : KC.border,
+                  borderRadius: KRadius.rPill,
+                ),
               ),
             ),
           _Node(
@@ -87,29 +87,37 @@ class _Node extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = reached ? step.color : KC.faint;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: current ? 11 : 8,
-          height: current ? 11 : 8,
-          decoration: BoxDecoration(
-            color: reached ? color : Colors.transparent,
-            border: Border.all(color: color, width: 1.5),
-            shape: BoxShape.circle,
+    return SizedBox(
+      width: 82,
+      child: Column(
+        children: [
+          Container
+            (
+            width: current ? 17 : 13,
+            height: current ? 17 : 13,
+            margin: EdgeInsets.only(top: current ? 0 : 2),
+            decoration: BoxDecoration(
+              color: reached ? color : KC.surface,
+              border: Border.all(color: reached ? color : KC.borderStrong, width: 2),
+              shape: BoxShape.circle,
+            ),
+            child: current
+                ? const Icon(Icons.circle, size: 5, color: Colors.white)
+                : null,
           ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          step.code.replaceAll('_', ' '),
-          style: KType.mono(
-            size: 8,
-            weight: FontWeight.w700,
-            color: color,
-            tracking: 0.6,
+          const SizedBox(height: KSpace.sm),
+          Text(
+            step.label,
+            textAlign: TextAlign.center,
+            style: KType.sans(
+              size: 11,
+              weight: current ? FontWeight.w700 : FontWeight.w500,
+              color: reached ? color : KC.faint,
+              height: 1.3,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

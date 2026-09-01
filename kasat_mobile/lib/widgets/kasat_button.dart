@@ -3,10 +3,20 @@ import 'package:flutter/services.dart';
 
 import '../theme/kasat_theme.dart';
 
-enum KButtonKind { primary, outline, ghost, danger }
+enum KButtonKind {
+  /// Blush fill. One per screen.
+  primary,
 
-/// Squared-off action button. Labels are uppercase monospace so a button is
-/// never mistaken for prose.
+  /// Terracotta outline for the secondary path.
+  secondary,
+
+  /// Quiet bordered button.
+  soft,
+
+  /// Text-only.
+  ghost,
+}
+
 class KButton extends StatelessWidget {
   const KButton({
     super.key,
@@ -31,23 +41,23 @@ class KButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // A disabled action gets its own flat treatment rather than a faded copy
-    // of the enabled one: a translucent emerald fill still reads as "go", and
-    // the primary button on the intake form spends most of its life disabled.
+    // Disabled buttons get a flat tint of their own rather than a faded copy
+    // of the enabled state: the intake form's primary action spends most of
+    // its life disabled, and a washed-out blush fill still reads as "go".
     final (bg, fg, border) = _enabled
         ? switch (kind) {
-            KButtonKind.primary => (KC.accent, KC.canvas, KC.accent),
-            KButtonKind.outline => (Colors.transparent, KC.text, KC.borderHi),
+            KButtonKind.primary => (KC.primary, Colors.white, KC.primary),
+            KButtonKind.secondary => (Colors.white, KC.secondary, KC.secondary),
+            KButtonKind.soft => (KC.surface, KC.text, KC.borderStrong),
             KButtonKind.ghost => (Colors.transparent, KC.muted, Colors.transparent),
-            KButtonKind.danger => (KC.danger.withValues(alpha: 0.12), KC.danger, KC.danger),
           }
-        : (KC.surfaceHi, KC.faint, KC.border);
+        : (KC.surfaceAlt, KC.faint, KC.border);
 
     return Material(
       color: bg,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: KRadius.rMd,
       child: InkWell(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: KRadius.rMd,
         onTap: _enabled
             ? () {
                 HapticFeedback.selectionClick();
@@ -57,12 +67,12 @@ class KButton extends StatelessWidget {
         child: Container(
           width: expand ? double.infinity : null,
           padding: EdgeInsets.symmetric(
-            horizontal: compact ? KSpace.md : KSpace.lg,
-            vertical: compact ? KSpace.sm : 13,
+            horizontal: compact ? KSpace.lg : KSpace.xl,
+            vertical: compact ? 10 : 15,
           ),
           decoration: BoxDecoration(
             border: Border.all(color: border),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: KRadius.rMd,
           ),
           child: Row(
             mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
@@ -70,20 +80,19 @@ class KButton extends StatelessWidget {
             children: [
               if (busy)
                 SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(strokeWidth: 1.6, color: fg),
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: fg),
                 )
               else if (icon != null)
-                Icon(icon, size: 14, color: fg),
+                Icon(icon, size: 17, color: fg),
               if (busy || icon != null) const SizedBox(width: KSpace.sm),
               Text(
-                label.toUpperCase(),
-                style: KType.mono(
-                  size: compact ? 10.5 : 12,
-                  weight: FontWeight.w700,
+                label,
+                style: KType.sans(
+                  size: compact ? 13.5 : 15,
+                  weight: FontWeight.w600,
                   color: fg,
-                  tracking: 1.1,
                 ),
               ),
             ],

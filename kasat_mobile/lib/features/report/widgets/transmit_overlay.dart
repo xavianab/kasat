@@ -4,19 +4,18 @@ import 'package:flutter/material.dart';
 
 import '../../../models/incident.dart';
 import '../../../theme/kasat_theme.dart';
-import '../../../widgets/mono_badge.dart';
 
-/// Blocking transmit readout.
+/// Blocking send readout.
 ///
 /// The steps are not decoration: each line corresponds to work that actually
 /// runs, and the dialog will not dismiss until both the animation and the
-/// submission future have finished. Someone filing a report under duress
-/// should be able to see exactly what their phone did.
+/// submission have finished. Someone filing a report under duress should be
+/// able to see exactly what her phone did.
 Future<Incident?> runTransmit(BuildContext context, Future<Incident> future) {
   return showDialog<Incident>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.86),
+    barrierColor: KC.text.withValues(alpha: 0.32),
     builder: (_) => _TransmitDialog(future: future),
   );
 }
@@ -32,10 +31,10 @@ class _TransmitDialog extends StatefulWidget {
 
 class _TransmitDialogState extends State<_TransmitDialog> {
   static const _steps = [
-    'Minting client-side identifier',
-    'Stripping originator metadata',
-    'Sealing payload for dispatch',
-    'Handing off to intake queue',
+    'Creating your private code',
+    'Removing anything that identifies you',
+    'Sealing what you wrote',
+    'Handing it to the case queue',
   ];
 
   int _step = 0;
@@ -47,7 +46,7 @@ class _TransmitDialogState extends State<_TransmitDialog> {
   void initState() {
     super.initState();
 
-    _timer = Timer.periodic(const Duration(milliseconds: 330), (t) {
+    _timer = Timer.periodic(const Duration(milliseconds: 380), (t) {
       if (_step >= _steps.length - 1) {
         t.cancel();
         return;
@@ -71,7 +70,7 @@ class _TransmitDialogState extends State<_TransmitDialog> {
   /// line is never a flash the user cannot read.
   void _finish() {
     final remaining = (_steps.length - 1 - _step).clamp(0, _steps.length);
-    Future<void>.delayed(Duration(milliseconds: 330 * remaining + 260), () {
+    Future<void>.delayed(Duration(milliseconds: 380 * remaining + 320), () {
       if (!mounted) return;
       _timer?.cancel();
       Navigator.of(context).pop(_error == null ? _result : null);
@@ -88,57 +87,51 @@ class _TransmitDialogState extends State<_TransmitDialog> {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        width: 300,
-        padding: const EdgeInsets.all(KSpace.lg),
+        width: 320,
+        padding: const EdgeInsets.all(KSpace.xl),
         decoration: BoxDecoration(
           color: KC.surface,
-          border: Border.all(color: KC.accentDeep),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: KRadius.rXl,
+          boxShadow: KShadow.lift,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const LiveDot(),
-                const SizedBox(width: 7),
-                Text('TRANSMITTING', style: KType.label(color: KC.accent)),
-                const Spacer(),
-                MonoBadge('${_step + 1}/${_steps.length}', size: 9, dense: true),
-              ],
-            ),
-            const SizedBox(height: KSpace.md),
-            const Divider(height: 1, color: KC.border),
-            const SizedBox(height: KSpace.md),
+            Text('Sending', style: KType.serif(size: 20)),
+            const SizedBox(height: KSpace.lg),
             for (var i = 0; i < _steps.length; i++)
               AnimatedOpacity(
-                duration: const Duration(milliseconds: 180),
-                opacity: i <= _step ? 1 : 0.22,
+                duration: const Duration(milliseconds: 220),
+                opacity: i <= _step ? 1 : 0.3,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  padding: const EdgeInsets.symmetric(vertical: KSpace.sm),
                   child: Row(
                     children: [
                       SizedBox(
-                        width: 16,
+                        width: 24,
                         child: i < _step
-                            ? const Icon(Icons.check_rounded, size: 12, color: KC.accent)
-                            : Text(
-                                i == _step ? '›' : '·',
-                                style: KType.mono(
-                                  size: 12,
-                                  color: i == _step ? KC.accent : KC.faint,
-                                  weight: FontWeight.w700,
-                                ),
-                              ),
+                            ? const Icon(Icons.check_circle_rounded,
+                                size: 18, color: KC.calm)
+                            : i == _step
+                                ? const SizedBox(
+                                    width: 15,
+                                    height: 15,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: KC.primary),
+                                  )
+                                : const Icon(Icons.circle_outlined,
+                                    size: 15, color: KC.faint),
                       ),
+                      const SizedBox(width: KSpace.md),
                       Expanded(
                         child: Text(
                           _steps[i],
-                          style: KType.mono(
-                            size: 10.5,
+                          style: KType.sans(
+                            size: 13.5,
+                            weight: i == _step ? FontWeight.w600 : FontWeight.w400,
                             color: i <= _step ? KC.text : KC.faint,
-                            weight: FontWeight.w600,
+                            height: 1.4,
                           ),
                         ),
                       ),

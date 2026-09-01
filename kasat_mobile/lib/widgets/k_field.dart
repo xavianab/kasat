@@ -3,24 +3,24 @@ import 'package:flutter/services.dart';
 
 import '../theme/kasat_theme.dart';
 
-/// Small uppercase caption that sits above every input.
+/// Caption above an input.
 class KFieldLabel extends StatelessWidget {
-  const KFieldLabel(this.text, {super.key, this.required = false, this.trailing});
+  const KFieldLabel(this.text, {super.key, this.optional = false, this.trailing});
 
   final String text;
-  final bool required;
+  final bool optional;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: KSpace.sm),
       child: Row(
         children: [
-          Text(text.toUpperCase(), style: KType.label(size: 9.5)),
-          if (required) ...[
-            const SizedBox(width: 4),
-            Text('*', style: KType.mono(size: 10, color: KC.accent, weight: FontWeight.w700)),
+          Text(text, style: KType.label()),
+          if (optional) ...[
+            const SizedBox(width: 6),
+            Text('optional', style: KType.sans(size: 11.5, color: KC.faint)),
           ],
           const Spacer(),
           ?trailing,
@@ -30,8 +30,7 @@ class KFieldLabel extends StatelessWidget {
   }
 }
 
-/// Bordered text input. Wraps [TextField] so every field on the client shares
-/// one border radius, one focus colour, and one text style.
+/// Rounded text input on a warm inset well.
 class KTextField extends StatefulWidget {
   const KTextField({
     super.key,
@@ -42,9 +41,11 @@ class KTextField extends StatefulWidget {
     this.maxLength,
     this.keyboardType,
     this.inputFormatters,
-    this.mono = false,
+    this.code = false,
     this.textAlign = TextAlign.start,
     this.onChanged,
+    this.obscureText = false,
+    this.autofocus = false,
     this.textCapitalization = TextCapitalization.sentences,
   });
 
@@ -55,9 +56,13 @@ class KTextField extends StatefulWidget {
   final int? maxLength;
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
-  final bool mono;
+
+  /// Renders the value in the tracking-code face.
+  final bool code;
   final TextAlign textAlign;
   final ValueChanged<String>? onChanged;
+  final bool obscureText;
+  final bool autofocus;
   final TextCapitalization textCapitalization;
 
   @override
@@ -81,39 +86,41 @@ class _KTextFieldState extends State<KTextField> {
 
   @override
   Widget build(BuildContext context) {
-    final style = widget.mono
-        ? KType.mono(size: 13, weight: FontWeight.w600, height: 1.4)
-        : KType.sans(size: 13.5, height: 1.45);
+    final style = widget.code
+        ? KType.code(size: 16, weight: FontWeight.w600)
+        : KType.sans(size: 15, height: 1.5);
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 120),
+      duration: const Duration(milliseconds: 150),
       decoration: BoxDecoration(
-        color: KC.canvas,
-        border: Border.all(color: _focus.hasFocus ? KC.accent : KC.border),
-        borderRadius: BorderRadius.circular(5),
+        color: _focus.hasFocus ? KC.surface : KC.surfaceAlt,
+        border: Border.all(color: _focus.hasFocus ? KC.primary : KC.border, width: 1.4),
+        borderRadius: KRadius.rSm,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: KSpace.md, vertical: KSpace.md),
       child: TextField(
         controller: widget.controller,
         focusNode: _focus,
-        maxLines: widget.maxLines,
+        maxLines: widget.obscureText ? 1 : widget.maxLines,
         minLines: widget.minLines,
         keyboardType: widget.keyboardType,
         inputFormatters: widget.inputFormatters,
         onChanged: widget.onChanged,
         textAlign: widget.textAlign,
+        obscureText: widget.obscureText,
+        autofocus: widget.autofocus,
         textCapitalization: widget.textCapitalization,
-        cursorWidth: 1.5,
-        cursorRadius: Radius.zero,
+        cursorWidth: 2,
+        cursorRadius: const Radius.circular(2),
         style: style,
         decoration: InputDecoration(
           isDense: true,
           border: InputBorder.none,
           contentPadding: EdgeInsets.zero,
           hintText: widget.hint,
-          hintStyle: widget.mono
-              ? KType.mono(size: 13, color: KC.faint)
-              : KType.sans(size: 13.5, color: KC.faint),
+          hintStyle: widget.code
+              ? KType.code(size: 16, color: KC.faint)
+              : KType.sans(size: 15, color: KC.faint),
           counterText: '',
         ),
       ),
@@ -121,14 +128,14 @@ class _KTextFieldState extends State<KTextField> {
   }
 }
 
-/// Dropdown-style trigger: reads like a field, opens a sheet on tap.
+/// Reads like a field, opens a sheet on tap.
 class KSelectField extends StatelessWidget {
   const KSelectField({
     super.key,
     required this.value,
     required this.onTap,
     this.leading,
-    this.placeholder = 'Select…',
+    this.placeholder = 'Choose…',
   });
 
   final String? value;
@@ -146,26 +153,26 @@ class KSelectField extends StatelessWidget {
         onTap();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: KSpace.md, vertical: 15),
         decoration: BoxDecoration(
-          color: KC.canvas,
-          border: Border.all(color: empty ? KC.border : KC.borderHi),
-          borderRadius: BorderRadius.circular(5),
+          color: KC.surfaceAlt,
+          border: Border.all(color: empty ? KC.border : KC.borderStrong, width: 1.4),
+          borderRadius: KRadius.rSm,
         ),
         child: Row(
           children: [
-            if (leading != null) ...[leading!, const SizedBox(width: KSpace.sm)],
+            if (leading != null) ...[leading!, const SizedBox(width: KSpace.md)],
             Expanded(
               child: Text(
                 value ?? placeholder,
                 style: KType.sans(
-                  size: 13.5,
-                  weight: FontWeight.w600,
+                  size: 15,
+                  weight: empty ? FontWeight.w400 : FontWeight.w600,
                   color: empty ? KC.faint : KC.text,
                 ),
               ),
             ),
-            const Icon(Icons.expand_more_rounded, size: 18, color: KC.muted),
+            const Icon(Icons.expand_more_rounded, size: 22, color: KC.muted),
           ],
         ),
       ),
@@ -173,7 +180,7 @@ class KSelectField extends StatelessWidget {
   }
 }
 
-/// Compact segmented control for small, mutually exclusive option sets.
+/// Soft segmented control.
 class KSegmented<T> extends StatelessWidget {
   const KSegmented({
     super.key,
@@ -192,11 +199,11 @@ class KSegmented<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: KC.canvas,
-        border: Border.all(color: KC.border),
-        borderRadius: BorderRadius.circular(5),
+        color: KC.surfaceAlt,
+        border: Border.all(color: KC.border, width: 1.4),
+        borderRadius: KRadius.rMd,
       ),
-      padding: const EdgeInsets.all(2),
+      padding: const EdgeInsets.all(4),
       child: Row(
         children: [
           for (final option in options)
@@ -207,25 +214,20 @@ class KSegmented<T> extends StatelessWidget {
                   HapticFeedback.selectionClick();
                   onChanged(option);
                 },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 7),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(vertical: 9),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: option == value
-                        ? KC.accent.withValues(alpha: 0.14)
-                        : Colors.transparent,
-                    border: Border.all(
-                      color: option == value ? KC.accent : Colors.transparent,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
+                    color: option == value ? KC.primary : Colors.transparent,
+                    borderRadius: KRadius.rSm,
                   ),
                   child: Text(
-                    labelOf(option).toUpperCase(),
-                    style: KType.mono(
-                      size: 9.5,
-                      weight: FontWeight.w700,
-                      color: option == value ? KC.accent : KC.muted,
-                      tracking: 0.8,
+                    labelOf(option),
+                    style: KType.sans(
+                      size: 12.5,
+                      weight: FontWeight.w600,
+                      color: option == value ? Colors.white : KC.muted,
                     ),
                   ),
                 ),

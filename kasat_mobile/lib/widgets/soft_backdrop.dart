@@ -2,16 +2,39 @@ import 'package:flutter/material.dart';
 
 import '../theme/kasat_theme.dart';
 
-/// Dashed rounded rectangle. Used only for drop targets, so a dashed edge
-/// always means "this area accepts something".
+/// Warm wash behind hero surfaces. Replaces the old engineering grid — a
+/// blueprint texture reads as "tool", which is the opposite of what this
+/// interface is trying to feel like.
+class SoftBackdrop extends StatelessWidget {
+  const SoftBackdrop({super.key, this.child});
+
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [Color(0xFFFDEFF3), KC.canvas, Color(0xFFFBF1EA)],
+          stops: [0, 0.55, 1],
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Soft dashed outline for drop targets.
 class DashedBorder extends StatelessWidget {
   const DashedBorder({
     super.key,
     required this.child,
-    this.color = KC.borderHi,
-    this.radius = 6,
-    this.dash = 4,
-    this.gap = 3.5,
+    this.color = KC.borderStrong,
+    this.radius = KRadius.md,
+    this.dash = 7,
+    this.gap = 5,
   });
 
   final Widget child;
@@ -46,7 +69,8 @@ class _DashedPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 1
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
     final path = Path()

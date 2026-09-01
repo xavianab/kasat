@@ -54,6 +54,23 @@ Two smaller decisions worth knowing about: the tracking alphabet omits
 code, and `LocalIncidentRepository.lookup` delays a flat 450 ms so response
 timing does not reveal whether a code exists.
 
+### Discretion and country routing
+
+On first launch the app asks for a country (Ethiopia is the only live option),
+a six-digit PIN, optional Face ID, and an optional home-screen icon (Notes or
+Calculator). After that, every open is gated by the PIN. A **Leave** button
+sits above every screen and swaps the whole navigator for a fake Notes app;
+coming back always costs the PIN again.
+
+Push copy is forced through `NotificationPolicy`. There is no constructor that
+accepts arbitrary text — every notification is "You have an update."
+
+Help lines live in `emergency_contacts.dart` / `emergency_contacts.ts`, keyed
+by country code. Every shipped number is a placeholder (`verified: false`) and
+will not dial. Reports carry `countryCode` so the operator portal can filter
+later. An unlaunched country returns an empty list rather than another
+country's numbers.
+
 ### Swapping in Supabase
 
 `IncidentRepository` is the only seam. Implement it against Supabase, change

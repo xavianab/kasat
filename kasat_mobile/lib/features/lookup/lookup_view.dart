@@ -8,8 +8,8 @@ import '../../models/incident.dart';
 import '../../theme/kasat_theme.dart';
 import '../../widgets/k_field.dart';
 import '../../widgets/kasat_button.dart';
-import '../../widgets/mono_badge.dart';
 import '../../widgets/panel.dart';
+import '../../widgets/soft_badge.dart';
 import '../../widgets/status_pill.dart';
 
 class LookupView extends StatefulWidget {
@@ -83,29 +83,24 @@ class LookupViewState extends State<LookupView> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(KSpace.md, KSpace.md, KSpace.md, KSpace.xl),
+      padding: const EdgeInsets.fromLTRB(KSpace.lg, KSpace.xs, KSpace.lg, KSpace.xxl),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
         Text(
-          'Case status',
-          style: KType.sans(size: 19, weight: FontWeight.w800, tracking: -0.4),
+          'Enter the code you were given when you sent your report. It is the '
+          'only thing that opens your case.',
+          style: KType.sans(size: 14, color: KC.muted, height: 1.5),
         ),
-        const SizedBox(height: 3),
-        Text(
-          'Enter the code you were given at submission. No other identifier will resolve a case.',
-          style: KType.sans(size: 11.5, color: KC.muted, height: 1.35),
-        ),
-        const SizedBox(height: KSpace.md),
+        const SizedBox(height: KSpace.lg),
         KPanel(
-          title: 'Tracking code',
-          trailing: const MonoBadge('KST-XXXXX', size: 9, dense: true, color: KC.faint),
+          title: 'Your code',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               KTextField(
                 controller: _controller,
                 hint: 'KST-8X9P2',
-                mono: true,
+                code: true,
                 textAlign: TextAlign.center,
                 textCapitalization: TextCapitalization.characters,
                 inputFormatters: [
@@ -114,24 +109,24 @@ class LookupViewState extends State<LookupView> {
                 ],
                 onChanged: (_) => setState(() => _notFound = false),
               ),
-              const SizedBox(height: KSpace.sm),
+              const SizedBox(height: KSpace.md),
               KButton(
-                label: 'Resolve case',
-                icon: Icons.travel_explore_rounded,
+                label: 'Look it up',
+                icon: Icons.search_rounded,
                 busy: _searching,
                 onPressed: _controller.text.trim().isEmpty ? null : _resolve,
               ),
               if (_localIds.isNotEmpty) ...[
                 const KRule(),
-                const KFieldLabel('Filed from this device'),
+                const KFieldLabel('Sent from this phone'),
                 Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                  spacing: KSpace.sm,
+                  runSpacing: KSpace.sm,
                   children: [
                     for (final id in _localIds.take(6))
                       GestureDetector(
                         onTap: () => loadTrackingId(id),
-                        child: MonoBadge(id, color: KC.accent, filled: true, size: 10),
+                        child: CodeChip(id),
                       ),
                   ],
                 ),
@@ -152,7 +147,8 @@ class LookupViewState extends State<LookupView> {
 /// note app matches without the survivor thinking about case.
 class UpperCaseFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
     return newValue.copyWith(text: newValue.text.toUpperCase());
   }
 }
@@ -192,49 +188,41 @@ class _LiveCaseState extends State<_LiveCase> {
       stream: _stream,
       builder: (context, snapshot) {
         final incident = snapshot.data;
-        if (incident == null) {
-          return const SizedBox.shrink();
-        }
+        if (incident == null) return const SizedBox.shrink();
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             KPanel(
-              title: incident.trackingId,
+              title: 'Your case',
               trailing: StatusPill(incident.status, live: true),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: KSpace.sm),
-                    child: StatusTrack(incident.status),
-                  ),
-                  const KRule(height: KSpace.sm),
+                  CodeChip(incident.trackingId, size: 15),
+                  const SizedBox(height: KSpace.lg),
+                  StatusTrack(incident.status),
+                  const KRule(height: KSpace.lg),
                   Text(
                     incident.status.blurb,
-                    style: KType.sans(size: 12, color: KC.muted, height: 1.45),
+                    style: KType.sans(size: 13.5, color: KC.muted, height: 1.5),
                   ),
-                  const KRule(height: KSpace.sm),
-                  KMetaRow('Category', incident.category.label),
+                  const KRule(height: KSpace.lg),
+                  KMetaRow('Kind', incident.category.label),
                   KMetaRow(
                     'Priority',
                     incident.priority.label,
                     valueColor: incident.priority.color,
                   ),
-                  KMetaRow('Filed', TimeFormat.stamp(incident.submittedAt)),
-                  KMetaRow('Last update', TimeFormat.elapsed(incident.updatedAt)),
-                  KMetaRow('Station', incident.assignedStation ?? 'UNASSIGNED'),
+                  KMetaRow('Sent', TimeFormat.stamp(incident.submittedAt)),
+                  KMetaRow('Last change', TimeFormat.elapsed(incident.updatedAt)),
+                  KMetaRow('With', incident.assignedStation ?? 'Not yet assigned'),
                 ],
               ),
             ),
             const SizedBox(height: KSpace.md),
             KPanel(
-              title: 'Audit trail',
-              trailing: MonoBadge(
-                '${incident.history.length} EVENTS',
-                size: 9,
-                dense: true,
-                color: KC.faint,
-              ),
+              title: 'What has happened so far',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -242,16 +230,17 @@ class _LiveCaseState extends State<_LiveCase> {
                     _HistoryRow(
                       event: incident.history[i],
                       latest: i == incident.history.length - 1,
+                      last: i == 0,
                     ),
                 ],
               ),
             ),
             const SizedBox(height: KSpace.md),
             KPanel(
-              title: 'Submitted statement',
+              title: 'What you wrote',
               child: Text(
                 incident.description,
-                style: KType.sans(size: 12.5, color: KC.muted, height: 1.5),
+                style: KType.sans(size: 13.5, color: KC.muted, height: 1.6),
               ),
             ),
           ],
@@ -262,32 +251,46 @@ class _LiveCaseState extends State<_LiveCase> {
 }
 
 class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.event, required this.latest});
+  const _HistoryRow({
+    required this.event,
+    required this.latest,
+    required this.last,
+  });
 
   final StatusEvent event;
   final bool latest;
+  final bool last;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Container(
-              width: 7,
-              height: 7,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          children: [
+            Container(
+              width: 11,
+              height: 11,
+              margin: const EdgeInsets.only(top: 4),
               decoration: BoxDecoration(
-                color: latest ? event.status.color : Colors.transparent,
-                border: Border.all(color: event.status.color, width: 1.4),
+                color: latest ? event.status.color : KC.surface,
+                border: Border.all(color: event.status.color, width: 2),
                 shape: BoxShape.circle,
               ),
             ),
-          ),
-          const SizedBox(width: KSpace.sm),
-          Expanded(
+            if (!last)
+              Container(
+                width: 2,
+                height: 34,
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                color: KC.border,
+              ),
+          ],
+        ),
+        const SizedBox(width: KSpace.md),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: last ? 0 : KSpace.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -295,18 +298,17 @@ class _HistoryRow extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        event.status.label.toUpperCase(),
-                        style: KType.mono(
-                          size: 10.5,
-                          weight: FontWeight.w700,
+                        event.status.label,
+                        style: KType.sans(
+                          size: 13.5,
+                          weight: FontWeight.w600,
                           color: event.status.color,
-                          tracking: 0.8,
                         ),
                       ),
                     ),
                     Text(
                       TimeFormat.stamp(event.at),
-                      style: KType.mono(size: 9, color: KC.faint),
+                      style: KType.sans(size: 11.5, color: KC.faint),
                     ),
                   ],
                 ),
@@ -314,16 +316,14 @@ class _HistoryRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     event.note!,
-                    style: KType.sans(size: 11.5, color: KC.muted, height: 1.4),
+                    style: KType.sans(size: 13, color: KC.muted, height: 1.45),
                   ),
                 ],
-                const SizedBox(height: 3),
-                Text('ACTOR ${event.actor}', style: KType.mono(size: 8.5, color: KC.faint)),
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -333,35 +333,13 @@ class _NotFoundCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(KSpace.md),
-      decoration: BoxDecoration(
-        color: KC.danger.withValues(alpha: 0.06),
-        border: Border.all(color: KC.danger.withValues(alpha: 0.35)),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.error_outline_rounded, size: 15, color: KC.danger),
-          const SizedBox(width: KSpace.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('NO CASE RESOLVED', style: KType.label(color: KC.danger)),
-                const SizedBox(height: 4),
-                Text(
-                  'That code does not match a filed report. Codes are five '
-                  'characters after the KST prefix and never contain 0, O, 1, '
-                  'I, L or U.',
-                  style: KType.sans(size: 11.5, color: KC.muted, height: 1.4),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return const KNote(
+      title: 'No case with that code',
+      icon: Icons.help_outline_rounded,
+      color: KC.secondary,
+      body: 'Codes are five characters after KST, and they never contain the '
+          'letters O, I, L or U, or the digits 0 and 1 — those are too easy to '
+          'mistake for each other. Check the code and try again.',
     );
   }
 }
@@ -372,24 +350,13 @@ class _DemoHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return KPanel(
-      title: 'Reference cases',
-      trailing: const MonoBadge('SEED DATA', size: 9, dense: true, color: KC.faint),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      title: 'Example cases',
+      subtitle: 'Included with this build so you can see how tracking looks.',
+      child: const Row(
         children: [
-          Text(
-            'Two cases ship with the build so the lookup flow can be exercised '
-            'before the dashboard is connected.',
-            style: KType.sans(size: 11.5, color: KC.muted, height: 1.4),
-          ),
-          const SizedBox(height: KSpace.sm),
-          const Row(
-            children: [
-              MonoBadge('KST-4RT7Q', color: KC.warn, filled: true, size: 10),
-              SizedBox(width: 6),
-              MonoBadge('KST-9WM2K', color: KC.accent, filled: true, size: 10),
-            ],
-          ),
+          CodeChip('KST-4RT7Q'),
+          SizedBox(width: KSpace.sm),
+          CodeChip('KST-9WM2K'),
         ],
       ),
     );
