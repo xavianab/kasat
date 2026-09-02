@@ -71,6 +71,40 @@ export const emergencyContactsByCountry: Record<string, EmergencyContact[]> = {
       verified: false,
     },
   ],
+  US: [
+    {
+      name: "Federal law enforcement line",
+      number: "+1-000-000-001",
+      kind: "federalPolice",
+      hours: "Placeholder",
+      blurb: "National reporting line. Number not confirmed.",
+      verified: false,
+    },
+    {
+      name: "National domestic violence hotline",
+      number: "+1-000-000-002",
+      kind: "womensAffairs",
+      hours: "Placeholder",
+      blurb: "Confidential support for gender-based violence.",
+      verified: false,
+    },
+    {
+      name: "Survivor support organisation",
+      number: "+1-000-000-003",
+      kind: "ngo",
+      hours: "Placeholder",
+      blurb: "Counselling and safety planning.",
+      verified: false,
+    },
+    {
+      name: "Legal aid referral",
+      number: "+1-000-000-004",
+      kind: "legalAid",
+      hours: "Placeholder",
+      blurb: "Help finding free or low-cost representation.",
+      verified: false,
+    },
+  ],
 };
 
 export function contactsForCountry(countryCode: string | null | undefined): EmergencyContact[] {

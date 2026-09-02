@@ -116,6 +116,36 @@ const emergencyContactsByCountry = <String, List<EmergencyContact>>{
       blurb: 'Free representation and help filing a formal complaint.',
     ),
   ],
+  'US': [
+    EmergencyContact(
+      name: 'Federal law enforcement line',
+      number: '+1-000-000-001',
+      kind: ContactKind.federalPolice,
+      hours: 'Placeholder',
+      blurb: 'National reporting line. Number not confirmed.',
+    ),
+    EmergencyContact(
+      name: 'National domestic violence hotline',
+      number: '+1-000-000-002',
+      kind: ContactKind.womensAffairs,
+      hours: 'Placeholder',
+      blurb: 'Confidential support for gender-based violence.',
+    ),
+    EmergencyContact(
+      name: 'Survivor support organisation',
+      number: '+1-000-000-003',
+      kind: ContactKind.ngo,
+      hours: 'Placeholder',
+      blurb: 'Counselling and safety planning.',
+    ),
+    EmergencyContact(
+      name: 'Legal aid referral',
+      number: '+1-000-000-004',
+      kind: ContactKind.legalAid,
+      hours: 'Placeholder',
+      blurb: 'Help finding free or low-cost representation.',
+    ),
+  ],
 };
 
 /// Contacts for [countryCode], grouped by kind and ordered by urgency.

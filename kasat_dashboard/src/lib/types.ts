@@ -62,15 +62,12 @@ export interface StatusEvent {
   note: string | null;
 }
 
-export const COUNTRIES = ["ET", "KE", "SO", "DJ", "SS"] as const;
-export type CountryCode = (typeof COUNTRIES)[number];
+export const COUNTRIES = ["ET", "US"] as const;
+export type CountryCode = string;
 
-export const COUNTRY_LABELS: Record<CountryCode, string> = {
+export const COUNTRY_LABELS: Record<string, string> = {
   ET: "Ethiopia",
-  KE: "Kenya",
-  SO: "Somalia",
-  DJ: "Djibouti",
-  SS: "South Sudan",
+  US: "United States",
 };
 
 export interface Incident {

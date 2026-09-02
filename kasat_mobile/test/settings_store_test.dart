@@ -68,6 +68,15 @@ void main() {
 
       await store.setCountryCode('ET');
       expect(store.countryCode, 'ET');
+
+      await store.setCountryCode('US');
+      expect(store.countryCode, 'US');
+    });
+
+    test('refuses to store an unlaunched country', () async {
+      await store.setCountryCode('ET');
+      await store.setCountryCode('KE');
+      expect(store.countryCode, 'ET');
     });
   });
 

@@ -4,8 +4,17 @@ import 'package:kasat_mobile/models/country.dart';
 
 void main() {
   group('country table', () {
-    test('Ethiopia is the only launched country', () {
-      expect(activeCountries.map((c) => c.code), ['ET']);
+    test('Ethiopia and the United States are the launched countries', () {
+      expect(activeCountries.map((c) => c.code).toSet(), {'ET', 'US'});
+    });
+
+    test('the picker lists every country and can be searched', () {
+      expect(kCountries.length, greaterThan(180));
+      expect(countryByCode('US')?.name, 'United States');
+      expect(countryByCode('US')?.flag, isNotEmpty);
+      expect(countriesMatching('ethi').map((c) => c.code), contains('ET'));
+      expect(countriesMatching('united states').map((c) => c.code), contains('US'));
+      expect(countriesMatching('zzzzz'), isEmpty);
     });
 
     test('every launched country has contacts', () {

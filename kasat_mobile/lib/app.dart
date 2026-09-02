@@ -1,33 +1,48 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import 'core/quick_exit.dart';
+import 'core/network_status.dart';
+import 'data/alert_repository.dart';
 import 'data/attachment_store.dart';
 import 'data/incident_repository.dart';
 import 'data/settings_store.dart';
-import 'features/decoy/notes_decoy_view.dart';
+import 'features/accounts/identity_store.dart';
+import 'features/connectivity/background_reminder.dart';
+import 'features/duress/duress_confirm_sheet.dart';
+import 'features/duress/duress_store.dart';
+import 'features/duress/shake_listener.dart';
 import 'features/lock/lock_screen.dart';
 import 'features/onboarding/onboarding_flow.dart';
+import 'features/vent/vent_repository.dart';
 import 'features/welcome/welcome_view.dart';
+import 'i18n/i18n.dart';
 import 'theme/kasat_theme.dart';
-import 'widgets/quick_exit_button.dart';
 
-/// Dependency handoff. Deliberately a plain InheritedWidget — there are four
-/// dependencies and a DI container would be more moving parts than the app has
-/// state.
 class KasatScope extends InheritedWidget {
   const KasatScope({
     super.key,
     required this.repository,
     required this.attachments,
     required this.settings,
-    required this.quickExit,
+    required this.alerts,
+    required this.vents,
+    required this.identity,
+    required this.duress,
+    required this.i18n,
+    required this.network,
     required super.child,
   });
 
   final IncidentRepository repository;
   final AttachmentStore attachments;
   final SettingsStore settings;
-  final QuickExitController quickExit;
+  final AlertRepository alerts;
+  final VentRepository vents;
+  final IdentityStore identity;
+  final DuressStore duress;
+  final I18n i18n;
+  final NetworkStatus network;
 
   static KasatScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<KasatScope>();
@@ -39,7 +54,12 @@ class KasatScope extends InheritedWidget {
   bool updateShouldNotify(KasatScope oldWidget) =>
       repository != oldWidget.repository ||
       attachments != oldWidget.attachments ||
-      settings != oldWidget.settings;
+      settings != oldWidget.settings ||
+      alerts != oldWidget.alerts ||
+      vents != oldWidget.vents ||
+      identity != oldWidget.identity ||
+      duress != oldWidget.duress ||
+      i18n != oldWidget.i18n;
 }
 
 class KasatApp extends StatefulWidget {
@@ -48,25 +68,30 @@ class KasatApp extends StatefulWidget {
     required this.repository,
     required this.attachments,
     required this.settings,
+    required this.alerts,
+    required this.vents,
+    required this.identity,
+    required this.duress,
+    required this.i18n,
+    required this.network,
   });
 
   final IncidentRepository repository;
   final AttachmentStore attachments;
   final SettingsStore settings;
+  final AlertRepository alerts;
+  final VentRepository vents;
+  final IdentityStore identity;
+  final DuressStore duress;
+  final I18n i18n;
+  final NetworkStatus network;
 
   @override
   State<KasatApp> createState() => _KasatAppState();
 }
 
 class _KasatAppState extends State<KasatApp> {
-  final _navigatorKey = GlobalKey<NavigatorState>();
-  late final QuickExitController _quickExit = QuickExitController(_navigatorKey);
-
-  @override
-  void dispose() {
-    _quickExit.dispose();
-    super.dispose();
-  }
+  final _navKey = GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
@@ -74,46 +99,50 @@ class _KasatAppState extends State<KasatApp> {
       repository: widget.repository,
       attachments: widget.attachments,
       settings: widget.settings,
-      quickExit: _quickExit,
-      child: MaterialApp(
-        // Shown in the iOS app switcher, so it must not name the app.
-        title: 'Notes',
-        navigatorKey: _navigatorKey,
-        debugShowCheckedModeBanner: false,
-        theme: KasatTheme.build(),
-        home: RootGate(settings: widget.settings, quickExit: _quickExit),
-        builder: (context, child) {
-          final media = MediaQuery.of(context);
-          return MediaQuery(
-            // Clamp text scaling: the layouts stay readable across this range,
-            // and a 2x system scale would push the quick-exit button off-screen.
-            data: media.copyWith(
-              textScaler: TextScaler.linear(
-                media.textScaler.scale(1).clamp(0.9, 1.3),
+      alerts: widget.alerts,
+      vents: widget.vents,
+      identity: widget.identity,
+      duress: widget.duress,
+      i18n: widget.i18n,
+      network: widget.network,
+      child: ListenableBuilder(
+        listenable: widget.i18n,
+        builder: (context, _) => MaterialApp(
+          title: 'Kasat',
+          navigatorKey: _navKey,
+          debugShowCheckedModeBanner: false,
+          theme: KasatTheme.build(),
+          home: RootGate(settings: widget.settings),
+          builder: (context, child) {
+            final media = MediaQuery.of(context);
+            return ShakeListener(
+              enabled: widget.duress.hasContact,
+              onShake: () {
+                final contact = widget.duress.read();
+                final navContext = _navKey.currentContext;
+                if (contact == null || navContext == null) return;
+                DuressConfirmSheet.show(navContext, contact);
+              },
+              child: MediaQuery(
+                data: media.copyWith(
+                  textScaler: TextScaler.linear(
+                    media.textScaler.scale(1).clamp(0.9, 1.3),
+                  ),
+                ),
+                child: child!,
               ),
-            ),
-            child: Stack(
-              children: [
-                child!,
-                // Lives above the Navigator so it survives navigation and sits
-                // on top of sheets and dialogs.
-                QuickExitButton(controller: _quickExit),
-              ],
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 }
 
-/// Decides what the app shows before anything else runs: setup, the lock
-/// screen, the decoy, or Kasat itself.
 class RootGate extends StatefulWidget {
-  const RootGate({super.key, required this.settings, required this.quickExit});
+  const RootGate({super.key, required this.settings});
 
   final SettingsStore settings;
-  final QuickExitController quickExit;
 
   @override
   State<RootGate> createState() => _RootGateState();
@@ -122,36 +151,33 @@ class RootGate extends StatefulWidget {
 class _RootGateState extends State<RootGate> with WidgetsBindingObserver {
   bool _onboarded = false;
   bool _locked = true;
-
-  /// True while the app is leaving the foreground. iOS snapshots the window for
-  /// the app switcher at that moment, so the real screen has to be covered
-  /// before it happens — not after `resumed`, which is too late.
   bool _obscured = false;
+  bool _online = true;
+  StreamSubscription<bool>? _netSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _onboarded = widget.settings.onboardingComplete;
-    widget.quickExit.decoyActive.addListener(_onDecoyChanged);
-    _syncQuickExitVisibility();
+    const BackgroundConnectivityReminder().register();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _netSub ??= KasatScope.of(context).network.changes.listen((online) {
+      if (!mounted) return;
+      setState(() => _online = online);
+      if (online) KasatScope.of(context).repository.flushQueued();
+    });
   }
 
   @override
   void dispose() {
-    widget.quickExit.decoyActive.removeListener(_onDecoyChanged);
+    _netSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  void _onDecoyChanged() {
-    setState(_syncQuickExitVisibility);
-  }
-
-  void _syncQuickExitVisibility() {
-    // No exit button during setup, on the lock screen, or on the decoy.
-    widget.quickExit.visible.value =
-        _onboarded && !_locked && !widget.quickExit.decoyActive.value;
   }
 
   @override
@@ -165,10 +191,16 @@ class _RootGateState extends State<RootGate> with WidgetsBindingObserver {
         setState(() {
           _obscured = true;
           _locked = true;
-          _syncQuickExitVisibility();
         });
       case AppLifecycleState.resumed:
         setState(() => _obscured = false);
+        final scope = KasatScope.of(context);
+        scope.network.isOnline().then((online) {
+          if (!mounted) return;
+          setState(() => _online = online);
+          if (online) scope.repository.flushQueued();
+        });
+        scope.vents.purgeExpired();
     }
   }
 
@@ -180,20 +212,6 @@ class _RootGateState extends State<RootGate> with WidgetsBindingObserver {
         onComplete: () => setState(() {
           _onboarded = true;
           _locked = false;
-          _syncQuickExitVisibility();
-        }),
-      );
-    }
-
-    if (widget.quickExit.decoyActive.value) {
-      return NotesDecoyView(
-        onSecretUnlock: () => setState(() {
-          // Returning from the decoy always costs a PIN. Anything less and the
-          // exit button would be a one-way door that anyone can walk back
-          // through.
-          _locked = true;
-          widget.quickExit.leaveDecoy();
-          _syncQuickExitVisibility();
         }),
       );
     }
@@ -204,18 +222,16 @@ class _RootGateState extends State<RootGate> with WidgetsBindingObserver {
         onUnlocked: () => setState(() {
           _locked = false;
           _obscured = false;
-          _syncQuickExitVisibility();
         }),
       );
     }
 
     if (_obscured) return const _PrivacyCover();
 
-    return const WelcomeView();
+    return WelcomeView(offline: !_online);
   }
 }
 
-/// Plain warm panel shown over the app as it leaves the foreground.
 class _PrivacyCover extends StatelessWidget {
   const _PrivacyCover();
 

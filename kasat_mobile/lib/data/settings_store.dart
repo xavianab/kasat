@@ -4,6 +4,8 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/country.dart';
+
 /// Which home screen identity the app presents itself under.
 enum AppDisguise {
   none(id: 'NONE', label: 'Kasat', blurb: 'The real name and icon.'),
@@ -47,6 +49,7 @@ class SettingsStore {
   static const _biometricKey = 'kasat.biometric.v1';
   static const _disguiseKey = 'kasat.disguise.v1';
   static const _onboardedKey = 'kasat.onboarded.v1';
+  static const _posterTokenKey = 'kasat.alert_poster.v1';
 
   static const pinLength = 6;
   static const _hashRounds = 20000;
@@ -63,7 +66,12 @@ class SettingsStore {
 
   String? get countryCode => _prefs.getString(_countryKey);
 
-  Future<void> setCountryCode(String code) => _prefs.setString(_countryKey, code);
+  /// Only an active country is stored. An unlaunched tap never writes.
+  Future<void> setCountryCode(String code) async {
+    final country = countryByCode(code);
+    if (country == null || !country.active) return;
+    await _prefs.setString(_countryKey, code);
+  }
 
   // ------------------------------------------------------------------- lock
 
@@ -97,6 +105,16 @@ class SettingsStore {
   // ------------------------------------------------------------- onboarding
 
   bool get onboardingComplete => (_prefs.getBool(_onboardedKey) ?? false) && countryCode != null;
+
+  /// Opaque handle used only by Community Alerts so a poster can close their
+  /// own post. Isolated from reports on purpose.
+  String posterToken() {
+    final existing = _prefs.getString(_posterTokenKey);
+    if (existing != null && existing.isNotEmpty) return existing;
+    final token = 'P-${base64Url.encode(List<int>.generate(12, (_) => _random.nextInt(256)))}';
+    _prefs.setString(_posterTokenKey, token);
+    return token;
+  }
 
   Future<void> completeOnboarding() => _prefs.setBool(_onboardedKey, true);
 

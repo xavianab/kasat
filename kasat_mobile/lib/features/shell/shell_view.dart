@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/kasat_theme.dart';
+import '../alerts/alerts_view.dart';
 import '../lookup/lookup_view.dart';
+import '../more/more_menu.dart';
 import '../report/report_form_view.dart';
 import '../resources/resources_view.dart';
 
 enum ShellTab {
   report(label: 'Report', icon: Icons.edit_outlined),
   track(label: 'My case', icon: Icons.schedule_outlined),
-  resources(label: 'Help', icon: Icons.favorite_outline_rounded);
+  resources(label: 'Help', icon: Icons.favorite_outline_rounded),
+  alerts(label: 'Notices', icon: Icons.campaign_outlined);
 
   const ShellTab({required this.label, required this.icon});
 
@@ -55,6 +58,7 @@ class _ShellViewState extends State<ShellView> {
                   ReportFormView(onTrackRequested: openTracking),
                   LookupView(key: _lookupKey),
                   const ResourcesView(),
+                  const AlertsView(),
                 ],
               ),
             ),
@@ -91,6 +95,14 @@ class _TopBar extends StatelessWidget {
           ),
           const SizedBox(width: KSpace.xs),
           Text(title, style: KType.serif(size: 19)),
+          const Spacer(),
+          IconButton(
+            key: MoreMenu.buttonKey,
+            onPressed: () => MoreMenu.open(context),
+            icon: const Icon(Icons.menu_rounded, size: 22),
+            color: KC.muted,
+            tooltip: 'More',
+          ),
         ],
       ),
     );

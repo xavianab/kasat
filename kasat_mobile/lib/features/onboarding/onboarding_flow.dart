@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/biometrics.dart';
 import '../../data/settings_store.dart';
-import '../../models/country.dart';
 import '../../platform/app_disguise_channel.dart';
 import '../../theme/kasat_theme.dart';
 import '../../widgets/kasat_button.dart';
 import '../../widgets/panel.dart';
 import '../../widgets/soft_backdrop.dart';
-import '../../widgets/soft_badge.dart';
 import '../lock/pin_pad.dart';
+import 'country_picker.dart';
 
 /// First-launch setup, in the order that matters: where she is, then how she
 /// gets back in, then how the app presents itself on her home screen.
@@ -257,78 +256,7 @@ class _CountryStep extends StatelessWidget {
       blurb: 'This decides which police, government and support lines you are '
           'shown, and which office your report reaches. It stays on this phone.',
       footer: KButton(label: 'Continue', onPressed: onContinue),
-      child: Column(
-        children: [
-          for (final country in kCountries)
-            _CountryTile(
-              country: country,
-              selected: country.code == selected,
-              onTap: country.active ? () => onSelect(country.code) : null,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CountryTile extends StatelessWidget {
-  const _CountryTile({required this.country, required this.selected, this.onTap});
-
-  final Country country;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: KSpace.sm),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.all(KSpace.lg),
-          decoration: BoxDecoration(
-            color: selected ? KC.primarySoft : KC.surface,
-            border: Border.all(
-              color: selected ? KC.primary : KC.border,
-              width: selected ? 1.8 : 1.4,
-            ),
-            borderRadius: KRadius.rMd,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      country.name,
-                      style: KType.sans(
-                        size: 16,
-                        weight: FontWeight.w600,
-                        color: enabled ? KC.text : KC.faint,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      country.dialPrefix,
-                      style: KType.sans(size: 13, color: KC.faint),
-                    ),
-                  ],
-                ),
-              ),
-              if (!enabled)
-                const SoftBadge('Coming soon', color: KC.faint, dense: true)
-              else if (selected)
-                const Icon(Icons.check_circle_rounded, color: KC.primary, size: 24)
-              else
-                const Icon(Icons.circle_outlined, color: KC.borderStrong, size: 24),
-            ],
-          ),
-        ),
-      ),
+      child: CountryPicker(selectedCode: selected, onSelect: onSelect),
     );
   }
 }

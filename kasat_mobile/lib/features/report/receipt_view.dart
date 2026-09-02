@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../core/time_format.dart';
 import '../../models/country.dart';
 import '../../models/incident.dart';
+import '../../models/incident_status.dart';
 import '../../theme/kasat_theme.dart';
 import '../../widgets/kasat_button.dart';
 import '../../widgets/panel.dart';
@@ -22,6 +23,8 @@ class ReceiptView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final country = countryByCode(incident.countryCode);
+
+    final queued = incident.status == IncidentStatus.queued;
 
     return Scaffold(
       backgroundColor: KC.canvas,
@@ -49,13 +52,18 @@ class ReceiptView extends StatelessWidget {
                         ),
                         const SizedBox(width: KSpace.md),
                         Expanded(
-                          child: Text('It has been sent', style: KType.serif(size: 24)),
+                          child: Text(
+                            queued ? 'Saved on this phone' : 'It has been sent',
+                            style: KType.serif(size: 24),
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: KSpace.md),
                     Text(
-                      'Thank you. Nothing about who you are went with it.',
+                      queued
+                          ? 'There was no connection, so nothing left yet. It will send on its own when this phone is back online.'
+                          : 'Thank you. Nothing about who you are went with it.',
                       style: KType.sans(size: 14.5, color: KC.muted, height: 1.55),
                     ),
                     const SizedBox(height: KSpace.xl),

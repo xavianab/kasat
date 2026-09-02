@@ -1,4 +1,5 @@
 import '../models/incident_category.dart';
+import 'crisis_keywords.dart';
 
 class CrisisSignal {
   const CrisisSignal({required this.triggered, this.reason});
@@ -12,39 +13,20 @@ class CrisisSignal {
   final String? reason;
 }
 
-/// Decides when to surface immediate help alongside the form.
+/// Decides when to surface immediate help alongside a form or a Vent post.
 ///
 /// This runs entirely on the handset against text that has not been sent
 /// anywhere, and it is deliberately crude: it can only ever *add* an offer of
 /// help, never block a submission, change a priority, or leave the device. A
 /// false positive costs a banner; a false negative costs nothing that the
 /// resources tab does not already cover.
+///
+/// Nothing about a match is logged or transmitted.
 abstract final class CrisisDetection {
-  /// Phrases that suggest danger is present rather than past. Kept short and
-  /// unambiguous — broad words like "hurt" or "scared" match almost every
-  /// report and would make the banner meaningless.
-  static const dangerPhrases = <String>[
-    'right now',
-    'still here',
-    'still outside',
-    'about to',
-    'going to kill',
-    'threatening to kill',
-    'has a gun',
-    'has a knife',
-    'with a weapon',
-    'bleeding',
-    'cannot breathe',
-    "can't breathe",
-    'locked in',
-    'trapped',
-    'following me',
-    'outside my door',
-    'kill myself',
-  ];
+  static const dangerPhrases = crisisKeywords;
 
   static CrisisSignal evaluate({
-    required IncidentCategory? category,
+    IncidentCategory? category,
     required String description,
   }) {
     if (category == IncidentCategory.criticalEmergency) {
@@ -53,9 +35,13 @@ abstract final class CrisisDetection {
         reason: 'You marked this as an emergency.',
       );
     }
+    return evaluateText(description);
+  }
 
+  /// Keyword-only check used by Vent Here (no category).
+  static CrisisSignal evaluateText(String description) {
     final text = description.toLowerCase();
-    for (final phrase in dangerPhrases) {
+    for (final phrase in crisisKeywords) {
       if (text.contains(phrase)) {
         return const CrisisSignal(
           triggered: true,
@@ -63,7 +49,6 @@ abstract final class CrisisDetection {
         );
       }
     }
-
     return const CrisisSignal.none();
   }
 }

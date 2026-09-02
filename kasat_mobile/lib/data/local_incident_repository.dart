@@ -43,14 +43,19 @@ class LocalIncidentRepository implements IncidentRepository {
   }
 
   @override
-  Future<Incident> submit(IncidentDraft draft, {required String trackingId}) async {
+  Future<Incident> submit(
+    IncidentDraft draft, {
+    required String trackingId,
+    bool offline = false,
+  }) async {
     final now = DateTime.now();
+    final initial = offline ? IncidentStatus.queued : IncidentStatus.received;
     final incident = Incident(
       trackingId: trackingId,
       category: draft.category,
       description: draft.description.trim(),
       priority: draft.priority,
-      status: IncidentStatus.received,
+      status: initial,
       countryCode: draft.countryCode,
       submittedAt: now,
       updatedAt: now,
@@ -58,10 +63,12 @@ class LocalIncidentRepository implements IncidentRepository {
       attachments: draft.attachments,
       history: [
         StatusEvent(
-          status: IncidentStatus.received,
+          status: initial,
           at: now,
           actor: 'INTAKE',
-          note: 'Anonymous payload accepted. No originator metadata retained.',
+          note: offline
+              ? 'Held on this phone. Will send when a connection is available.'
+              : 'Anonymous payload accepted. No originator metadata retained.',
         ),
       ],
     );
@@ -71,7 +78,7 @@ class LocalIncidentRepository implements IncidentRepository {
     await _persist();
     _changes.add(trackingId);
 
-    if (KasatConfig.demoDispatch) {
+    if (!offline && KasatConfig.demoDispatch) {
       _scheduleDemoTriage(trackingId);
     }
     return incident;
@@ -95,6 +102,30 @@ class LocalIncidentRepository implements IncidentRepository {
 
   @override
   Future<List<String>> localTrackingIds() async => List.unmodifiable(_localIds);
+
+  @override
+  Future<int> queuedCount() async =>
+      _cache.values.where((i) => i.status == IncidentStatus.queued).length;
+
+  @override
+  Future<int> flushQueued() async {
+    final waiting = _cache.values
+        .where((i) => i.status == IncidentStatus.queued)
+        .map((i) => i.trackingId)
+        .toList();
+    for (final id in waiting) {
+      await advance(
+        id,
+        IncidentStatus.received,
+        actor: 'INTAKE',
+        note: 'Connection returned. Payload handed to the case queue.',
+      );
+      if (KasatConfig.demoDispatch) {
+        _scheduleDemoTriage(id);
+      }
+    }
+    return waiting.length;
+  }
 
   /// Appends a status change. In production this is the dashboard's write; it
   /// is exposed here so the demo dispatcher and widget tests share one path.

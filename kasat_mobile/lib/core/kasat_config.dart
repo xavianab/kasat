@@ -25,4 +25,23 @@ abstract final class KasatConfig {
   static const maxAttachments = 5;
   static const descriptionMaxLength = 2000;
   static const descriptionMinLength = 40;
+
+  /// First-pass review for community alerts. Empty means every new post sits
+  /// in the pending queue instead of publishing.
+  static const anthropicApiKey = String.fromEnvironment('ANTHROPIC_API_KEY');
+  static const anthropicModel = 'claude-sonnet-4-6';
+
+  /// PART 2: real source verification. True here so the compose path can be
+  /// exercised; it does not mean the poster has been identified.
+  static const placeholderVerifiedPoster = true;
+
+  static const alertTtl = Duration(days: 14);
+  static const alertTitleMax = 80;
+  static const alertBodyMax = 600;
+
+  static const ventBodyMax = 1000;
+  static const ventTtl = Duration(days: 7);
+  static const ventCompanionDelay = Duration(seconds: 4);
+
+  static const duressCountdown = Duration(seconds: 20);
 }

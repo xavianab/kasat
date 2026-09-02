@@ -7,10 +7,17 @@ import '../../widgets/kasat_button.dart';
 import '../../widgets/panel.dart';
 import '../../widgets/soft_backdrop.dart';
 import '../../widgets/soft_badge.dart';
+import '../accounts/account_setup_view.dart';
+import '../connectivity/offline_banner.dart';
+import '../more/more_menu.dart';
+import '../settings/settings_view.dart';
 import '../shell/shell_view.dart';
+import '../vent/vent_feed_view.dart';
 
 class WelcomeView extends StatelessWidget {
-  const WelcomeView({super.key});
+  const WelcomeView({super.key, this.offline = false});
+
+  final bool offline;
 
   static const _promises = <(IconData, String, String)>[
     (
@@ -43,7 +50,9 @@ class WelcomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final country = countryByCode(KasatScope.of(context).settings.countryCode);
+    final scope = KasatScope.of(context);
+    final country = countryByCode(scope.settings.countryCode);
+    final i18n = scope.i18n;
 
     return Scaffold(
       backgroundColor: KC.canvas,
@@ -70,29 +79,68 @@ class WelcomeView extends StatelessWidget {
                               size: 21, color: KC.primary),
                         ),
                         const Spacer(),
-                        if (country != null)
-                          SoftBadge(
-                            country.name,
-                            icon: Icons.place_outlined,
-                            color: KC.secondary,
+                        GestureDetector(
+                          key: MoreMenu.buttonKey,
+                          onTap: () => MoreMenu.open(context),
+                          child: SoftBadge(
+                            i18n.t('welcome.more'),
+                            icon: Icons.menu_rounded,
+                            color: KC.muted,
                             dense: true,
                           ),
+                        ),
+                        if (country != null) ...[
+                          const SizedBox(width: KSpace.sm),
+                          GestureDetector(
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const SettingsView(),
+                              ),
+                            ),
+                            child: SoftBadge(
+                              country.name,
+                              icon: Icons.place_outlined,
+                              color: KC.secondary,
+                              dense: true,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: KSpace.xxl),
+                    FutureBuilder<int>(
+                      future: scope.repository.queuedCount(),
+                      builder: (context, snap) => OfflineBanner(
+                        offline: offline,
+                        queued: snap.data ?? 0,
+                      ),
+                    ),
                     Text(
-                      'Speak\nwithout fear.',
+                      i18n.t('welcome.title'),
                       style: KType.serif(size: 40, height: 1.15, weight: FontWeight.w600),
                     ),
                     const SizedBox(height: KSpace.lg),
                     Text(
-                      'A quiet way to tell someone what happened — and to follow '
-                      'what happens next, without ever giving your name.',
+                      i18n.t('welcome.blurb'),
                       style: KType.sans(size: 15.5, color: KC.muted, height: 1.6),
                     ),
+                    if (!scope.identity.hasIdentity) ...[
+                      const SizedBox(height: KSpace.lg),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AccountSetupView(),
+                          ),
+                        ),
+                        child: Text(
+                          i18n.t('account.title'),
+                          style: KType.sans(size: 13.5, color: KC.primary, weight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: KSpace.xl),
                     KPanel(
-                      title: 'What we promise',
+                      title: i18n.t('welcome.promises'),
                       padding: const EdgeInsets.symmetric(
                           horizontal: KSpace.lg, vertical: KSpace.sm),
                       child: Column(
@@ -111,7 +159,7 @@ class WelcomeView extends StatelessWidget {
                 child: Column(
                   children: [
                     KButton(
-                      label: 'Tell us what happened',
+                      label: i18n.t('welcome.report'),
                       icon: Icons.edit_outlined,
                       onPressed: () => _open(context, ShellTab.report),
                     ),
@@ -120,7 +168,7 @@ class WelcomeView extends StatelessWidget {
                       children: [
                         Expanded(
                           child: KButton(
-                            label: 'Check my case',
+                            label: i18n.t('welcome.track'),
                             kind: KButtonKind.soft,
                             icon: Icons.search_rounded,
                             compact: true,
@@ -130,7 +178,7 @@ class WelcomeView extends StatelessWidget {
                         const SizedBox(width: KSpace.sm),
                         Expanded(
                           child: KButton(
-                            label: 'Get help now',
+                            label: i18n.t('welcome.help'),
                             kind: KButtonKind.secondary,
                             icon: Icons.favorite_outline_rounded,
                             compact: true,
@@ -138,6 +186,24 @@ class WelcomeView extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: KSpace.sm),
+                    KButton(
+                      label: i18n.t('welcome.notices'),
+                      kind: KButtonKind.soft,
+                      icon: Icons.campaign_outlined,
+                      compact: true,
+                      onPressed: () => _open(context, ShellTab.alerts),
+                    ),
+                    const SizedBox(height: KSpace.sm),
+                    KButton(
+                      label: i18n.t('welcome.vent'),
+                      kind: KButtonKind.ghost,
+                      icon: Icons.chat_bubble_outline_rounded,
+                      compact: true,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const VentFeedView()),
+                      ),
                     ),
                   ],
                 ),

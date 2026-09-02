@@ -29,7 +29,10 @@
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>tel</string>
+		<string>sms</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Used only if you send a trusted alert, to include a maps link. Nothing is stored with a report.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Unlock without typing your code.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

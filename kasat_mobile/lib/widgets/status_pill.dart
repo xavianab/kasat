@@ -48,7 +48,7 @@ class StatusTrack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final steps = IncidentStatus.values;
+    final steps = IncidentStatus.values.where((s) => s.step >= 0).toList();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

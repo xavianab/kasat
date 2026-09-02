@@ -14,6 +14,7 @@ import '../../widgets/k_field.dart';
 import '../../widgets/kasat_button.dart';
 import '../../widgets/panel.dart';
 import '../../widgets/soft_badge.dart';
+import '../crisis/quiet_support_banner.dart';
 import 'receipt_view.dart';
 import 'widgets/category_sheet.dart';
 import 'widgets/crisis_banner.dart';
@@ -137,6 +138,8 @@ class _ReportFormViewState extends State<ReportFormView> {
     // Minted here, on the handset. The backend receives a code it had no part
     // in choosing and cannot map back to a person.
     final trackingId = TrackingId.generate();
+    final offline = !await scope.network.isOnline();
+    if (!mounted) return;
 
     final draft = IncidentDraft(
       category: category,
@@ -149,7 +152,7 @@ class _ReportFormViewState extends State<ReportFormView> {
 
     final incident = await runTransmit(
       context,
-      scope.repository.submit(draft, trackingId: trackingId),
+      scope.repository.submit(draft, trackingId: trackingId, offline: offline),
     );
 
     if (!mounted) return;
@@ -284,6 +287,7 @@ class _ReportFormViewState extends State<ReportFormView> {
               ),
               if (_crisis.triggered) ...[
                 const SizedBox(height: KSpace.md),
+                QuietSupportBanner(visible: true),
                 CrisisBanner(signal: _crisis, countryCode: countryCode),
               ],
               const SizedBox(height: KSpace.md),

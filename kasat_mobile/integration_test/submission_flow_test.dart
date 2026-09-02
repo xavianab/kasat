@@ -5,13 +5,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kasat_mobile/app.dart';
 import 'package:kasat_mobile/core/tracking_id.dart';
+import 'package:kasat_mobile/core/network_status.dart';
 import 'package:kasat_mobile/data/attachment_store.dart';
+import 'package:kasat_mobile/data/local_alert_repository.dart';
 import 'package:kasat_mobile/data/local_incident_repository.dart';
 import 'package:kasat_mobile/data/settings_store.dart';
+import 'package:kasat_mobile/features/accounts/identity_store.dart';
+import 'package:kasat_mobile/features/duress/duress_store.dart';
+import 'package:kasat_mobile/features/vent/local_vent_repository.dart';
+import 'package:kasat_mobile/i18n/i18n.dart';
 
 /// Walks the survivor path on a real simulator: first-launch setup (country,
 /// PIN, disguise) → welcome → describe → locate → send → receipt → live
-/// tracking → country help lines → quick exit and back in.
+/// tracking → country help lines.
 ///
 /// Screenshots are captured at each step and land in `screenshots/`.
 void main() {
@@ -71,7 +77,7 @@ void main() {
 
   const pin = '482913';
 
-  testWidgets('setup, anonymous report, live tracking, and quick exit',
+  testWidgets('setup, anonymous report, live tracking, and help lines',
       (tester) async {
     // A previous run leaves onboarding marked complete, which would skip the
     // setup flow this test is asserting on.
@@ -82,11 +88,28 @@ void main() {
     final settings = SettingsStore();
     await settings.init();
 
+    final alerts = LocalAlertRepository();
+    await alerts.init();
+    final vents = LocalVentRepository();
+    await vents.init();
+    final identity = IdentityStore();
+    await identity.init();
+    final duress = DuressStore();
+    await duress.init();
+    final i18n = I18n();
+    await i18n.init();
+
     await tester.pumpWidget(
       KasatApp(
         repository: repository,
         attachments: AttachmentStore(),
         settings: settings,
+        alerts: alerts,
+        vents: vents,
+        identity: identity,
+        duress: duress,
+        i18n: i18n,
+        network: NetworkStatus(),
       ),
     );
     await advance(tester);
@@ -95,9 +118,9 @@ void main() {
 
     expect(find.text('Where are you?'), findsOneWidget);
     expect(
-      find.text('Coming soon'),
+      find.text('Soon'),
       findsWidgets,
-      reason: 'picker should show unlaunched countries as inactive',
+      reason: 'picker should mark unlaunched countries without blocking the list',
     );
     await shoot(tester, '01-country');
 
@@ -235,32 +258,5 @@ void main() {
       reason: 'placeholder numbers must be labelled as unverified',
     );
     await shoot(tester, '12-help');
-
-    // ------------------------------------------------------------ quick exit
-
-    await tapText(tester, 'Leave');
-    expect(
-      find.text('Groceries'),
-      findsOneWidget,
-      reason: 'quick exit should land on the decoy notes screen',
-    );
-    expect(
-      find.text('Leave'),
-      findsNothing,
-      reason: 'the exit button must not be visible on the decoy',
-    );
-    await shoot(tester, '13-decoy');
-
-    await tester.longPress(find.text('Notes'));
-    await advance(tester);
-    expect(
-      find.text('Enter your code'),
-      findsOneWidget,
-      reason: 'returning from the decoy must cost a PIN',
-    );
-    await shoot(tester, '14-relock');
-
-    await enterPin(tester, pin);
-    expect(find.text('Speak\nwithout fear.'), findsOneWidget);
   });
 }

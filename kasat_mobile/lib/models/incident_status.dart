@@ -3,6 +3,13 @@ import 'package:flutter/material.dart';
 import '../theme/kasat_theme.dart';
 
 enum IncidentStatus {
+  queued(
+    code: 'QUEUED',
+    label: 'Waiting to send',
+    blurb: 'Saved on this phone. It will send when there is a connection.',
+    color: KC.muted,
+    step: -1,
+  ),
   received(
     code: 'RECEIVED',
     label: 'Received',
