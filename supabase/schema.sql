@@ -191,3 +191,8 @@ create policy "operators read evidence"
 
 alter publication supabase_realtime add table incidents;
 alter publication supabase_realtime add table status_events;
+
+-- Officer portal (Station → Team → Officer, tiered visibility, claim lock).
+-- Additive, does not change anonymous insert or tracking-code lookup:
+--   supabase/portal_extension.sql
+-- Canonical copy also lives in the kasat-police-portal repo.
