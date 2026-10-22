@@ -3,17 +3,16 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 /// Best-effort reachability. [connectivity_plus] reports interface state, not
 /// whether packets actually land — that is the honest limit of this check.
 class NetworkStatus {
-  NetworkStatus({Connectivity? connectivity, bool? fakeOnline})
-      : _connectivity = connectivity,
-        _fakeOnline = fakeOnline;
+  NetworkStatus({this.connectivity, this.fakeOnline});
 
-  final Connectivity? _connectivity;
-  final bool? _fakeOnline;
+  final Connectivity? connectivity;
+  final bool? fakeOnline;
 
   Future<bool> isOnline() async {
-    if (_fakeOnline != null) return _fakeOnline!;
+    final fake = fakeOnline;
+    if (fake != null) return fake;
     try {
-      final results = await (_connectivity ?? Connectivity()).checkConnectivity();
+      final results = await (connectivity ?? Connectivity()).checkConnectivity();
       return results.any((r) => r != ConnectivityResult.none);
     } catch (_) {
       return true;
@@ -21,13 +20,14 @@ class NetworkStatus {
   }
 
   Stream<bool> get changes async* {
-    if (_fakeOnline != null) {
-      yield _fakeOnline!;
+    final fake = fakeOnline;
+    if (fake != null) {
+      yield fake;
       return;
     }
     try {
       yield await isOnline();
-      yield* (_connectivity ?? Connectivity()).onConnectivityChanged.map(
+      yield* (connectivity ?? Connectivity()).onConnectivityChanged.map(
             (results) => results.any((r) => r != ConnectivityResult.none),
           );
     } catch (_) {

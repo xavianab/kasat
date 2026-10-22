@@ -7,12 +7,14 @@ import '../lookup/lookup_view.dart';
 import '../more/more_menu.dart';
 import '../report/report_form_view.dart';
 import '../resources/resources_view.dart';
+import '../vent/vent_feed_view.dart';
 
 enum ShellTab {
   report(label: 'Report', icon: Icons.edit_outlined),
   track(label: 'My case', icon: Icons.schedule_outlined),
-  resources(label: 'Help', icon: Icons.favorite_outline_rounded),
-  alerts(label: 'Notices', icon: Icons.campaign_outlined);
+  resources(label: 'Hotlines & support', icon: Icons.favorite_outline_rounded),
+  alerts(label: 'Notices', icon: Icons.campaign_outlined),
+  vent(label: 'Vent', icon: Icons.chat_bubble_outline_rounded);
 
   const ShellTab({required this.label, required this.icon});
 
@@ -59,6 +61,7 @@ class _ShellViewState extends State<ShellView> {
                   LookupView(key: _lookupKey),
                   const ResourcesView(),
                   const AlertsView(),
+                  const VentFeedView(embedded: true),
                 ],
               ),
             ),
@@ -145,7 +148,11 @@ class _TabBar extends StatelessWidget {
 }
 
 class _TabButton extends StatelessWidget {
-  const _TabButton({required this.tab, required this.selected, required this.onTap});
+  const _TabButton({
+    required this.tab,
+    required this.selected,
+    required this.onTap,
+  });
 
   final ShellTab tab;
   final bool selected;
@@ -154,6 +161,7 @@ class _TabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = selected ? KC.primary : KC.faint;
+    final shortLabel = tab == ShellTab.resources ? 'Hotlines' : tab.label;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -162,7 +170,8 @@ class _TabButton extends StatelessWidget {
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 160),
-            padding: const EdgeInsets.symmetric(horizontal: KSpace.lg, vertical: 5),
+            padding:
+                const EdgeInsets.symmetric(horizontal: KSpace.md, vertical: 5),
             decoration: BoxDecoration(
               color: selected ? KC.primarySoft : Colors.transparent,
               borderRadius: KRadius.rPill,
@@ -171,9 +180,11 @@ class _TabButton extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            tab.label,
+            shortLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: KType.sans(
-              size: 11.5,
+              size: 11,
               weight: selected ? FontWeight.w600 : FontWeight.w500,
               color: color,
             ),

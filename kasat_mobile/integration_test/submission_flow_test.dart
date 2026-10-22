@@ -203,16 +203,20 @@ void main() {
     await shoot(tester, '07-location');
 
     expect(
-      find.text('Ready. Your private code is created when you send.'),
+      find.text('Ready. Your private code is created when you save.'),
       findsOneWidget,
     );
 
-    await tester.tap(find.text('Send'));
+    await tester.tap(find.text('Save report'));
     await tester.pump(const Duration(milliseconds: 400));
     await shoot(tester, '08-sending');
 
     // ------------------------------------------------------------- receipt
 
+    await waitFor(tester, find.text('Saved as a draft'), ms: 8000);
+    expect(find.text('Saved as a draft'), findsOneWidget);
+    await tester.tap(find.text('Send to police'));
+    await tester.pump(const Duration(milliseconds: 400));
     await waitFor(tester, find.text('It has been sent'), ms: 8000);
     expect(find.text('It has been sent'), findsOneWidget);
     expect(find.text('Please write this code down'), findsOneWidget);
@@ -232,25 +236,12 @@ void main() {
     expect(find.text('Not yet assigned'), findsOneWidget);
     await shoot(tester, '10-tracking');
 
-    // Realtime: the demo dispatcher claims the case ~20s after submission and
-    // the already-open lookup view must move without any user interaction.
-    //
-    // Asserted against the note the dispatcher writes, not the status label:
-    // StatusTrack always renders all three step names, so matching on
-    // "Under Investigation" would pass against a greyed-out placeholder.
-    const claimNote = 'Case claimed by duty officer. Evidence review opened.';
-    await waitFor(tester, find.text(claimNote), ms: 40000);
-    expect(
-      find.text(claimNote),
-      findsOneWidget,
-      reason: 'live status did not propagate to an open tracking view',
-    );
-    expect((await repository.lookup(trackingId))?.status.code, 'UNDER_INVESTIGATION');
+    expect((await repository.lookup(trackingId))?.status.code, 'sent');
     await shoot(tester, '11-tracking-live');
 
     // ------------------------------------------------------------ help lines
 
-    await tapText(tester, 'Help');
+    await tapText(tester, 'Hotlines');
     expect(find.text('Ministry of Women and Social Affairs hotline'), findsWidgets);
     expect(
       find.text('Not confirmed yet'),

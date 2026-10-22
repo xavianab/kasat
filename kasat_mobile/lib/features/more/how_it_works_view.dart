@@ -69,9 +69,9 @@ class HowItWorksView extends StatelessWidget {
               ? 'Choose a country in Settings if you have not already. Help '
                     'lines and the report queue both follow that choice.'
               : 'A report from here is meant for people who handle the '
-                    '${country.name} queue. Help lines on Get help now are for '
-                    'the same place. If you are in danger right now, use a '
-                    'number you already trust.',
+                    '${country.name} queue. Hotlines & support connects to '
+                    'EWLA 7711 and other support lines, not police. If you '
+                    'are in danger right now, use a number you already trust.',
         ),
       ],
     );

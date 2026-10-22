@@ -40,6 +40,7 @@ class AttachmentStore {
       strippedMetadata: scrubbed.strippedMetadata,
       width: scrubbed.width,
       height: scrubbed.height,
+      sha256: scrubbed.sha256,
     );
   }
 

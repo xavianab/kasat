@@ -27,6 +27,7 @@ class KButton extends StatelessWidget {
     this.busy = false,
     this.expand = true,
     this.compact = false,
+    this.maxLines = 1,
   });
 
   final String label;
@@ -36,6 +37,7 @@ class KButton extends StatelessWidget {
   final bool busy;
   final bool expand;
   final bool compact;
+  final int maxLines;
 
   bool get _enabled => onPressed != null && !busy;
 
@@ -67,7 +69,7 @@ class KButton extends StatelessWidget {
         child: Container(
           width: expand ? double.infinity : null,
           padding: EdgeInsets.symmetric(
-            horizontal: compact ? KSpace.lg : KSpace.xl,
+            horizontal: compact ? KSpace.sm : KSpace.xl,
             vertical: compact ? 10 : 15,
           ),
           decoration: BoxDecoration(
@@ -85,14 +87,19 @@ class KButton extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2, color: fg),
                 )
               else if (icon != null)
-                Icon(icon, size: 17, color: fg),
-              if (busy || icon != null) const SizedBox(width: KSpace.sm),
-              Text(
-                label,
-                style: KType.sans(
-                  size: compact ? 13.5 : 15,
-                  weight: FontWeight.w600,
-                  color: fg,
+                Icon(icon, size: compact ? 16 : 17, color: fg),
+              if (busy || icon != null) SizedBox(width: compact ? 6 : KSpace.sm),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: maxLines,
+                  overflow: TextOverflow.ellipsis,
+                  style: KType.sans(
+                    size: compact ? 13 : 15,
+                    weight: FontWeight.w600,
+                    color: fg,
+                    height: 1.2,
+                  ),
                 ),
               ),
             ],

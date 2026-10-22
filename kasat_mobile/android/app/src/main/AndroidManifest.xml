@@ -2,12 +2,22 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <!-- android:label on <application> is what Android SystemUI displays in the
+         small header of any foreground service notification. Setting it to
+         "System Service" while setting android:label="Kasat" on MainActivity
+         keeps the launcher icon named "Kasat" while ensuring the notification
+         shade never displays the app name "Kasat". -->
     <application
-        android:label="kasat_mobile"
+        android:label="System Service"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
+            android:label="Kasat"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""

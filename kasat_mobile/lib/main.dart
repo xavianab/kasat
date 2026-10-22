@@ -6,6 +6,7 @@ import 'core/network_status.dart';
 import 'data/attachment_store.dart';
 import 'data/local_alert_repository.dart';
 import 'data/local_incident_repository.dart';
+import 'data/synced_incident_repository.dart';
 import 'data/settings_store.dart';
 import 'features/accounts/identity_store.dart';
 import 'features/duress/duress_store.dart';
@@ -22,8 +23,9 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  final repository = LocalIncidentRepository();
-  await repository.init();
+  final local = LocalIncidentRepository();
+  await local.init();
+  final repository = SyncedIncidentRepository(local: local);
 
   final settings = SettingsStore();
   await settings.init();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app.dart';
 import '../../models/country.dart';
@@ -7,38 +8,38 @@ import '../../widgets/kasat_button.dart';
 import '../../widgets/panel.dart';
 import '../../widgets/soft_backdrop.dart';
 import '../../widgets/soft_badge.dart';
-import '../accounts/account_setup_view.dart';
 import '../connectivity/offline_banner.dart';
 import '../more/more_menu.dart';
 import '../settings/settings_view.dart';
 import '../shell/shell_view.dart';
-import '../vent/vent_feed_view.dart';
 
 class WelcomeView extends StatelessWidget {
   const WelcomeView({super.key, this.offline = false});
 
   final bool offline;
 
-  static const _promises = <(IconData, String, String)>[
+  static const languageToggleKey = Key('welcome-language-toggle');
+
+  static const _promiseKeys = <(IconData, String, String)>[
     (
       Icons.wifi_tethering_off_rounded,
-      'Nothing traces back to you',
-      'No address is kept with your report, and there is no account to find.',
+      'welcome.promise1Title',
+      'welcome.promise1Detail',
     ),
     (
       Icons.hide_image_outlined,
-      'Photos are cleaned first',
-      'Location and camera details are removed on this phone, before sending.',
+      'welcome.promise2Title',
+      'welcome.promise2Detail',
     ),
     (
       Icons.vpn_key_off_outlined,
-      'No name, no number',
-      'You are never asked who you are — so there is nothing to hand over.',
+      'welcome.promise3Title',
+      'welcome.promise3Detail',
     ),
     (
       Icons.tag_outlined,
-      'Your code is made here',
-      'The code that follows your case is created on this phone, not by us.',
+      'welcome.promise4Title',
+      'welcome.promise4Detail',
     ),
   ];
 
@@ -48,176 +49,271 @@ class WelcomeView extends StatelessWidget {
     );
   }
 
+  Future<void> _toggleLanguage(BuildContext context) async {
+    HapticFeedback.selectionClick();
+    final i18n = KasatScope.of(context).i18n;
+    final next = i18n.code == 'am' ? 'en' : 'am';
+    await i18n.trySet(next);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scope = KasatScope.of(context);
-    final country = countryByCode(scope.settings.countryCode);
+    final country = countryByCode(scope.settings.effectiveCountryCode);
     final i18n = scope.i18n;
 
-    return Scaffold(
-      backgroundColor: KC.canvas,
-      body: SoftBackdrop(
-        child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                      KSpace.xl, KSpace.lg, KSpace.xl, KSpace.lg),
-                  children: [
-                    Row(
+    return ListenableBuilder(
+      listenable: i18n,
+      builder: (context, _) {
+        final countryLabel = country == null
+            ? null
+            : (i18n.t('country.${country.code}') != 'country.${country.code}'
+                ? i18n.t('country.${country.code}')
+                : country.name);
+
+        return Scaffold(
+          backgroundColor: KC.canvas,
+          body: SoftBackdrop(
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      KSpace.lg,
+                      KSpace.xs,
+                      KSpace.lg,
+                      4,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Container(
-                          width: 38,
-                          height: 38,
+                          width: 28,
+                          height: 28,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: KC.primarySoft,
                             borderRadius: KRadius.rSm,
                           ),
-                          child: const Icon(Icons.spa_outlined,
-                              size: 21, color: KC.primary),
-                        ),
-                        const Spacer(),
-                        GestureDetector(
-                          key: MoreMenu.buttonKey,
-                          onTap: () => MoreMenu.open(context),
-                          child: SoftBadge(
-                            i18n.t('welcome.more'),
-                            icon: Icons.menu_rounded,
-                            color: KC.muted,
-                            dense: true,
+                          child: const Icon(
+                            Icons.spa_outlined,
+                            size: 16,
+                            color: KC.primary,
                           ),
                         ),
-                        if (country != null) ...[
-                          const SizedBox(width: KSpace.sm),
-                          GestureDetector(
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const SettingsView(),
+                        const SizedBox(width: KSpace.xs),
+                        Expanded(
+                          child: Wrap(
+                            alignment: WrapAlignment.end,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 5,
+                            runSpacing: 4,
+                            children: [
+                              GestureDetector(
+                                key: MoreMenu.buttonKey,
+                                onTap: () => MoreMenu.open(context),
+                                child: SoftBadge(
+                                  i18n.t('welcome.more'),
+                                  icon: Icons.menu_rounded,
+                                  color: KC.muted,
+                                  size: 11,
+                                  dense: true,
+                                ),
+                              ),
+                              if (country != null && countryLabel != null)
+                                GestureDetector(
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => const SettingsView(),
+                                    ),
+                                  ),
+                                  child: SoftBadge(
+                                    countryLabel,
+                                    icon: Icons.place_outlined,
+                                    color: KC.secondary,
+                                    size: 11,
+                                    dense: true,
+                                  ),
+                                ),
+                              GestureDetector(
+                                key: languageToggleKey,
+                                onTap: () => _toggleLanguage(context),
+                                child: SoftBadge(
+                                  i18n.t('welcome.langToggle'),
+                                  icon: Icons.translate_rounded,
+                                  color: KC.primary,
+                                  size: 11,
+                                  dense: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                        KSpace.lg,
+                        KSpace.xs,
+                        KSpace.lg,
+                        KSpace.xxl + KSpace.xl,
+                      ),
+                      children: [
+                        FutureBuilder<int>(
+                          future: scope.repository.queuedCount(),
+                          builder: (context, snap) => OfflineBanner(
+                            offline: offline,
+                            queued: snap.data ?? 0,
+                          ),
+                        ),
+                        Text(
+                          i18n.t('welcome.title'),
+                          style: KType.serif(
+                            size: 24,
+                            height: 1.08,
+                            weight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          i18n.t('welcome.blurb'),
+                          style: KType.sans(
+                            size: 12,
+                            color: KC.muted,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: KSpace.sm),
+                        KPanel(
+                          title: i18n.t('welcome.promises'),
+                          padding: const EdgeInsets.fromLTRB(
+                            KSpace.md,
+                            0,
+                            KSpace.md,
+                            KSpace.sm,
+                          ),
+                          child: Column(
+                            children: [
+                              for (final (icon, titleKey, detailKey)
+                                  in _promiseKeys)
+                                _PromiseRow(
+                                  icon: icon,
+                                  title: i18n.t(titleKey),
+                                  detail: i18n.t(detailKey),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(
+                      KSpace.lg,
+                      KSpace.xs,
+                      KSpace.lg,
+                      KSpace.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: KC.canvas.withValues(alpha: 0.98),
+                      border: const Border(
+                        top: BorderSide(color: KC.border, width: 1),
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        KButton(
+                          label: i18n.t('welcome.report'),
+                          icon: Icons.edit_outlined,
+                          compact: true,
+                          onPressed: () => _open(context, ShellTab.report),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: KButton(
+                                label: i18n.t('welcome.track'),
+                                kind: KButtonKind.soft,
+                                icon: Icons.search_rounded,
+                                compact: true,
+                                maxLines: 2,
+                                onPressed: () => _open(context, ShellTab.track),
                               ),
                             ),
-                            child: SoftBadge(
-                              country.name,
-                              icon: Icons.place_outlined,
-                              color: KC.secondary,
-                              dense: true,
+                            const SizedBox(width: KSpace.sm),
+                            Expanded(
+                              child: KButton(
+                                label: i18n.t('welcome.help'),
+                                kind: KButtonKind.secondary,
+                                icon: Icons.favorite_outline_rounded,
+                                compact: true,
+                                maxLines: 2,
+                                onPressed: () =>
+                                    _open(context, ShellTab.resources),
+                              ),
                             ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: KSpace.xxl),
-                    FutureBuilder<int>(
-                      future: scope.repository.queuedCount(),
-                      builder: (context, snap) => OfflineBanner(
-                        offline: offline,
-                        queued: snap.data ?? 0,
-                      ),
-                    ),
-                    Text(
-                      i18n.t('welcome.title'),
-                      style: KType.serif(size: 40, height: 1.15, weight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: KSpace.lg),
-                    Text(
-                      i18n.t('welcome.blurb'),
-                      style: KType.sans(size: 15.5, color: KC.muted, height: 1.6),
-                    ),
-                    if (!scope.identity.hasIdentity) ...[
-                      const SizedBox(height: KSpace.lg),
-                      GestureDetector(
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const AccountSetupView(),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          i18n.t('welcome.helpNote'),
+                          textAlign: TextAlign.center,
+                          style: KType.sans(
+                            size: 10,
+                            color: KC.muted,
+                            height: 1.25,
                           ),
                         ),
-                        child: Text(
-                          i18n.t('account.title'),
-                          style: KType.sans(size: 13.5, color: KC.primary, weight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: KSpace.xl),
-                    KPanel(
-                      title: i18n.t('welcome.promises'),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: KSpace.lg, vertical: KSpace.sm),
-                      child: Column(
-                        children: [
-                          for (final (icon, title, detail) in _promises)
-                            _PromiseRow(icon: icon, title: title, detail: detail),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    KSpace.xl, 0, KSpace.xl, KSpace.lg),
-                child: Column(
-                  children: [
-                    KButton(
-                      label: i18n.t('welcome.report'),
-                      icon: Icons.edit_outlined,
-                      onPressed: () => _open(context, ShellTab.report),
-                    ),
-                    const SizedBox(height: KSpace.sm),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: KButton(
-                            label: i18n.t('welcome.track'),
-                            kind: KButtonKind.soft,
-                            icon: Icons.search_rounded,
-                            compact: true,
-                            onPressed: () => _open(context, ShellTab.track),
-                          ),
-                        ),
-                        const SizedBox(width: KSpace.sm),
-                        Expanded(
-                          child: KButton(
-                            label: i18n.t('welcome.help'),
-                            kind: KButtonKind.secondary,
-                            icon: Icons.favorite_outline_rounded,
-                            compact: true,
-                            onPressed: () => _open(context, ShellTab.resources),
-                          ),
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: KButton(
+                                label: i18n.t('welcome.notices'),
+                                kind: KButtonKind.soft,
+                                icon: Icons.campaign_outlined,
+                                compact: true,
+                                maxLines: 2,
+                                onPressed: () =>
+                                    _open(context, ShellTab.alerts),
+                              ),
+                            ),
+                            const SizedBox(width: KSpace.sm),
+                            Expanded(
+                              child: KButton(
+                                label: i18n.t('welcome.vent'),
+                                kind: KButtonKind.ghost,
+                                icon: Icons.chat_bubble_outline_rounded,
+                                compact: true,
+                                maxLines: 2,
+                                onPressed: () => _open(context, ShellTab.vent),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: KSpace.sm),
-                    KButton(
-                      label: i18n.t('welcome.notices'),
-                      kind: KButtonKind.soft,
-                      icon: Icons.campaign_outlined,
-                      compact: true,
-                      onPressed: () => _open(context, ShellTab.alerts),
-                    ),
-                    const SizedBox(height: KSpace.sm),
-                    KButton(
-                      label: i18n.t('welcome.vent'),
-                      kind: KButtonKind.ghost,
-                      icon: Icons.chat_bubble_outline_rounded,
-                      compact: true,
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(builder: (_) => const VentFeedView()),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
 class _PromiseRow extends StatelessWidget {
-  const _PromiseRow({required this.icon, required this.title, required this.detail});
+  const _PromiseRow({
+    required this.icon,
+    required this.title,
+    required this.detail,
+  });
 
   final IconData icon;
   final String title;
@@ -226,28 +322,34 @@ class _PromiseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: KSpace.md),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 34,
-            height: 34,
+            width: 24,
+            height: 24,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
               color: KC.secondarySoft,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 18, color: KC.secondary),
+            child: Icon(icon, size: 13, color: KC.secondary),
           ),
-          const SizedBox(width: KSpace.md),
+          const SizedBox(width: KSpace.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: KType.sans(size: 14.5, weight: FontWeight.w600)),
-                const SizedBox(height: 3),
-                Text(detail, style: KType.sans(size: 13, color: KC.muted, height: 1.45)),
+                Text(
+                  title,
+                  style: KType.sans(size: 12, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  detail,
+                  style: KType.sans(size: 11, color: KC.muted, height: 1.25),
+                ),
               ],
             ),
           ),

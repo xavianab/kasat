@@ -33,25 +33,47 @@ class ReportFormView extends StatefulWidget {
 
 class _ReportFormViewState extends State<ReportFormView> {
   final _description = TextEditingController();
-  final _lat = TextEditingController();
-  final _lng = TextEditingController();
-  final _note = TextEditingController();
+  final _landmark = TextEditingController();
   final _picker = ImagePicker();
 
   IncidentCategory? _category;
-  LocationPrecision _precision = LocationPrecision.district;
+  String? _selectedSubCity;
   ApproxLocation? _location;
   List<Attachment> _attachments = [];
   bool _pickingMedia = false;
   bool _submitting = false;
+  KasatScope? _registeredScope;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final scope = KasatScope.of(context);
+    if (_registeredScope != scope) {
+      _registeredScope?.unregisterWipeCallback(_wipeFormState);
+      _registeredScope = scope;
+      scope.registerWipeCallback(_wipeFormState);
+    }
+  }
 
   @override
   void dispose() {
+    _registeredScope?.unregisterWipeCallback(_wipeFormState);
     _description.dispose();
-    _lat.dispose();
-    _lng.dispose();
-    _note.dispose();
+    _landmark.dispose();
     super.dispose();
+  }
+
+  void _wipeFormState() {
+    _description.clear();
+    _landmark.clear();
+    if (mounted) {
+      setState(() {
+        _category = null;
+        _selectedSubCity = null;
+        _location = null;
+        _attachments = [];
+      });
+    }
   }
 
   int get _charCount => _description.text.characters.length;
@@ -67,23 +89,11 @@ class _ReportFormViewState extends State<ReportFormView> {
       );
 
   void _recomputeLocation() {
-    final lat = double.tryParse(_lat.text.trim());
-    final lng = double.tryParse(_lng.text.trim());
-
-    final valid = lat != null &&
-        lng != null &&
-        ApproxLocation.isValidLatitude(lat) &&
-        ApproxLocation.isValidLongitude(lng);
-
     setState(() {
-      _location = valid
-          ? ApproxLocation.snapped(
-              latitude: lat,
-              longitude: lng,
-              precision: _precision,
-              note: _note.text,
-            )
-          : null;
+      _location = ApproxLocation.fromSubCityAndLandmark(
+        subCity: _selectedSubCity,
+        landmark: _landmark.text,
+      );
     });
   }
 
@@ -91,7 +101,8 @@ class _ReportFormViewState extends State<ReportFormView> {
     final store = KasatScope.of(context).attachments;
     setState(() => _pickingMedia = true);
     try {
-      final picked = await _picker.pickMultiImage(limit: KasatConfig.maxAttachments);
+      final picked =
+          await _picker.pickMultiImage(limit: KasatConfig.maxAttachments);
       if (picked.isEmpty) return;
 
       final room = KasatConfig.maxAttachments - _attachments.length;
@@ -100,7 +111,10 @@ class _ReportFormViewState extends State<ReportFormView> {
       for (final file in picked.take(room)) {
         final bytes = await file.readAsBytes();
         added.add(
-          await store.persistImage(bytes, index: _attachments.length + added.length),
+          await store.persistImage(
+            bytes,
+            index: _attachments.length + added.length,
+          ),
         );
       }
 
@@ -118,7 +132,9 @@ class _ReportFormViewState extends State<ReportFormView> {
     await KasatScope.of(context).attachments.delete(attachment);
     if (!mounted) return;
     setState(
-        () => _attachments = _attachments.where((a) => a.id != attachment.id).toList());
+      () => _attachments =
+          _attachments.where((a) => a.id != attachment.id).toList(),
+    );
   }
 
   Future<void> _submit() async {
@@ -126,17 +142,16 @@ class _ReportFormViewState extends State<ReportFormView> {
     if (category == null || !_descriptionOk) return;
 
     final scope = KasatScope.of(context);
-    final countryCode = scope.settings.countryCode;
-    if (countryCode == null) {
-      _toast('Your country has not been set. Please restart setup.', error: true);
-      return;
-    }
+    final countryCode = scope.settings.effectiveCountryCode;
 
     FocusScope.of(context).unfocus();
+
     setState(() => _submitting = true);
 
     // Minted here, on the handset. The backend receives a code it had no part
     // in choosing and cannot map back to a person.
+    // Issue 3 safety rule: Show the tracking code on a screen that insists she
+    // write it down BEFORE any PIN is set.
     final trackingId = TrackingId.generate();
     final offline = !await scope.network.isOnline();
     if (!mounted) return;
@@ -178,12 +193,10 @@ class _ReportFormViewState extends State<ReportFormView> {
     setState(() {
       _category = null;
       _description.clear();
-      _lat.clear();
-      _lng.clear();
-      _note.clear();
+      _selectedSubCity = null;
+      _landmark.clear();
       _location = null;
       _attachments = [];
-      _precision = LocationPrecision.district;
     });
   }
 
@@ -205,14 +218,18 @@ class _ReportFormViewState extends State<ReportFormView> {
   @override
   Widget build(BuildContext context) {
     final category = _category;
-    final countryCode = KasatScope.of(context).settings.countryCode;
+    final countryCode = KasatScope.of(context).settings.effectiveCountryCode;
 
     return Column(
       children: [
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(
-                KSpace.lg, KSpace.xs, KSpace.lg, KSpace.xxl),
+              KSpace.lg,
+              KSpace.xs,
+              KSpace.lg,
+              KSpace.xxl,
+            ),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
               Text(
@@ -280,21 +297,26 @@ class _ReportFormViewState extends State<ReportFormView> {
                     Text(
                       'At least ${KasatConfig.descriptionMinLength} characters. '
                       'Nobody reads this until an officer opens your case.',
-                      style: KType.sans(size: 12.5, color: KC.faint, height: 1.45),
+                      style: KType.sans(
+                        size: 12.5,
+                        color: KC.faint,
+                        height: 1.45,
+                      ),
                     ),
                   ],
                 ),
               ),
               if (_crisis.triggered) ...[
                 const SizedBox(height: KSpace.md),
-                QuietSupportBanner(visible: true),
+                const QuietSupportBanner(visible: true),
                 CrisisBanner(signal: _crisis, countryCode: countryCode),
               ],
               const SizedBox(height: KSpace.md),
               KPanel(
                 step: 3,
                 title: 'Anything to show?',
-                subtitle: 'Photos are optional.',
+                subtitle:
+                    'Photos are optional. Metadata is stripped and a SHA-256 integrity hash is recorded.',
                 trailing: _attachments.isEmpty
                     ? null
                     : SoftBadge(
@@ -313,18 +335,16 @@ class _ReportFormViewState extends State<ReportFormView> {
               const SizedBox(height: KSpace.md),
               KPanel(
                 step: 4,
-                title: 'Roughly where?',
-                subtitle: 'Never exact. You can skip this.',
+                title: 'Where did it happen?',
+                subtitle: 'Sub-city and landmark are both optional. You can skip both.',
                 child: LocationPicker(
-                  latController: _lat,
-                  lngController: _lng,
-                  noteController: _note,
-                  precision: _precision,
-                  resolved: _location,
-                  onPrecisionChanged: (p) {
-                    setState(() => _precision = p);
+                  selectedSubCity: _selectedSubCity,
+                  onSubCityChanged: (sub) {
+                    setState(() => _selectedSubCity = sub);
                     _recomputeLocation();
                   },
+                  landmarkController: _landmark,
+                  resolved: _location,
                   onChanged: _recomputeLocation,
                 ),
               ),
@@ -381,13 +401,14 @@ class _SubmitBar extends StatelessWidget {
       return 'A little more detail — at least '
           '${KasatConfig.descriptionMinLength} characters';
     }
-    return 'Ready. Your private code is created when you send.';
+    return 'Ready. Your private code is created when you save.';
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(KSpace.lg, KSpace.md, KSpace.lg, KSpace.sm),
+      padding:
+          const EdgeInsets.fromLTRB(KSpace.lg, KSpace.md, KSpace.lg, KSpace.sm),
       decoration: const BoxDecoration(
         color: KC.surface,
         border: Border(top: BorderSide(color: KC.border)),
@@ -398,7 +419,9 @@ class _SubmitBar extends StatelessWidget {
           Row(
             children: [
               Icon(
-                enabled ? Icons.lock_outline_rounded : Icons.info_outline_rounded,
+                enabled
+                    ? Icons.lock_outline_rounded
+                    : Icons.info_outline_rounded,
                 size: 15,
                 color: enabled ? KC.calm : KC.faint,
               ),
@@ -417,8 +440,8 @@ class _SubmitBar extends StatelessWidget {
           ),
           const SizedBox(height: KSpace.md),
           KButton(
-            label: 'Send',
-            icon: Icons.send_rounded,
+            label: 'Save report',
+            icon: Icons.save_outlined,
             busy: busy,
             onPressed: enabled ? onSubmit : null,
           ),

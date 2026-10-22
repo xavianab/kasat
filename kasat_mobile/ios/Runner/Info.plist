@@ -32,7 +32,13 @@
 		<string>sms</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Used only if you send a trusted alert, to include a maps link. Nothing is stored with a report.</string>
+	<string>Used only when you activate an emergency alert so responders can find you.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Used only during an active 30-minute emergency alert so responders can find you even if the screen locks.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Unlock without typing your code.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

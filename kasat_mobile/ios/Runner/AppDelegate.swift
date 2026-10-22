@@ -17,7 +17,28 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    registerDisguiseChannel(with: engineBridge.applicationRegistrar.messenger())
+    let messenger = engineBridge.applicationRegistrar.messenger()
+    registerDisguiseChannel(with: messenger)
+    registerPrivacyChannel(with: messenger)
+  }
+
+  private func registerPrivacyChannel(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.kasat/privacy", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "quickExitToHome":
+        // Suspend straight to the iOS Home Screen without opening Safari
+        // (avoids leaving any browser history entry).
+        DispatchQueue.main.async {
+          UIApplication.shared.perform(NSSelectorFromString("suspend"))
+          result(true)
+        }
+      case "setSecureScreen":
+        result(true)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
   }
 
   private func registerDisguiseChannel(with messenger: FlutterBinaryMessenger) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/kasat_config.dart';
 import '../../theme/kasat_theme.dart';
 
 /// The kinds of help Kasat routes to. Ordered by how urgent they are, because
@@ -11,7 +12,7 @@ enum ContactKind {
     color: KC.urgent,
   ),
   womensAffairs(
-    label: "Women's Affairs",
+    label: "Women's Affairs & GBV Hotlines",
     icon: Icons.diversity_1_outlined,
     color: KC.primary,
   ),
@@ -26,7 +27,11 @@ enum ContactKind {
     color: KC.calm,
   );
 
-  const ContactKind({required this.label, required this.icon, required this.color});
+  const ContactKind({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
 
   final String label;
   final IconData icon;
@@ -67,18 +72,32 @@ class EmergencyContact {
 
 /// Emergency contacts keyed by ISO 3166-1 alpha-2 country code.
 ///
-/// EVERY NUMBER BELOW IS A PLACEHOLDER. They exist so the routing, grouping,
-/// and crisis banner can be built and tested; they are not dialable and are
-/// marked `verified: false` so the UI says so out loud. Replace the numbers
-/// and flip `verified` to true per entry as each one is confirmed.
+/// EVERY NUMBER BELOW IS A PLACEHOLDER UNTIL CONFIRMED BEFORE RELEASE.
+/// They are marked `verified: false` so the UI labels them clearly for
+/// verification.
+/// - `991`: Addis Ababa Police Commission / Ethiopian Federal Police emergency
+///   shortcode placeholder (`KasatConfig.emergencyNumber`).
+/// - `7711`: Ethiopian Women Lawyers Association (EWLA) national toll-free
+///   GBV hotline (`KasatConfig.ewlaGbvHotline`) — separate from police for
+///   survivors who want confidential GBV support and legal counselling rather
+///   than police intervention.
 const emergencyContactsByCountry = <String, List<EmergencyContact>>{
   'ET': [
     EmergencyContact(
       name: 'Ethiopian Federal Police',
-      number: '+251-000-000-001',
+      number: KasatConfig.emergencyNumber,
       kind: ContactKind.federalPolice,
-      hours: 'Placeholder',
-      blurb: 'National police response and criminal reporting.',
+      hours: '24/7 — Verify 991 placeholder',
+      blurb:
+          'Addis Ababa Police Commission / Federal Police emergency dispatch (991).',
+    ),
+    EmergencyContact(
+      name: 'EWLA Toll-Free GBV Hotline (7711)',
+      number: KasatConfig.ewlaGbvHotline,
+      kind: ContactKind.womensAffairs,
+      hours: 'Toll-free GBV hotline (Amharic, Afan Oromo, Tigrigna)',
+      blurb:
+          'Ethiopian Women Lawyers Association (EWLA) confidential GBV support, crisis counselling, and legal guidance — separate from police.',
     ),
     EmergencyContact(
       name: 'Ministry of Women and Social Affairs hotline',
@@ -161,13 +180,19 @@ List<EmergencyContact> contactsForCountry(String? countryCode) {
 /// The one or two lines the crisis banner offers. Deliberately short: a banner
 /// with six numbers on it is a banner nobody reads.
 List<EmergencyContact> crisisLinesForCountry(String? countryCode) {
-  return contactsForCountry(countryCode).where((c) => c.isCrisisLine).take(2).toList();
+  return contactsForCountry(countryCode)
+      .where((c) => c.isCrisisLine)
+      .take(2)
+      .toList();
 }
 
-Map<ContactKind, List<EmergencyContact>> groupedContactsForCountry(String? countryCode) {
+Map<ContactKind, List<EmergencyContact>> groupedContactsForCountry(
+  String? countryCode,
+) {
   final grouped = <ContactKind, List<EmergencyContact>>{};
   for (final kind in ContactKind.values) {
-    final matching = contactsForCountry(countryCode).where((c) => c.kind == kind).toList();
+    final matching =
+        contactsForCountry(countryCode).where((c) => c.kind == kind).toList();
     if (matching.isNotEmpty) grouped[kind] = matching;
   }
   return grouped;

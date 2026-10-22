@@ -11,26 +11,26 @@ import 'emergency_contacts.dart';
 /// Help lines for the survivor's own country.
 ///
 /// Everything here comes from [emergencyContactsByCountry] keyed on the country
-/// chosen at onboarding. Nothing on this screen is hardcoded to a jurisdiction,
-/// so launching a new one is a table entry.
+/// chosen in Settings (defaulting to Ethiopia 'ET' with zero setup).
 class ResourcesView extends StatelessWidget {
   const ResourcesView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final code = KasatScope.of(context).settings.countryCode;
+    final code = KasatScope.of(context).settings.effectiveCountryCode;
     final country = countryByCode(code);
     final grouped = groupedContactsForCountry(code);
     final unverified = contactsForCountry(code).where((c) => !c.verified).length;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(KSpace.lg, KSpace.xs, KSpace.lg, KSpace.xxl),
+      padding:
+          const EdgeInsets.fromLTRB(KSpace.lg, KSpace.xs, KSpace.lg, KSpace.xxl),
       children: [
         Row(
           children: [
             Expanded(
               child: Text(
-                'People you can talk to in ${country?.name ?? 'your country'}.',
+                'Hotlines & support connects to EWLA 7711 and other support lines in ${country?.name ?? 'your country'}, not police.',
                 style: KType.sans(size: 14, color: KC.muted, height: 1.5),
               ),
             ),
@@ -41,6 +41,19 @@ class ResourcesView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: KSpace.lg),
+        if (code == 'ET') ...[
+          const KNote(
+            title: 'Prefer to speak with a GBV hotline instead of police?',
+            icon: Icons.favorite_outline_rounded,
+            color: KC.primary,
+            body: 'For many women, a confidential gender-based violence hotline '
+                'is safer and more appropriate than calling police. EWLA’s '
+                '7711 toll-free GBV hotline offers confidential support and '
+                'legal guidance in Amharic, Afan Oromo, and Tigrigna without '
+                'opening a police report.',
+          ),
+          const SizedBox(height: KSpace.md),
+        ],
         if (unverified > 0) ...[
           KNote(
             title: 'These numbers are not confirmed yet',
@@ -81,7 +94,8 @@ class _KindSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return KPanel(
       title: kind.label,
-      padding: const EdgeInsets.symmetric(horizontal: KSpace.md, vertical: KSpace.md),
+      padding:
+          const EdgeInsets.symmetric(horizontal: KSpace.md, vertical: KSpace.md),
       trailing: Container(
         width: 30,
         height: 30,
@@ -141,24 +155,29 @@ class _ContactRow extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         contact.blurb,
-                        style: KType.sans(size: 12.5, color: KC.muted, height: 1.45),
+                        style: KType.sans(
+                          size: 12.5,
+                          color: KC.muted,
+                          height: 1.45,
+                        ),
                       ),
                       const SizedBox(height: KSpace.sm),
-                      Row(
+                      Wrap(
+                        spacing: KSpace.sm,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          if (contact.verified)
-                            Text(
-                              contact.number,
-                              style: KType.code(size: 13, color: KC.secondary),
-                            )
-                          else
+                          Text(
+                            contact.number,
+                            style: KType.code(size: 13, color: KC.secondary),
+                          ),
+                          if (!contact.verified)
                             const SoftBadge(
                               'Not confirmed yet',
                               color: KC.faint,
                               dense: true,
                               size: 11.5,
                             ),
-                          const SizedBox(width: KSpace.sm),
                           Text(
                             contact.hours,
                             style: KType.sans(size: 11.5, color: KC.faint),
@@ -178,7 +197,9 @@ class _ContactRow extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    contact.verified ? Icons.call_rounded : Icons.info_outline_rounded,
+                    contact.verified
+                        ? Icons.call_rounded
+                        : Icons.info_outline_rounded,
                     size: 19,
                     color: contact.verified ? Colors.white : KC.faint,
                   ),

@@ -35,6 +35,36 @@ enum AppDisguise {
       );
 }
 
+/// How the persistent top emergency control is rendered.
+enum DangerBarMode {
+  visible(
+    id: 'VISIBLE',
+    label: 'Full visible bar (default)',
+    blurb: 'Shows the red "I\'M IN DANGER" button at the top of every screen.',
+  ),
+  discreet(
+    id: 'DISCREET',
+    label: 'Discreet mode (unlabeled dot + long-press)',
+    blurb:
+        'Hides emergency wording so someone glancing at your phone sees only a small unlabeled dot. Press and hold the dot to trigger.',
+  );
+
+  const DangerBarMode({
+    required this.id,
+    required this.label,
+    required this.blurb,
+  });
+
+  final String id;
+  final String label;
+  final String blurb;
+
+  static DangerBarMode fromId(String? id) => DangerBarMode.values.firstWhere(
+        (m) => m.id == id,
+        orElse: () => DangerBarMode.visible,
+      );
+}
+
 /// Local, non-synced preferences: the survivor's country, her lock setup, and
 /// her chosen disguise.
 ///
@@ -48,8 +78,10 @@ class SettingsStore {
   static const _pinSaltKey = 'kasat.pin_salt.v1';
   static const _biometricKey = 'kasat.biometric.v1';
   static const _disguiseKey = 'kasat.disguise.v1';
+  static const _dangerBarModeKey = 'kasat.danger_bar_mode.v1';
   static const _onboardedKey = 'kasat.onboarded.v1';
   static const _posterTokenKey = 'kasat.alert_poster.v1';
+  static const _deviceRateLimitSecretKey = 'kasat.device_rl_secret.v1';
 
   static const pinLength = 6;
   static const _hashRounds = 20000;
@@ -65,6 +97,10 @@ class SettingsStore {
   // ---------------------------------------------------------------- country
 
   String? get countryCode => _prefs.getString(_countryKey);
+
+  /// Zero-setup default country ('ET' — Ethiopia) when the survivor has not
+  /// explicitly changed her country in Settings.
+  String get effectiveCountryCode => countryCode ?? 'ET';
 
   /// Only an active country is stored. An unlaunched tap never writes.
   Future<void> setCountryCode(String code) async {
@@ -102,6 +138,22 @@ class SettingsStore {
   Future<void> setDisguise(AppDisguise disguise) =>
       _prefs.setString(_disguiseKey, disguise.id);
 
+  // ---------------------------------------------------- danger bar visibility
+
+  DangerBarMode get dangerBarMode =>
+      DangerBarMode.fromId(_prefs.getString(_dangerBarModeKey));
+
+  Future<void> setDangerBarMode(DangerBarMode mode) =>
+      _prefs.setString(_dangerBarModeKey, mode.id);
+
+  /// Clears the stored PIN hash and salt. Used only when the survivor chooses
+  /// to wipe her on-device saved history after forgetting her PIN (her cases
+  /// remain accessible via written tracking codes).
+  Future<void> clearPin() async {
+    await _prefs.remove(_pinHashKey);
+    await _prefs.remove(_pinSaltKey);
+  }
+
   // ------------------------------------------------------------- onboarding
 
   bool get onboardingComplete => (_prefs.getBool(_onboardedKey) ?? false) && countryCode != null;
@@ -114,6 +166,21 @@ class SettingsStore {
     final token = 'P-${base64Url.encode(List<int>.generate(12, (_) => _random.nextInt(256)))}';
     _prefs.setString(_posterTokenKey, token);
     return token;
+  }
+
+  /// Anonymous one-way SHA-256 installation fingerprint sent only on emergency
+  /// dispatch (`x-kasat-device-hash`) so the server can coalesce repeat panic
+  /// taps into the same active alert and enforce per-device flood limits
+  /// without ever collecting hardware IMEI/IDFA.
+  String deviceRateLimitHash() {
+    var secret = _prefs.getString(_deviceRateLimitSecretKey);
+    if (secret == null || secret.isEmpty) {
+      secret = base64Url.encode(
+        List<int>.generate(32, (_) => _random.nextInt(256)),
+      );
+      _prefs.setString(_deviceRateLimitSecretKey, secret);
+    }
+    return sha256.convert(utf8.encode('kasat-rl-v1|$secret')).toString();
   }
 
   Future<void> completeOnboarding() => _prefs.setBool(_onboardedKey, true);

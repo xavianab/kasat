@@ -4,28 +4,35 @@ import '../theme/kasat_theme.dart';
 
 enum IncidentStatus {
   queued(
-    code: 'QUEUED',
+    code: 'queued',
     label: 'Waiting to send',
     blurb: 'Saved on this phone. It will send when there is a connection.',
     color: KC.muted,
     step: -1,
   ),
-  received(
-    code: 'RECEIVED',
-    label: 'Received',
-    blurb: 'Your report has arrived. Nobody has opened it yet.',
+  draft(
+    code: 'draft',
+    label: 'Draft',
+    blurb: 'Saved. Police cannot see it until you send it.',
+    color: KC.muted,
+    step: -1,
+  ),
+  sent(
+    code: 'sent',
+    label: 'Sent',
+    blurb: 'Your report has arrived. An officer has not opened it yet.',
     color: KC.primary,
     step: 0,
   ),
-  underInvestigation(
-    code: 'UNDER_INVESTIGATION',
-    label: 'Under Investigation',
+  underReview(
+    code: 'under_review',
+    label: 'Under review',
     blurb: 'Someone has opened your case and is working on it.',
     color: KC.secondary,
     step: 1,
   ),
   resolved(
-    code: 'RESOLVED',
+    code: 'resolved',
     label: 'Resolved',
     blurb: 'Your case has been closed by the office handling it.',
     color: KC.calm,
@@ -47,9 +54,23 @@ enum IncidentStatus {
   final int step;
 
   static IncidentStatus fromCode(String code) {
-    return IncidentStatus.values.firstWhere(
-      (s) => s.code == code,
-      orElse: () => IncidentStatus.received,
-    );
+    switch (code) {
+      case 'queued':
+      case 'QUEUED':
+        return IncidentStatus.queued;
+      case 'draft':
+        return IncidentStatus.draft;
+      case 'sent':
+      case 'RECEIVED':
+        return IncidentStatus.sent;
+      case 'under_review':
+      case 'UNDER_INVESTIGATION':
+        return IncidentStatus.underReview;
+      case 'resolved':
+      case 'RESOLVED':
+        return IncidentStatus.resolved;
+      default:
+        return IncidentStatus.draft;
+    }
   }
 }

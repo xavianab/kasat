@@ -1,36 +1,68 @@
 import '../models/incident.dart';
 
 /// The single seam between Kasat's UI and its backend.
-///
-/// The MVP binds [LocalIncidentRepository]; the Supabase implementation
-/// (`incidents` table + realtime channel) drops in behind the same four
-/// methods without the feature code changing.
 abstract interface class IncidentRepository {
-  /// Persists [draft] under an identifier that was already minted on-device.
-  ///
-  /// When [offline] is true the case is stored as queued and is not handed
-  /// to the dispatcher until [flushQueued] runs.
+  /// Persists [draft] locally (and remotely as status `draft` when a backend
+  /// is configured). Police cannot see drafts.
   Future<Incident> submit(
     IncidentDraft draft, {
     required String trackingId,
     bool offline = false,
   });
 
-  /// One-shot fetch. Returns null when no case carries that identifier —
-  /// which is indistinguishable from a case the caller isn't allowed to see,
-  /// on purpose.
+  /// Moves a draft to `sent` and sets `sent_at`. This is the only write that
+  /// makes the row visible to her station.
+  Future<Incident?> sendToPolice(String trackingId);
+
   Future<Incident?> lookup(String trackingId);
 
-  /// Live view of a single case, starting with its current state.
   Stream<Incident?> watch(String trackingId);
 
-  /// Identifiers submitted from this handset, newest first. Held locally only
-  /// so the survivor can re-find a code they forgot to write down.
   Future<List<String>> localTrackingIds();
 
   Future<int> queuedCount();
 
-  /// Moves queued reports to Received. With no live backend this is the
-  /// handoff into the local demo dispatcher.
+  /// Sends queued (offline) reports. Each one is posted as a send, not a draft.
   Future<int> flushQueued();
+
+  /// Creates an immediate URGENT-priority emergency report ("I'm in Danger")
+  /// with live GPS coordinates and pins it to the police queue.
+  Future<Incident> triggerEmergency({
+    required String trackingId,
+    required String countryCode,
+    double? latitude,
+    double? longitude,
+    double? accuracyMeters,
+    bool silentMode = false,
+    bool offline = false,
+  });
+
+  /// Updates the live GPS coordinates on an active emergency report.
+  Future<void> updateEmergencyLocation(
+    String trackingId, {
+    required double latitude,
+    required double longitude,
+    double? accuracyMeters,
+  });
+
+  /// Stops live location sharing on an active emergency report.
+  Future<void> stopEmergencyLocation(String trackingId);
+
+  /// Sends the survivor's silent approach confirmation response
+  /// (`'can_come_out'` or `'abuser_present_do_not_knock'`) after an officer
+  /// taps "I have arrived" on the portal.
+  Future<Incident?> submitApproachResponse(
+    String trackingId, {
+    required String response,
+  });
+
+  /// One-way self-identification: links the survivor's name and contact details
+  /// in the separate `report_identities` table for [trackingId]. Irreversible.
+  Future<Incident?> revealIdentity(
+    String trackingId, {
+    required String fullName,
+    required String channel,
+    required String handle,
+    String? safeNote,
+  });
 }

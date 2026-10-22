@@ -16,7 +16,9 @@ import 'vent_companion.dart';
 import 'vent_models.dart';
 
 class VentFeedView extends StatefulWidget {
-  const VentFeedView({super.key});
+  const VentFeedView({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   State<VentFeedView> createState() => _VentFeedViewState();
@@ -65,6 +67,48 @@ class _VentFeedViewState extends State<VentFeedView> {
   @override
   Widget build(BuildContext context) {
     final i18n = KasatScope.of(context).i18n;
+    final list = ListView(
+      padding: EdgeInsets.fromLTRB(
+        KSpace.xl,
+        widget.embedded ? KSpace.xs : KSpace.xl,
+        KSpace.xl,
+        KSpace.xl,
+      ),
+      children: [
+        Text(
+          i18n.t('vent.blurb'),
+          style: KType.sans(size: 14.5, color: KC.muted, height: 1.55),
+        ),
+        const SizedBox(height: KSpace.lg),
+        KButton(
+          label: i18n.t('vent.compose'),
+          icon: Icons.edit_outlined,
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const _ComposeVent()),
+          ),
+        ),
+        const SizedBox(height: KSpace.xl),
+        if (_posts.isEmpty)
+          Text(i18n.t('vent.empty'), style: KType.sans(color: KC.muted))
+        else
+          for (final post in _posts) ...[
+            _PostCard(
+              post: post,
+              mine: post.authorToken == _token,
+              expiry: _expiry(post),
+              onOpen: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => _VentDetail(postId: post.id),
+                ),
+              ),
+            ),
+            const SizedBox(height: KSpace.md),
+          ],
+      ],
+    );
+
+    if (widget.embedded) return list;
+
     return Scaffold(
       backgroundColor: KC.canvas,
       body: SoftBackdrop(
@@ -84,39 +128,7 @@ class _VentFeedViewState extends State<VentFeedView> {
                   ],
                 ),
               ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(KSpace.xl),
-                  children: [
-                    Text(i18n.t('vent.blurb'), style: KType.sans(size: 14.5, color: KC.muted, height: 1.55)),
-                    const SizedBox(height: KSpace.lg),
-                    KButton(
-                      label: i18n.t('vent.compose'),
-                      icon: Icons.edit_outlined,
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(builder: (_) => const _ComposeVent()),
-                      ),
-                    ),
-                    const SizedBox(height: KSpace.xl),
-                    if (_posts.isEmpty)
-                      Text(i18n.t('vent.empty'), style: KType.sans(color: KC.muted))
-                    else
-                      for (final post in _posts) ...[
-                        _PostCard(
-                          post: post,
-                          mine: post.authorToken == _token,
-                          expiry: _expiry(post),
-                          onOpen: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => _VentDetail(postId: post.id),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: KSpace.md),
-                      ],
-                  ],
-                ),
-              ),
+              Expanded(child: list),
             ],
           ),
         ),
@@ -327,10 +339,12 @@ class _VentDetailState extends State<_VentDetail> {
             postId: post.id,
             authorToken: _token,
           );
-    if (mounted) setState(() {
-      _post = post;
-      _private = private;
-    });
+    if (mounted) {
+      setState(() {
+        _post = post;
+        _private = private;
+      });
+    }
   }
 
   @override

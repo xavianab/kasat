@@ -14,8 +14,8 @@ void main() {
 
     expect(find.text('Tell us what happened'), findsOneWidget);
     expect(find.text('Check my case'), findsOneWidget);
-    expect(find.text('Get help now'), findsOneWidget);
-    expect(find.text('Community notices'), findsOneWidget);
+    expect(find.text('Hotlines & support'), findsOneWidget);
+    expect(find.text('Notices'), findsOneWidget);
     expect(find.text('Vent here'), findsOneWidget);
     expect(find.byKey(MoreMenu.buttonKey), findsOneWidget);
   });

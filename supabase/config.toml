@@ -1,0 +1,23 @@
+project_id = "kasat-shared"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+
+[functions.notify-station]
+verify_jwt = false
+
+[realtime]
+enabled = true

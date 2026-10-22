@@ -31,8 +31,9 @@ class HelpSomeoneView extends StatelessWidget {
     (
       Icons.favorite_outline_rounded,
       'Offer a number, not advice',
-      'Get help now has lines for their country. Sit with them while they '
-          'call if they want that. Do not dial for them unless they ask.',
+      'Hotlines & support connects to EWLA 7711 and other support lines, '
+          'not police. Sit with them while they call if they want that. Do '
+          'not dial for them unless they ask.',
     ),
     (
       Icons.nightlight_outlined,

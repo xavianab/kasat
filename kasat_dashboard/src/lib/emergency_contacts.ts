@@ -24,10 +24,19 @@ export const emergencyContactsByCountry: Record<string, EmergencyContact[]> = {
   ET: [
     {
       name: "Ethiopian Federal Police",
-      number: "+251-000-000-001",
+      number: "991",
       kind: "federalPolice",
-      hours: "Placeholder",
-      blurb: "National police response and criminal reporting.",
+      hours: "24/7 — Verify 991 placeholder",
+      blurb: "Addis Ababa Police Commission / Federal Police emergency dispatch (991).",
+      verified: false,
+    },
+    {
+      name: "EWLA Toll-Free GBV Hotline (7711)",
+      number: "7711",
+      kind: "womensAffairs",
+      hours: "Toll-free GBV hotline (Amharic, Afan Oromo, Tigrigna)",
+      blurb:
+        "Ethiopian Women Lawyers Association (EWLA) confidential GBV support, crisis counselling, and legal guidance — separate from police.",
       verified: false,
     },
     {

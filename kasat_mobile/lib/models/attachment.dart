@@ -9,6 +9,8 @@ class Attachment {
     required this.strippedMetadata,
     this.width,
     this.height,
+    this.sha256,
+    this.remoteObjectKey,
   });
 
   final String id;
@@ -29,6 +31,32 @@ class Attachment {
   final int? width;
   final int? height;
 
+  /// SHA-256 hex digest computed over the scrubbed image bytes immediately
+  /// after EXIF stripping. Stored with the server-side `created_at` UTC
+  /// timestamp to preserve chain of custody without retaining device metadata.
+  final String? sha256;
+
+  /// Populated once the scrubbed file has been uploaded to Supabase Storage.
+  final String? remoteObjectKey;
+
+  Attachment copyWith({
+    String? sha256,
+    String? remoteObjectKey,
+  }) {
+    return Attachment(
+      id: id,
+      label: label,
+      mimeType: mimeType,
+      byteSize: byteSize,
+      storagePath: storagePath,
+      strippedMetadata: strippedMetadata,
+      width: width,
+      height: height,
+      sha256: sha256 ?? this.sha256,
+      remoteObjectKey: remoteObjectKey ?? this.remoteObjectKey,
+    );
+  }
+
   bool get isImage => mimeType.startsWith('image/');
 
   String get sizeLabel {
@@ -48,6 +76,8 @@ class Attachment {
         'strippedMetadata': strippedMetadata,
         'width': width,
         'height': height,
+        'sha256': sha256,
+        'remoteObjectKey': remoteObjectKey,
       };
 
   static Attachment fromJson(Map<String, dynamic> json) {
@@ -60,6 +90,8 @@ class Attachment {
       strippedMetadata: json['strippedMetadata'] as bool,
       width: json['width'] as int?,
       height: json['height'] as int?,
+      sha256: json['sha256'] as String?,
+      remoteObjectKey: json['remoteObjectKey'] as String?,
     );
   }
 }

@@ -22,17 +22,17 @@ void main() {
         countryCode: 'ET',
       );
 
-  test('offline submit is queued, not received', () async {
+  test('offline submit is queued, not sent', () async {
     final incident = await repo.submit(draft(), trackingId: 'KST-QTEST', offline: true);
     expect(incident.status, IncidentStatus.queued);
     expect(await repo.queuedCount(), greaterThan(0));
   });
 
-  test('flushQueued moves waiting reports to received', () async {
+  test('flushQueued sends waiting reports', () async {
     await repo.submit(draft(), trackingId: 'KST-FLUSH', offline: true);
     final n = await repo.flushQueued();
     expect(n, greaterThan(0));
-    expect((await repo.lookup('KST-FLUSH'))?.status, IncidentStatus.received);
+    expect((await repo.lookup('KST-FLUSH'))?.status, IncidentStatus.sent);
     expect(await repo.queuedCount(), 0);
   });
 }

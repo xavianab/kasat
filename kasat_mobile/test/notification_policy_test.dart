@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kasat_mobile/core/kasat_config.dart';
 import 'package:kasat_mobile/core/notification_policy.dart';
 import 'package:kasat_mobile/models/approx_location.dart';
 import 'package:kasat_mobile/models/incident.dart';
@@ -16,7 +17,7 @@ void main() {
     category: IncidentCategory.trafficking,
     description: 'He said he would kill me if I told the police anything.',
     priority: IncidentPriority.critical,
-    status: IncidentStatus.underInvestigation,
+    status: IncidentStatus.underReview,
     countryCode: 'ET',
     submittedAt: DateTime(2026, 3, 4, 21, 15),
     updatedAt: DateTime(2026, 3, 4, 22, 30),
@@ -31,6 +32,10 @@ void main() {
   );
 
   group('NotificationPolicy', () {
+    test('does not push police status changes to her phone', () {
+      expect(KasatConfig.survivorStatusPush, isFalse);
+    });
+
     test('emits the same generic copy for a status change', () {
       final notification = NotificationPolicy.forStatusChange(incident);
 

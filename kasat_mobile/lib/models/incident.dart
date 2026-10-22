@@ -46,6 +46,11 @@ class IncidentDraft {
     required this.countryCode,
     this.location,
     this.attachments = const [],
+    this.isEmergency = false,
+    this.silentMode = false,
+    this.liveLatitude,
+    this.liveLongitude,
+    this.liveAccuracyMeters,
   });
 
   final IncidentCategory category;
@@ -59,6 +64,11 @@ class IncidentDraft {
 
   final ApproxLocation? location;
   final List<Attachment> attachments;
+  final bool isEmergency;
+  final bool silentMode;
+  final double? liveLatitude;
+  final double? liveLongitude;
+  final double? liveAccuracyMeters;
 }
 
 /// A submitted report. [trackingId] is minted on the handset and is the only
@@ -78,6 +88,26 @@ class Incident {
     this.location,
     this.attachments = const [],
     this.assignedStation,
+    this.isEmergency = false,
+    this.silentMode = false,
+    this.liveLatitude,
+    this.liveLongitude,
+    this.liveAccuracyMeters,
+    this.locationUpdatedAt,
+    this.liveLocationActive = false,
+    this.officerArrivedAtUtc,
+    this.approachResponseWindowSec = 90,
+    this.approachResponse,
+    this.approachRespondedAtUtc,
+    this.identityRevealed = false,
+    this.revealedName,
+    this.revealedChannel,
+    this.revealedHandle,
+    this.evidenceSha256,
+    this.clientEvidenceSha256,
+    this.evidenceVerifiedAtUtc,
+    this.evidenceIntegrityStatus,
+    this.serverCreatedAtUtc,
   });
 
   final String trackingId;
@@ -97,11 +127,69 @@ class Incident {
   final List<Attachment> attachments;
   final String? assignedStation;
 
+  /// True only for reports created by the "I'm in Danger" button.
+  final bool isEmergency;
+  final bool silentMode;
+  final double? liveLatitude;
+  final double? liveLongitude;
+  final double? liveAccuracyMeters;
+  final DateTime? locationUpdatedAt;
+  final bool liveLocationActive;
+
+  /// Officer silent approach confirmation state.
+  final DateTime? officerArrivedAtUtc;
+  final int approachResponseWindowSec;
+
+  /// `'can_come_out'` | `'abuser_present_do_not_knock'` | `'no_response'` | null
+  final String? approachResponse;
+  final DateTime? approachRespondedAtUtc;
+
+  /// One-way optional self-identification state.
+  final bool identityRevealed;
+  final String? revealedName;
+  final String? revealedChannel;
+  final String? revealedHandle;
+
+  /// Authoritative SHA-256 hex digest computed server-side from received bytes.
+  final String? evidenceSha256;
+
+  /// Handset-computed SHA-256 hex digest used only as a transport-integrity check.
+  final String? clientEvidenceSha256;
+
+  /// Server UTC timestamp when the authoritative SHA-256 was computed.
+  final DateTime? evidenceVerifiedAtUtc;
+
+  /// 'none' | 'pending_server_hash' | 'verified' | 'mismatch'
+  final String? evidenceIntegrityStatus;
+
+  final DateTime? serverCreatedAtUtc;
+
   Incident copyWith({
     IncidentStatus? status,
     DateTime? updatedAt,
     List<StatusEvent>? history,
     String? assignedStation,
+    List<Attachment>? attachments,
+    bool? isEmergency,
+    bool? silentMode,
+    double? liveLatitude,
+    double? liveLongitude,
+    double? liveAccuracyMeters,
+    DateTime? locationUpdatedAt,
+    bool? liveLocationActive,
+    DateTime? officerArrivedAtUtc,
+    int? approachResponseWindowSec,
+    String? approachResponse,
+    DateTime? approachRespondedAtUtc,
+    bool? identityRevealed,
+    String? revealedName,
+    String? revealedChannel,
+    String? revealedHandle,
+    String? evidenceSha256,
+    String? clientEvidenceSha256,
+    DateTime? evidenceVerifiedAtUtc,
+    String? evidenceIntegrityStatus,
+    DateTime? serverCreatedAtUtc,
   }) {
     return Incident(
       trackingId: trackingId,
@@ -114,8 +202,32 @@ class Incident {
       updatedAt: updatedAt ?? this.updatedAt,
       history: history ?? this.history,
       location: location,
-      attachments: attachments,
+      attachments: attachments ?? this.attachments,
       assignedStation: assignedStation ?? this.assignedStation,
+      isEmergency: isEmergency ?? this.isEmergency,
+      silentMode: silentMode ?? this.silentMode,
+      liveLatitude: liveLatitude ?? this.liveLatitude,
+      liveLongitude: liveLongitude ?? this.liveLongitude,
+      liveAccuracyMeters: liveAccuracyMeters ?? this.liveAccuracyMeters,
+      locationUpdatedAt: locationUpdatedAt ?? this.locationUpdatedAt,
+      liveLocationActive: liveLocationActive ?? this.liveLocationActive,
+      officerArrivedAtUtc: officerArrivedAtUtc ?? this.officerArrivedAtUtc,
+      approachResponseWindowSec:
+          approachResponseWindowSec ?? this.approachResponseWindowSec,
+      approachResponse: approachResponse ?? this.approachResponse,
+      approachRespondedAtUtc:
+          approachRespondedAtUtc ?? this.approachRespondedAtUtc,
+      identityRevealed: identityRevealed ?? this.identityRevealed,
+      revealedName: revealedName ?? this.revealedName,
+      revealedChannel: revealedChannel ?? this.revealedChannel,
+      revealedHandle: revealedHandle ?? this.revealedHandle,
+      evidenceSha256: evidenceSha256 ?? this.evidenceSha256,
+      clientEvidenceSha256: clientEvidenceSha256 ?? this.clientEvidenceSha256,
+      evidenceVerifiedAtUtc:
+          evidenceVerifiedAtUtc ?? this.evidenceVerifiedAtUtc,
+      evidenceIntegrityStatus:
+          evidenceIntegrityStatus ?? this.evidenceIntegrityStatus,
+      serverCreatedAtUtc: serverCreatedAtUtc ?? this.serverCreatedAtUtc,
     );
   }
 
@@ -132,6 +244,26 @@ class Incident {
         'location': location?.toJson(),
         'attachments': attachments.map((a) => a.toJson()).toList(),
         'assignedStation': assignedStation,
+        'isEmergency': isEmergency,
+        'silentMode': silentMode,
+        'liveLatitude': liveLatitude,
+        'liveLongitude': liveLongitude,
+        'liveAccuracyMeters': liveAccuracyMeters,
+        'locationUpdatedAt': locationUpdatedAt?.toIso8601String(),
+        'liveLocationActive': liveLocationActive,
+        'officerArrivedAtUtc': officerArrivedAtUtc?.toIso8601String(),
+        'approachResponseWindowSec': approachResponseWindowSec,
+        'approachResponse': approachResponse,
+        'approachRespondedAtUtc': approachRespondedAtUtc?.toIso8601String(),
+        'identityRevealed': identityRevealed,
+        'revealedName': revealedName,
+        'revealedChannel': revealedChannel,
+        'revealedHandle': revealedHandle,
+        'evidenceSha256': evidenceSha256,
+        'clientEvidenceSha256': clientEvidenceSha256,
+        'evidenceVerifiedAtUtc': evidenceVerifiedAtUtc?.toIso8601String(),
+        'evidenceIntegrityStatus': evidenceIntegrityStatus,
+        'serverCreatedAtUtc': serverCreatedAtUtc?.toIso8601String(),
       };
 
   static Incident fromJson(Map<String, dynamic> json) {
@@ -154,6 +286,37 @@ class Incident {
           .map((e) => Attachment.fromJson(e as Map<String, dynamic>))
           .toList(),
       assignedStation: json['assignedStation'] as String?,
+      isEmergency: json['isEmergency'] as bool? ?? false,
+      silentMode: json['silentMode'] as bool? ?? false,
+      liveLatitude: (json['liveLatitude'] as num?)?.toDouble(),
+      liveLongitude: (json['liveLongitude'] as num?)?.toDouble(),
+      liveAccuracyMeters: (json['liveAccuracyMeters'] as num?)?.toDouble(),
+      locationUpdatedAt: json['locationUpdatedAt'] == null
+          ? null
+          : DateTime.tryParse(json['locationUpdatedAt'] as String),
+      liveLocationActive: json['liveLocationActive'] as bool? ?? false,
+      officerArrivedAtUtc: json['officerArrivedAtUtc'] == null
+          ? null
+          : DateTime.tryParse(json['officerArrivedAtUtc'] as String),
+      approachResponseWindowSec:
+          (json['approachResponseWindowSec'] as num?)?.toInt() ?? 90,
+      approachResponse: json['approachResponse'] as String?,
+      approachRespondedAtUtc: json['approachRespondedAtUtc'] == null
+          ? null
+          : DateTime.tryParse(json['approachRespondedAtUtc'] as String),
+      identityRevealed: json['identityRevealed'] as bool? ?? false,
+      revealedName: json['revealedName'] as String?,
+      revealedChannel: json['revealedChannel'] as String?,
+      revealedHandle: json['revealedHandle'] as String?,
+      evidenceSha256: json['evidenceSha256'] as String?,
+      clientEvidenceSha256: json['clientEvidenceSha256'] as String?,
+      evidenceVerifiedAtUtc: json['evidenceVerifiedAtUtc'] == null
+          ? null
+          : DateTime.tryParse(json['evidenceVerifiedAtUtc'] as String),
+      evidenceIntegrityStatus: json['evidenceIntegrityStatus'] as String?,
+      serverCreatedAtUtc: json['serverCreatedAtUtc'] == null
+          ? null
+          : DateTime.tryParse(json['serverCreatedAtUtc'] as String),
     );
   }
 }

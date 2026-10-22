@@ -28,16 +28,64 @@ enum LocationPrecision {
   }
 }
 
-/// A coordinate that has already been snapped to a grid. Kasat never stores or
-/// transmits the raw value the survivor typed — [ApproxLocation.snapped] is the
-/// only constructor, so an exact fix cannot leak by accident.
+/// Official 11 sub-cities (Kifle Ketema) of Addis Ababa, Ethiopia, including
+/// Lemi Kura (established October 2020), with English and Amharic names.
+class AddisSubCity {
+  const AddisSubCity({
+    required this.nameEn,
+    required this.nameAm,
+  });
+
+  final String nameEn;
+  final String nameAm;
+
+  String get bilingualLabel => '$nameEn ($nameAm)';
+}
+
+const kAddisAbabaSubCities = <AddisSubCity>[
+  AddisSubCity(nameEn: 'Bole', nameAm: 'ቦሌ'),
+  AddisSubCity(nameEn: 'Yeka', nameAm: 'የካ'),
+  AddisSubCity(nameEn: 'Kirkos', nameAm: 'ቂርቆስ'),
+  AddisSubCity(nameEn: 'Arada', nameAm: 'አራዳ'),
+  AddisSubCity(nameEn: 'Lideta', nameAm: 'ልደታ'),
+  AddisSubCity(nameEn: 'Kolfe Keranio', nameAm: 'ኮልፌ ቀራኒዮ'),
+  AddisSubCity(nameEn: 'Gulele', nameAm: 'ጉለሌ'),
+  AddisSubCity(nameEn: 'Addis Ketema', nameAm: 'አዲስ ከተማ'),
+  AddisSubCity(nameEn: 'Nifas Silk-Lafto', nameAm: 'ንፋስ ስልክ ላፍቶ'),
+  AddisSubCity(nameEn: 'Akaky Kaliti', nameAm: 'አቃቂ ቃሊቲ'),
+  AddisSubCity(nameEn: 'Lemi Kura', nameAm: 'ለሚ ኩራ'),
+];
+
+/// A coordinate that has already been snapped to a grid, OR a human-readable
+/// Ethiopian sub-city + nearest landmark description.
 class ApproxLocation {
   const ApproxLocation._({
     required this.latitude,
     required this.longitude,
     required this.precision,
+    this.subCity,
     this.note,
   });
+
+  /// Constructs an optional Ethiopian location from an Addis Ababa sub-city
+  /// and/or a free-text nearest landmark. Returns null if both are blank.
+  static ApproxLocation? fromSubCityAndLandmark({
+    String? subCity,
+    String? landmark,
+  }) {
+    final cleanSubCity =
+        (subCity == null || subCity.trim().isEmpty) ? null : subCity.trim();
+    final cleanLandmark =
+        (landmark == null || landmark.trim().isEmpty) ? null : landmark.trim();
+    if (cleanSubCity == null && cleanLandmark == null) return null;
+    return ApproxLocation._(
+      latitude: 0,
+      longitude: 0,
+      precision: LocationPrecision.district,
+      subCity: cleanSubCity,
+      note: cleanLandmark,
+    );
+  }
 
   /// Rounds [latitude]/[longitude] onto a grid whose cell size matches
   /// [precision], so every point inside the same cell reports one coordinate.
@@ -71,7 +119,10 @@ class ApproxLocation {
   final double longitude;
   final LocationPrecision precision;
 
-  /// Free-text landmark, e.g. "near the north bus terminal".
+  /// Addis Ababa sub-city name (e.g. "Bole", "Lemi Kura").
+  final String? subCity;
+
+  /// Free-text landmark, e.g. "Near Bole Medhanialem Church, opposite Edna Mall".
   final String? note;
 
   static double _snap(double value, double step) {
@@ -87,7 +138,19 @@ class ApproxLocation {
     return 1;
   }
 
+  /// Human-readable location string for sub-city + landmark, or snapped grid
+  /// coordinates when constructed via [ApproxLocation.snapped].
+  String get displayLabel {
+    if (subCity != null && note != null) return '$subCity — $note';
+    if (subCity != null) return subCity!;
+    if (latitude == 0 && longitude == 0 && note != null) return note!;
+    return coordinateLabel;
+  }
+
   String get coordinateLabel {
+    if (subCity != null || (latitude == 0 && longitude == 0 && note != null)) {
+      return displayLabel;
+    }
     final d = _displayDecimals;
     final lat = '${latitude.abs().toStringAsFixed(d)}°${latitude >= 0 ? 'N' : 'S'}';
     final lng = '${longitude.abs().toStringAsFixed(d)}°${longitude >= 0 ? 'E' : 'W'}';
@@ -98,14 +161,18 @@ class ApproxLocation {
         'latitude': latitude,
         'longitude': longitude,
         'precision': precision.code,
+        'subCity': subCity,
         'note': note,
       };
 
   static ApproxLocation fromJson(Map<String, dynamic> json) {
     return ApproxLocation._(
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
-      precision: LocationPrecision.fromCode(json['precision'] as String),
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0,
+      precision: LocationPrecision.fromCode(
+        json['precision'] as String? ?? 'DISTRICT',
+      ),
+      subCity: json['subCity'] as String?,
       note: json['note'] as String?,
     );
   }

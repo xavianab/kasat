@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:crypto/crypto.dart';
+
 import 'kasat_config.dart';
 
 class ScrubbedMedia {
@@ -11,6 +13,7 @@ class ScrubbedMedia {
     required this.width,
     required this.height,
     required this.strippedMetadata,
+    required this.sha256,
   });
 
   final Uint8List bytes;
@@ -18,6 +21,11 @@ class ScrubbedMedia {
   final int width;
   final int height;
   final bool strippedMetadata;
+
+  /// Hex-encoded SHA-256 digest of the scrubbed pixel-only PNG file.
+  /// Stored with the server-side UTC `created_at` timestamp to preserve
+  /// chain-of-custody without retaining EXIF device or GPS metadata.
+  final String sha256;
 }
 
 /// Strips identifying metadata out of picked media before it touches storage.
@@ -51,15 +59,18 @@ abstract final class MediaScrubber {
       if (data == null) {
         throw StateError('Attachment could not be re-encoded.');
       }
+      final outBytes = data.buffer.asUint8List();
+      final digest = sha256.convert(outBytes).toString();
       return ScrubbedMedia(
         // dart:ui only ships a PNG encoder, so scrubbed stills are larger than
         // the JPEG that went in. Acceptable for the MVP; a server-side
         // re-encode is the follow-up.
-        bytes: data.buffer.asUint8List(),
+        bytes: outBytes,
         mimeType: 'image/png',
         width: image.width,
         height: image.height,
         strippedMetadata: true,
+        sha256: digest,
       );
     } finally {
       image.dispose();

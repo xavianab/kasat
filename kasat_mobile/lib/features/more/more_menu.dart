@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../../core/kasat_config.dart';
 import '../../theme/kasat_theme.dart';
-import '../accounts/account_setup_view.dart';
 import '../duress/duress_setup_view.dart';
 import '../i18n/language_view.dart';
 import '../settings/settings_view.dart';
@@ -12,7 +12,7 @@ import 'how_it_works_view.dart';
 import 'privacy_view.dart';
 import 'safety_plan_view.dart';
 
-/// Optional tools that sit beside the four main actions. Opening this must
+/// Optional tools that sit beside the main actions. Opening this must
 /// never change report, tracking, help, or notices.
 class MoreMenu {
   static const buttonKey = Key('more-menu');
@@ -42,6 +42,7 @@ class MoreMenuSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final i18n = KasatScope.of(context).i18n;
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -69,65 +70,60 @@ class MoreMenuSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: KSpace.lg),
-              Text(KasatScope.of(context).i18n.t('more.title'), style: KType.serif(size: 22)),
+              Text(i18n.t('more.title'), style: KType.serif(size: 22)),
               const SizedBox(height: 4),
               Text(
-                KasatScope.of(context).i18n.t('more.blurb'),
+                i18n.t('more.blurb'),
                 style: KType.sans(size: 13.5, color: KC.muted, height: 1.4),
               ),
               const SizedBox(height: KSpace.lg),
               _MoreRow(
                 icon: Icons.chat_bubble_outline_rounded,
-                title: KasatScope.of(context).i18n.t('welcome.vent'),
-                detail: KasatScope.of(context).i18n.t('vent.blurb'),
+                title: i18n.t('welcome.vent'),
+                detail: i18n.t('vent.blurb'),
                 onTap: () => _open(context, const VentFeedView()),
               ),
               _MoreRow(
                 icon: Icons.route_outlined,
-                title: KasatScope.of(context).i18n.t('more.how'),
-                detail: KasatScope.of(context).i18n.t('more.howDetail'),
+                title: i18n.t('more.how'),
+                detail: i18n.t('more.howDetail'),
                 onTap: () => _open(context, const HowItWorksView()),
               ),
               _MoreRow(
                 icon: Icons.checklist_outlined,
-                title: KasatScope.of(context).i18n.t('more.plan'),
-                detail: KasatScope.of(context).i18n.t('more.planDetail'),
+                title: i18n.t('more.plan'),
+                detail: i18n.t('more.planDetail'),
                 onTap: () => _open(context, const SafetyPlanView()),
               ),
               _MoreRow(
                 icon: Icons.diversity_1_outlined,
-                title: KasatScope.of(context).i18n.t('more.helpSomeone'),
-                detail: KasatScope.of(context).i18n.t('more.helpSomeoneDetail'),
+                title: i18n.t('more.helpSomeone'),
+                detail: i18n.t('more.helpSomeoneDetail'),
                 onTap: () => _open(context, const HelpSomeoneView()),
               ),
               _MoreRow(
                 icon: Icons.visibility_off_outlined,
-                title: KasatScope.of(context).i18n.t('more.privacy'),
-                detail: KasatScope.of(context).i18n.t('more.privacyDetail'),
+                title: i18n.t('more.privacy'),
+                detail: i18n.t('more.privacyDetail'),
                 onTap: () => _open(context, const PrivacyView()),
               ),
               _MoreRow(
                 icon: Icons.translate_rounded,
-                title: KasatScope.of(context).i18n.t('more.language'),
-                detail: KasatScope.of(context).i18n.t('more.languageDetail'),
+                title: i18n.t('more.language'),
+                detail: i18n.t('more.languageDetail'),
                 onTap: () => _open(context, const LanguageView()),
               ),
-              _MoreRow(
-                icon: Icons.badge_outlined,
-                title: KasatScope.of(context).i18n.t('more.account'),
-                detail: KasatScope.of(context).i18n.t('more.accountDetail'),
-                onTap: () => _open(context, const AccountSetupView()),
-              ),
-              _MoreRow(
-                icon: Icons.vibration_rounded,
-                title: KasatScope.of(context).i18n.t('more.duress'),
-                detail: KasatScope.of(context).i18n.t('more.duressDetail'),
-                onTap: () => _open(context, const DuressSetupView()),
-              ),
+              if (KasatConfig.enableShakeToSms)
+                _MoreRow(
+                  icon: Icons.vibration_rounded,
+                  title: i18n.t('more.duress'),
+                  detail: i18n.t('more.duressDetail'),
+                  onTap: () => _open(context, const DuressSetupView()),
+                ),
               _MoreRow(
                 icon: Icons.tune_rounded,
-                title: KasatScope.of(context).i18n.t('more.settings'),
-                detail: KasatScope.of(context).i18n.t('more.settingsDetail'),
+                title: i18n.t('more.settings'),
+                detail: i18n.t('more.settingsDetail'),
                 onTap: () => _open(context, const SettingsView()),
               ),
             ],

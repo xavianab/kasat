@@ -58,7 +58,8 @@ class I18n extends ChangeNotifier {
   }
 
   Future<Map<String, String>> _loadJson(String code) async {
-    final raw = await rootBundle.loadString('assets/i18n/$code.json');
+    final raw =
+        await rootBundle.loadString('assets/i18n/$code.json', cache: false);
     final decoded = jsonDecode(raw) as Map<String, dynamic>;
     return decoded.map((k, v) => MapEntry(k, '$v'));
   }
