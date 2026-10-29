@@ -131,3 +131,27 @@ the anon key would enumerate every report in the table.
   encoder, so attachments are larger than the originals.
 - "No IP logging" is a property of the deployment, not the client. It holds
   today only because the MVP makes no network calls at all.
+
+## Project status
+
+Kasat is an early-stage **proof-of-concept MVP**, built to demonstrate the
+concept and support grant applications. The survivor client (`kasat_mobile`)
+is implemented; the operator dashboard (`kasat_dashboard`) is a scaffold.
+
+This code is **not yet production-ready and is not deployed to real users.**
+Before any pilot with real survivors, Kasat will undergo:
+
+- a full architecture hardening pass by professional engineers, and
+- an independent third-party security review / penetration test.
+
+Treat the current code as a reference implementation of the concept, not a
+system to point real reporters at.
+
+## Security
+
+Security is a first-order concern for a tool used by survivors of gender-based
+violence. The codebase has had an internal security audit, and known findings
+are tracked in `SECURITY_TODO.md`.
+
+If you discover a vulnerability, please report it privately to
+hello@kasatapp.com rather than opening a public issue.
