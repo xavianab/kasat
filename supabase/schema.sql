@@ -161,7 +161,11 @@ alter table attachments enable row level security;
 create policy "anonymous attach"
   on attachments for insert
   to anon
-  with check (stripped_metadata);
+  with check (
+    stripped_metadata = true
+    and tracking_id = current_setting('request.headers', true)::json ->> 'x-tracking-id'
+    and exists (select 1 from incidents i where i.tracking_id = attachments.tracking_id)
+  );
 
 create policy "operators read attachments"
   on attachments for select
@@ -177,14 +181,23 @@ on conflict (id) do nothing;
 create policy "anonymous evidence upload"
   on storage.objects for insert
   to anon
-  with check (bucket_id = 'incident-evidence');
+  with check (
+    bucket_id = 'incident-evidence'
+    and position('..' in name) = 0
+    and name ~ '^[A-Z0-9-]{8,16}/[0-9a-fA-F-]{36}\.(png|jpe?g|webp)$'
+  );
 
 create policy "operators read evidence"
   on storage.objects for select
   to authenticated
   using (
     bucket_id = 'incident-evidence'
-    and exists (select 1 from stations where stations.id = auth.uid())
+    and position('..' in name) = 0
+    and exists (
+      select 1 from incidents i
+      where i.tracking_id = split_part(name, '/', 1)
+        and i.assigned_station in (select code from stations)
+    )
   );
 
 -- -------------------------------------------------------------- realtime ----

@@ -199,23 +199,22 @@ create or replace function assign_incident_station()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   sid uuid;
   scode text;
 begin
-  if new.station_id is not null then
-    return new;
-  end if;
+  new.station_id := null;
+  new.assigned_station := null;
 
   select s.id, s.code
     into sid, scode
-    from stations s
+    from public.stations s
    where s.country_code = new.country_code
      and (
-       s.general_area ilike '%' || new.general_area || '%'
-       or new.general_area ilike '%' || s.general_area || '%'
+       position(lower(coalesce(s.general_area, '')) in lower(coalesce(new.general_area, ''))) > 0
+       or position(lower(coalesce(new.general_area, '')) in lower(coalesce(s.general_area, ''))) > 0
      )
    order by length(s.general_area) desc
    limit 1;
@@ -223,14 +222,14 @@ begin
   if sid is null then
     select s.id, s.code
       into sid, scode
-      from stations s
+      from public.stations s
      where s.country_code = new.country_code
      order by s.created_at
      limit 1;
   end if;
 
   if sid is not null then
-    update incidents
+    update public.incidents
        set station_id = sid,
            assigned_station = scode
      where tracking_id = new.tracking_id;
@@ -627,41 +626,44 @@ create or replace function reassign_incident(p_tracking_id text, p_to_officer_id
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
-  sid uuid := officer_station_id();
+  sid uuid := public.officer_station_id();
   oid uuid := auth.uid();
-  rec incidents%rowtype;
+  rec public.incidents%rowtype;
   target_station uuid;
 begin
   if sid is null then
     raise exception 'not an officer';
   end if;
 
-  select * into rec from incidents where tracking_id = p_tracking_id for update;
+  select * into rec from public.incidents where tracking_id = p_tracking_id for update;
   if not found or rec.station_id is distinct from sid then
     raise exception 'not found';
   end if;
+  if rec.claimed_by_officer_id is distinct from oid then
+    raise exception 'not claimant';
+  end if;
 
-  select t.station_id into target_station
-    from officers o
-    join officer_teams t on t.id = o.team_id
+  select coalesce(o.station_id, t.station_id) into target_station
+    from public.officers o
+    left join public.officer_teams t on t.id = o.team_id
    where o.id = p_to_officer_id;
 
   if target_station is distinct from sid then
-    raise exception 'not on this team';
+    raise exception 'not on this station';
   end if;
 
-  update incidents
+  update public.incidents
      set claimed_by_officer_id = p_to_officer_id,
          updated_at = now()
    where tracking_id = p_tracking_id;
 
-  insert into access_audit_log (officer_id, tracking_id, event_type)
-  values (p_to_officer_id, p_tracking_id, 'location_unlock');
+  insert into public.access_audit_log (officer_id, tracking_id, event_type)
+  values (oid, p_tracking_id, 'location_unlock');
 
-  insert into officer_case_notes (tracking_id, officer_id, case_status, note)
+  insert into public.officer_case_notes (tracking_id, officer_id, case_status, note)
   values (
     p_tracking_id,
     oid,
@@ -669,7 +671,7 @@ begin
     'Reassigned to another officer on the GBV unit.'
   );
 
-  return get_case_detail(p_tracking_id);
+  return public.get_case_detail(p_tracking_id);
 end;
 $$;
 

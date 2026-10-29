@@ -8,9 +8,26 @@ type Webhook = {
   old_record?: { status?: string };
 };
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function webhookAuthorized(req: Request): boolean {
+  const secret = Deno.env.get("KASAT_WEBHOOK_SECRET") ?? "";
+  if (!secret) return false;
+  const header =
+    req.headers.get("x-kasat-webhook-secret") ??
+    req.headers.get("x-webhook-secret") ??
+    "";
+  return header === secret;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*" } });
+  }
+
+  if (!webhookAuthorized(req)) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const payload = (await req.json()) as Webhook;
@@ -21,14 +38,19 @@ Deno.serve(async (req) => {
     return Response.json({ skipped: true });
   }
 
+  const stationId = next.station_id?.trim() ?? "";
+  if (!UUID_RE.test(stationId)) {
+    return Response.json({ error: "Invalid station_id" }, { status: 400 });
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   let email: string | null = null;
   let phone: string | null = null;
 
-  if (supabaseUrl && serviceKey && next.station_id) {
+  if (supabaseUrl && serviceKey) {
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/stations?id=eq.${next.station_id}&select=alert_email,alert_phone`,
+      `${supabaseUrl}/rest/v1/stations?id=eq.${encodeURIComponent(stationId)}&select=alert_email,alert_phone`,
       { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
     );
     const rows = (await res.json()) as Array<{ alert_email?: string; alert_phone?: string }>;

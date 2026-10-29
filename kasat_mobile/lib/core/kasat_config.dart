@@ -63,9 +63,10 @@ abstract final class KasatConfig {
   static const descriptionMaxLength = 2000;
   static const descriptionMinLength = 40;
 
-  /// First-pass review for community alerts. Empty means every new post sits
-  /// in the pending queue instead of publishing.
-  static const anthropicApiKey = String.fromEnvironment('ANTHROPIC_API_KEY');
+  /// Anthropic is never called from the handset. Vent and alert review go
+  /// through the `ai-proxy` Edge Function so the API key never ships in the
+  /// binary and the survivor's IP is not sent to a third party.
+  static const anthropicApiKey = '';
   static const anthropicModel = 'claude-sonnet-4-6';
 
   /// PART 2: real source verification. True here so the compose path can be

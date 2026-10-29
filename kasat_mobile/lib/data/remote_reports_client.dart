@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../core/kasat_config.dart';
 import '../models/attachment.dart';
@@ -9,47 +12,56 @@ import '../models/incident.dart';
 import '../models/incident_category.dart';
 import '../models/incident_status.dart';
 
-/// Talks to the shared `reports` and `report_identities` tables in Supabase.
+/// Talks to shared Kasat reports through narrow SECURITY DEFINER RPCs.
+/// Anon never reads or writes `reports` directly.
 class RemoteReportsClient {
   RemoteReportsClient({
     http.Client? httpClient,
     String? supabaseUrl,
     String? supabaseAnonKey,
     Duration? timeout,
+    String? deviceSecret,
   })  : _http = httpClient ?? http.Client(),
         _supabaseUrl = supabaseUrl ?? KasatConfig.supabaseUrl,
         _supabaseAnonKey = supabaseAnonKey ?? KasatConfig.supabaseAnonKey,
-        _timeout = timeout ?? const Duration(seconds: 12);
+        _timeout = timeout ?? const Duration(seconds: 12),
+        _deviceSecretOverride = deviceSecret;
 
   final http.Client _http;
   final String _supabaseUrl;
   final String _supabaseAnonKey;
   final Duration _timeout;
+  final String? _deviceSecretOverride;
+  static const _deviceSecretPrefsKey = 'kasat.device_rl_secret.v1';
 
   bool get enabled => _supabaseUrl.isNotEmpty && _supabaseAnonKey.isNotEmpty;
 
-  Uri _url(String path, [Map<String, String>? query]) {
-    return Uri.parse('$_supabaseUrl/rest/v1/$path')
-        .replace(queryParameters: query);
-  }
+  Uri _rpc(String name) => Uri.parse('$_supabaseUrl/rest/v1/rpc/$name');
 
-  Map<String, String> _headers({String? trackingCode, bool json = true}) {
-    final headers = <String, String>{
-      if (json) 'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'apikey': _supabaseAnonKey,
-      'Authorization': 'Bearer $_supabaseAnonKey',
-      'Prefer': 'return=representation',
-    };
-    if (trackingCode != null) {
-      headers['x-tracking-code'] = trackingCode;
+  Uri _fn(String name) => Uri.parse('$_supabaseUrl/functions/v1/$name');
+
+  Map<String, String> _jsonHeaders() => {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'apikey': _supabaseAnonKey,
+        'Authorization': 'Bearer $_supabaseAnonKey',
+      };
+
+  Future<String> _deviceSecret() async {
+    if (_deviceSecretOverride != null && _deviceSecretOverride.isNotEmpty) {
+      return _deviceSecretOverride;
     }
-    return headers;
+    final prefs = await SharedPreferences.getInstance();
+    var secret = prefs.getString(_deviceSecretPrefsKey);
+    if (secret == null || secret.isEmpty) {
+      secret = base64Url.encode(
+        List<int>.generate(32, (_) => Random.secure().nextInt(256)),
+      );
+      await prefs.setString(_deviceSecretPrefsKey, secret);
+    }
+    return secret;
   }
 
-  /// Uploads the first attachment to Supabase Storage (`report-photos`).
-  /// When [strict] is true and a real on-disk file fails to upload (e.g. flaky
-  /// connection), throws so `flushQueued()` can retry the photo upload later.
   Future<String?> uploadPhotoIfPresent(
     Incident incident, {
     bool strict = false,
@@ -65,25 +77,40 @@ class RemoteReportsClient {
     final file = File(path);
     final exists = await file.exists();
     if (!exists) {
-      // Synthetic path in unit tests — pass through without network I/O.
+      return path;
+    }
+    final accessSecret = incident.accessSecret;
+    if (accessSecret == null || accessSecret.isEmpty) {
+      if (strict) {
+        throw Exception('photo upload requires access secret');
+      }
       return path;
     }
 
     try {
       final bytes = await file.readAsBytes();
-      final ext = first.mimeType.contains('png') ? 'png' : 'jpg';
-      final objectKey = '${incident.trackingId}/${first.id}.$ext';
-      final uploadUrl = Uri.parse(
-        '$_supabaseUrl/storage/v1/object/report-photos/$objectKey',
-      );
+      final ext = first.mimeType.contains('png')
+          ? 'png'
+          : first.mimeType.contains('webp')
+              ? 'webp'
+              : 'jpg';
+      final objectId = RegExp(
+        r'^[0-9a-fA-F-]{36}$',
+      ).hasMatch(first.id)
+          ? first.id
+          : const Uuid().v4();
+      final objectKey = '${incident.trackingId}/$objectId.$ext';
       final res = await _http
           .post(
-            uploadUrl,
+            _fn('upload-evidence'),
             headers: {
               'apikey': _supabaseAnonKey,
               'Authorization': 'Bearer $_supabaseAnonKey',
               'Content-Type': first.mimeType,
-              'x-upsert': 'true',
+              'x-kasat-access-secret': accessSecret,
+              'x-kasat-object-key': objectKey,
+              if (first.sha256 != null && first.sha256!.isNotEmpty)
+                'x-kasat-client-sha256': first.sha256!,
             },
             body: bytes,
           )
@@ -100,55 +127,25 @@ class RemoteReportsClient {
     return path;
   }
 
-  /// Triggers server-side SHA-256 computation over the actual bytes stored in
-  /// `report-photos` via the `verify-evidence` Edge Function. The server
-  /// persists the authoritative `evidence_sha256` and compares against
-  /// [clientSha256] as a transport-integrity check.
   Future<Incident> verifyEvidenceIfUploaded(
     Incident incident, {
     required String? photoUrl,
   }) async {
     if (photoUrl == null || photoUrl.isEmpty) return incident;
-    final clientSha = incident.clientEvidenceSha256 ??
-        (incident.attachments.isNotEmpty
-            ? incident.attachments.first.sha256
-            : null);
+    final secret = incident.accessSecret;
+    if (secret == null || secret.isEmpty) return incident;
     try {
-      final verifyUrl = Uri.parse('$_supabaseUrl/functions/v1/verify-evidence');
       final res = await _http
           .post(
-            verifyUrl,
-            headers: _headers(trackingCode: incident.trackingId),
-            body: jsonEncode({
-              'tracking_code': incident.trackingId,
-              'photo_url': photoUrl,
-              'object_key': photoUrl,
-              'client_sha256': ?clientSha,
-            }),
+            _rpc('lookup_own_report'),
+            headers: _jsonHeaders(),
+            body: jsonEncode({'p_access_secret': secret}),
           )
           .timeout(_timeout);
       if (res.statusCode < 300 && res.body.isNotEmpty) {
-        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
-        if (decoded is Map<String, dynamic>) {
-          final serverSha = decoded['server_sha256'] as String?;
-          final verifiedAt =
-              DateTime.tryParse(decoded['verified_at'] as String? ?? '')
-                  ?.toUtc();
-          final integrityStatus = decoded['integrity_status'] as String?;
-          return incident.copyWith(
-            evidenceSha256: serverSha ?? incident.evidenceSha256,
-            clientEvidenceSha256: clientSha ?? incident.clientEvidenceSha256,
-            evidenceVerifiedAtUtc:
-                verifiedAt ?? incident.evidenceVerifiedAtUtc,
-            evidenceIntegrityStatus:
-                integrityStatus ?? incident.evidenceIntegrityStatus,
-          );
-        }
+        return _fromBody(utf8.decode(res.bodyBytes), incident) ?? incident;
       }
-    } catch (_) {
-      // Non-fatal if Edge Function call is unavailable in unit test mocks;
-      // server hash can also be verified on send() or lookup().
-    }
+    } catch (_) {}
     return incident;
   }
 
@@ -156,27 +153,30 @@ class RemoteReportsClient {
     Incident incident, {
     bool strictPhoto = false,
   }) async {
-    final photoUrl =
-        await uploadPhotoIfPresent(incident, strict: strictPhoto);
-    final body = jsonEncode(
-      _toRow(incident, status: 'draft', sentAt: null, photoUrl: photoUrl),
-    );
-    final res = await _http
+    final clientSha = incident.clientEvidenceSha256 ??
+        (incident.attachments.isNotEmpty
+            ? incident.attachments.first.sha256
+            : null);
+    final createRes = await _http
         .post(
-          _url('reports'),
-          headers: _headers(trackingCode: incident.trackingId),
-          body: body,
+          _rpc('create_draft_report'),
+          headers: _jsonHeaders(),
+          body: jsonEncode({
+            'p_incident_type': incident.category.code,
+            'p_description': incident.description,
+            'p_approx_location': incident.location?.displayLabel,
+            'p_client_sha256': ?clientSha,
+            'p_tracking_code': incident.trackingId,
+          }),
         )
         .timeout(_timeout);
-    if (res.statusCode >= 300) {
-      throw Exception('draft insert failed (${res.statusCode})');
+    if (createRes.statusCode >= 300) {
+      throw Exception('draft insert failed (${createRes.statusCode})');
     }
-    final updatedAttachments = _withRemoteKey(incident.attachments, photoUrl);
-    final base = _fromBody(
-          utf8.decode(res.bodyBytes),
-          incident.copyWith(attachments: updatedAttachments),
-        ) ??
-        incident.copyWith(attachments: updatedAttachments);
+    var created = _fromBody(utf8.decode(createRes.bodyBytes), incident) ?? incident;
+    final photoUrl = await uploadPhotoIfPresent(created, strict: strictPhoto);
+    final updatedAttachments = _withRemoteKey(created.attachments, photoUrl);
+    final base = created.copyWith(attachments: updatedAttachments);
     return verifyEvidenceIfUploaded(base, photoUrl: photoUrl);
   }
 
@@ -184,33 +184,32 @@ class RemoteReportsClient {
     Incident incident, {
     bool strictPhoto = false,
   }) async {
+    var working = incident;
+    if (working.accessSecret == null || working.accessSecret!.isEmpty) {
+      working = await insertDraft(working, strictPhoto: strictPhoto);
+    }
     final photoUrl =
-        await uploadPhotoIfPresent(incident, strict: strictPhoto);
-    final sentAt = DateTime.now().toUtc().toIso8601String();
-    final clientSha = incident.clientEvidenceSha256 ??
-        (incident.attachments.isNotEmpty
-            ? incident.attachments.first.sha256
+        await uploadPhotoIfPresent(working, strict: strictPhoto);
+    final clientSha = working.clientEvidenceSha256 ??
+        (working.attachments.isNotEmpty
+            ? working.attachments.first.sha256
             : null);
-
-    final patchBody = <String, dynamic>{
-      'status': 'sent',
-      'sent_at': sentAt,
-      'photo_url': ?photoUrl,
-      'client_evidence_sha256': ?clientSha,
-    };
-
     final res = await _http
-        .patch(
-          _url('reports', {'tracking_code': 'eq.${incident.trackingId}'}),
-          headers: _headers(trackingCode: incident.trackingId),
-          body: jsonEncode(patchBody),
+        .post(
+          _rpc('send_draft_report'),
+          headers: _jsonHeaders(),
+          body: jsonEncode({
+            'p_access_secret': working.accessSecret,
+            'p_photo_url': ?photoUrl,
+            'p_client_sha256': ?clientSha,
+          }),
         )
         .timeout(_timeout);
     if (res.statusCode >= 300) {
       throw Exception('send failed (${res.statusCode})');
     }
-    final updatedAttachments = _withRemoteKey(incident.attachments, photoUrl);
-    final base = incident.copyWith(
+    final updatedAttachments = _withRemoteKey(working.attachments, photoUrl);
+    final base = working.copyWith(
       attachments: updatedAttachments,
       clientEvidenceSha256: clientSha,
     );
@@ -241,10 +240,7 @@ class RemoteReportsClient {
     return 'Bole — Near Edna Mall, 200m east toward Meles Academy';
   }
 
-  /// Inserts an URGENT-priority emergency row directly with `status = 'sent'`
-  /// and `is_emergency = true`. Triggers `reports_emergency_audit` in Postgres.
   Future<Incident> insertEmergency(Incident incident) async {
-    final nowIso = DateTime.now().toUtc().toIso8601String();
     final lat = incident.liveLatitude ??
         (KasatConfig.isDemoLocationActive
             ? KasatConfig.demoSurvivorLatitude
@@ -258,25 +254,21 @@ class RemoteReportsClient {
             ? KasatConfig.demoSurvivorLandmark
             : addisSubCityLandmarkFor(lat, lon));
     final payload = <String, dynamic>{
-      'tracking_code': incident.trackingId,
-      'incident_type': IncidentCategory.criticalEmergency.code,
-      'approx_location': landmarkLabel,
-      'description': incident.description,
-      'status': 'sent',
-      'sent_at': nowIso,
-      'is_emergency': true,
-      'silent_mode': incident.silentMode,
-      'live_latitude': lat,
-      'live_longitude': lon,
-      'live_accuracy_meters': incident.liveAccuracyMeters,
-      'location_updated_at': lat != null ? nowIso : null,
-      'live_location_active': true,
+      'p_description': incident.description,
+      'p_approx_location': landmarkLabel,
+      'p_silent_mode': incident.silentMode,
+      'p_latitude': ?lat,
+      'p_longitude': ?lon,
+      'p_accuracy_meters': ?incident.liveAccuracyMeters,
+      'p_device_secret': await _deviceSecret(),
+      'p_tracking_code': incident.trackingId,
+      'p_access_secret': ?incident.accessSecret,
     };
 
     final res = await _http
         .post(
-          _url('reports'),
-          headers: _headers(trackingCode: incident.trackingId),
+          _fn('emergency-alert'),
+          headers: _jsonHeaders(),
           body: jsonEncode(payload),
         )
         .timeout(_timeout);
@@ -292,18 +284,21 @@ class RemoteReportsClient {
     required double latitude,
     required double longitude,
     double? accuracyMeters,
+    String? accessSecret,
   }) async {
-    final nowIso = DateTime.now().toUtc().toIso8601String();
+    final secret = accessSecret ?? await _secretFor(trackingCode);
+    if (secret == null) {
+      throw Exception('live location update failed (missing secret)');
+    }
     final res = await _http
-        .patch(
-          _url('reports', {'tracking_code': 'eq.$trackingCode'}),
-          headers: _headers(trackingCode: trackingCode),
+        .post(
+          _rpc('update_emergency_location'),
+          headers: _jsonHeaders(),
           body: jsonEncode({
-            'live_latitude': latitude,
-            'live_longitude': longitude,
-            'live_accuracy_meters': ?accuracyMeters,
-            'location_updated_at': nowIso,
-            'live_location_active': true,
+            'p_access_secret': secret,
+            'p_latitude': latitude,
+            'p_longitude': longitude,
+            'p_accuracy_meters': ?accuracyMeters,
           }),
         )
         .timeout(_timeout);
@@ -312,14 +307,19 @@ class RemoteReportsClient {
     }
   }
 
-  Future<void> stopEmergencyLocation(String trackingCode) async {
+  Future<void> stopEmergencyLocation(
+    String trackingCode, {
+    String? accessSecret,
+  }) async {
+    final secret = accessSecret ?? await _secretFor(trackingCode);
+    if (secret == null) {
+      throw Exception('stop live location failed (missing secret)');
+    }
     final res = await _http
-        .patch(
-          _url('reports', {'tracking_code': 'eq.$trackingCode'}),
-          headers: _headers(trackingCode: trackingCode),
-          body: jsonEncode({
-            'live_location_active': false,
-          }),
+        .post(
+          _rpc('stop_emergency_location'),
+          headers: _jsonHeaders(),
+          body: jsonEncode({'p_access_secret': secret}),
         )
         .timeout(_timeout);
     if (res.statusCode >= 300) {
@@ -327,44 +327,50 @@ class RemoteReportsClient {
     }
   }
 
-  /// Sends the survivor's approach confirmation (`'can_come_out'` or
-  /// `'abuser_present_do_not_knock'`) via the `submit_approach_response` RPC.
   Future<Incident?> submitApproachResponse(
     String trackingCode, {
     required String response,
     Incident? local,
   }) async {
+    final secret = local?.accessSecret;
+    if (secret == null || secret.isEmpty) {
+      throw Exception('submit approach response failed (missing secret)');
+    }
     final res = await _http
         .post(
-          _url('rpc/submit_approach_response'),
-          headers: _headers(trackingCode: trackingCode),
+          _rpc('submit_approach_response'),
+          headers: _jsonHeaders(),
           body: jsonEncode({
-            'p_tracking_code': trackingCode,
+            'p_access_secret': secret,
             'p_response': response,
           }),
         )
         .timeout(_timeout);
     if (res.statusCode >= 300) {
-      throw Exception('submit approach response failed (${res.statusCode}): ${res.body}');
+      throw Exception(
+          'submit approach response failed (${res.statusCode}): ${res.body}');
     }
     return _fromBody(utf8.decode(res.bodyBytes), local);
   }
 
-  /// Calls the one-way `reveal_report_identity` RPC in Supabase, storing the
-  /// survivor's identity in the separate `report_identities` table.
   Future<void> revealIdentity(
     String trackingCode, {
     required String fullName,
     required String channel,
     required String handle,
     String? safeNote,
+    String? accessSecret,
   }) async {
+    final secret = accessSecret ?? await _secretFor(trackingCode);
+    if (secret == null) {
+      throw Exception('reveal identity failed (missing secret)');
+    }
     final res = await _http
         .post(
-          _url('rpc/reveal_report_identity'),
-          headers: _headers(trackingCode: trackingCode),
+          _rpc('reveal_report_identity'),
+          headers: _jsonHeaders(),
           body: jsonEncode({
-            'p_tracking_code': trackingCode,
+            'p_access_secret': secret,
             'p_full_name': fullName.trim(),
             'p_contact_channel': channel,
             'p_contact_handle': handle.trim(),
@@ -378,10 +384,13 @@ class RemoteReportsClient {
   }
 
   Future<Incident?> lookup(String trackingCode, Incident? local) async {
+    final secret = local?.accessSecret;
+    if (secret == null || secret.isEmpty) return local;
     final res = await _http
-        .get(
-          _url('reports', {'tracking_code': 'eq.$trackingCode', 'select': '*'}),
-          headers: _headers(trackingCode: trackingCode, json: false),
+        .post(
+          _rpc('lookup_own_report'),
+          headers: _jsonHeaders(),
+          body: jsonEncode({'p_access_secret': secret}),
         )
         .timeout(_timeout);
     if (res.statusCode >= 300 ||
@@ -391,6 +400,11 @@ class RemoteReportsClient {
       return local;
     }
     return _fromBody(res.body, local);
+  }
+
+  Future<String?> _secretFor(String trackingCode) async {
+    // Ownership secret is persisted on the Incident, not looked up by code.
+    return _deviceSecretOverride;
   }
 
   List<Attachment> _withRemoteKey(
@@ -406,31 +420,6 @@ class RemoteReportsClient {
       first.copyWith(remoteObjectKey: photoUrl),
       ...attachments.skip(1),
     ];
-  }
-
-  Map<String, dynamic> _toRow(
-    Incident incident, {
-    required String status,
-    required String? sentAt,
-    String? photoUrl,
-  }) {
-    final clientSha = incident.clientEvidenceSha256 ??
-        (incident.attachments.isNotEmpty
-            ? incident.attachments.first.sha256
-            : null);
-    return {
-      'tracking_code': incident.trackingId,
-      'incident_type': incident.category.code,
-      'approx_location': incident.location?.displayLabel,
-      'description': incident.description,
-      'photo_url': photoUrl ??
-          (incident.attachments.isEmpty
-              ? null
-              : incident.attachments.first.storagePath),
-      'status': status,
-      'sent_at': sentAt,
-      'client_evidence_sha256': ?clientSha,
-    };
   }
 
   Incident? _fromBody(String body, Incident? local) {
@@ -451,10 +440,12 @@ class RemoteReportsClient {
     final updated = DateTime.tryParse(row['sent_at'] as String? ?? '') ??
         createdUtc ??
         DateTime.now();
-    // Authoritative SHA-256 is ONLY populated by the server-side verifier.
     final serverSha =
-        row['evidence_sha256'] as String? ?? local?.evidenceSha256;
+        row['evidence_sha256'] as String? ??
+            row['server_sha256'] as String? ??
+            local?.evidenceSha256;
     final clientSha = row['client_evidence_sha256'] as String? ??
+        row['client_sha256'] as String? ??
         local?.clientEvidenceSha256 ??
         (local != null && local.attachments.isNotEmpty
             ? local.attachments.first.sha256
@@ -462,8 +453,10 @@ class RemoteReportsClient {
     final verifiedAtUtc =
         DateTime.tryParse(row['evidence_verified_at'] as String? ?? '')
                 ?.toUtc() ??
+            DateTime.tryParse(row['verified_at'] as String? ?? '')?.toUtc() ??
             local?.evidenceVerifiedAtUtc;
     final integrityStatus = row['evidence_integrity_status'] as String? ??
+        row['integrity_status'] as String? ??
         local?.evidenceIntegrityStatus;
     final identityRevealed =
         (row['identity_revealed'] as bool?) ?? local?.identityRevealed ?? false;
@@ -486,13 +479,16 @@ class RemoteReportsClient {
         DateTime.tryParse(row['approach_responded_at'] as String? ?? '')
                 ?.toUtc() ??
             local?.approachRespondedAtUtc;
+    final accessSecret =
+        row['access_secret'] as String? ?? local?.accessSecret;
+    final trackingId = row['tracking_code'] as String;
 
     if (local == null) {
       final cat = IncidentCategory.fromCode(
         row['incident_type'] as String? ?? 'HRSMT',
       );
       return Incident(
-        trackingId: row['tracking_code'] as String,
+        trackingId: trackingId,
         category: cat,
         description: row['description'] as String? ?? '',
         priority: cat.defaultPriority,
@@ -519,6 +515,7 @@ class RemoteReportsClient {
         evidenceVerifiedAtUtc: verifiedAtUtc,
         evidenceIntegrityStatus: integrityStatus,
         serverCreatedAtUtc: createdUtc,
+        accessSecret: accessSecret,
       );
     }
     final nextHistory = local.status == status
@@ -528,6 +525,7 @@ class RemoteReportsClient {
             StatusEvent(status: status, at: updated, actor: 'STATION'),
           ];
     return local.copyWith(
+      trackingId: trackingId,
       status: status,
       updatedAt: updated,
       history: nextHistory,
@@ -547,6 +545,7 @@ class RemoteReportsClient {
       evidenceVerifiedAtUtc: verifiedAtUtc,
       evidenceIntegrityStatus: integrityStatus,
       serverCreatedAtUtc: createdUtc ?? local.serverCreatedAtUtc,
+      accessSecret: accessSecret,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -125,27 +126,31 @@ void main() {
     var reportSent = false;
 
     final remote = RemoteReportsClient(
-      supabaseUrl: 'https://itjyuvzjgtyakomreghv.supabase.co',
+      supabaseUrl: 'https://example.supabase.co',
       supabaseAnonKey: 'test-anon-key',
       httpClient: MockClient((request) async {
         if (failNetwork) {
           throw TimeoutException('Simulated flaky connection timeout');
         }
-        if (request.url.path.contains('/storage/v1/object/report-photos/')) {
+        if (request.url.path.contains('/functions/v1/upload-evidence')) {
           photoUploaded = true;
-          return http.Response('{"Key":"report-photos/test.png"}', 200);
-        }
-        if (request.method == 'POST' && request.url.path.endsWith('/reports')) {
           return http.Response(
-            '{"id":"r-q1","tracking_code":"KST-FLAKY","incident_type":"HRSMT","approx_location":"Bole (ቦሌ)","description":"Flaky connection test description long enough","photo_url":"KST-FLAKY/photo.png","evidence_sha256":"abc123sha","status":"draft","sent_at":null,"created_at":"2026-10-20T12:00:00Z"}',
-            201,
+            '{"object_key":"KST-FLAKY/photo.png","tracking_code":"KST-FLAKY","server_sha256":"abc123sha","integrity_status":"verified"}',
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/rpc/create_draft_report')) {
+          return http.Response(
+            '{"tracking_code":"KST-FLAKY","access_secret":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","incident_type":"HRSMT","approx_location":"Bole (ቦሌ)","description":"Flaky connection test description long enough","photo_url":null,"status":"draft","sent_at":null,"created_at":"2026-10-20T12:00:00Z"}',
+            200,
             headers: const {'content-type': 'application/json; charset=utf-8'},
           );
         }
-        if (request.method == 'PATCH' && request.url.path.endsWith('/reports')) {
-          reportSent = true;
+        if (request.url.path.endsWith('/rpc/send_draft_report') ||
+            request.url.path.endsWith('/rpc/lookup_own_report')) {
+          reportSent = request.url.path.endsWith('/rpc/send_draft_report') || reportSent;
           return http.Response(
-            '{"id":"r-q1","tracking_code":"KST-FLAKY","incident_type":"HRSMT","approx_location":"Bole (ቦሌ)","description":"Flaky connection test description long enough","photo_url":"KST-FLAKY/photo.png","evidence_sha256":"abc123sha","status":"sent","sent_at":"2026-10-20T12:01:00Z","created_at":"2026-10-20T12:00:00Z"}',
+            '{"tracking_code":"KST-FLAKY","access_secret":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","incident_type":"HRSMT","approx_location":"Bole (ቦሌ)","description":"Flaky connection test description long enough","photo_url":"KST-FLAKY/photo.png","evidence_sha256":"abc123sha","status":"sent","sent_at":"2026-10-20T12:01:00Z","created_at":"2026-10-20T12:00:00Z"}',
             200,
             headers: const {'content-type': 'application/json; charset=utf-8'},
           );
@@ -202,19 +207,20 @@ void main() {
     var identityRevealedRpcCalled = false;
 
     final remote = RemoteReportsClient(
-      supabaseUrl: 'https://itjyuvzjgtyakomreghv.supabase.co',
+      supabaseUrl: 'https://example.supabase.co',
       supabaseAnonKey: 'test-anon-key',
       httpClient: MockClient((request) async {
-        if (request.method == 'POST' && request.url.path.endsWith('/reports')) {
-          emergencyInserted = request.body.contains('"is_emergency":true');
+        if (request.url.path.contains('/functions/v1/emergency-alert')) {
+          emergencyInserted = request.body.contains('"p_device_secret"');
           return http.Response(
-            '{"id":"emg-1","tracking_code":"KST-EMG01","incident_type":"CRTCL","description":"EMERGENCY","status":"sent","is_emergency":true,"live_latitude":9.0105,"live_longitude":38.7891,"live_location_active":true,"created_at":"2026-10-20T12:00:00Z"}',
-            201,
+            '{"tracking_code":"KST-EMG01","access_secret":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","incident_type":"CRTCL","description":"EMERGENCY","status":"sent","is_emergency":true,"live_location_active":true,"created_at":"2026-10-20T12:00:00Z"}',
+            200,
           );
         }
         if (request.url.path.endsWith('/rpc/reveal_report_identity')) {
           identityRevealedRpcCalled = true;
-          return http.Response('{"id":"id-1"}', 200);
+          expect(request.body, contains('p_access_secret'));
+          return http.Response('{"ok":true,"tracking_code":"KST-EMG01"}', 200);
         }
         return http.Response('[]', 200);
       }),
@@ -322,25 +328,27 @@ void main() {
     var verifyEdgeFunctionCalled = false;
 
     final remote = RemoteReportsClient(
-      supabaseUrl: 'https://itjyuvzjgtyakomreghv.supabase.co',
+      supabaseUrl: 'https://example.supabase.co',
       supabaseAnonKey: 'test-anon-key',
       httpClient: MockClient((request) async {
-        if (request.url.path.contains('/storage/v1/object/report-photos/')) {
-          return http.Response('{"Key":"report-photos/KST-SHASH/att-1.png"}', 200);
-        }
-        if (request.method == 'POST' && request.url.path.endsWith('/reports')) {
-          // Verify client never sends authoritative evidence_sha256 directly
-          expect(request.body.contains('"evidence_sha256"'), isFalse);
-          expect(request.body.contains('"client_evidence_sha256":"$clientHash"'), isTrue);
-          return http.Response(
-            '{"id":"r-sh1","tracking_code":"KST-SHASH","incident_type":"HRSMT","description":"Server hash verification test description long enough","photo_url":"KST-SHASH/att-1.png","evidence_sha256":null,"client_evidence_sha256":"$clientHash","evidence_integrity_status":"pending_server_hash","status":"draft","created_at":"2026-10-20T15:00:00Z"}',
-            201,
-          );
-        }
-        if (request.url.path.endsWith('/functions/v1/verify-evidence')) {
+        if (request.url.path.contains('/functions/v1/upload-evidence')) {
           verifyEdgeFunctionCalled = true;
           return http.Response(
-            '{"tracking_code":"KST-SHASH","server_sha256":"$serverComputedHash","client_sha256":"$clientHash","integrity_status":"verified","verified_at":"2026-10-20T15:00:01Z"}',
+            '{"object_key":"KST-SHASH/att-1.png","tracking_code":"KST-SHASH","server_sha256":"$serverComputedHash","client_sha256":"$clientHash","integrity_status":"verified","verified_at":"2026-10-20T15:00:01Z"}',
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/rpc/create_draft_report')) {
+          expect(request.body.contains('"evidence_sha256"'), isFalse);
+          expect(request.body.contains('"p_client_sha256":"$clientHash"'), isTrue);
+          return http.Response(
+            '{"tracking_code":"KST-SHASH","access_secret":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","incident_type":"HRSMT","description":"Server hash verification test description long enough","photo_url":null,"evidence_sha256":null,"client_evidence_sha256":"$clientHash","evidence_integrity_status":"pending_server_hash","status":"draft","created_at":"2026-10-20T15:00:00Z"}',
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/rpc/lookup_own_report')) {
+          return http.Response(
+            '{"tracking_code":"KST-SHASH","access_secret":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","evidence_sha256":"$serverComputedHash","client_evidence_sha256":"$clientHash","evidence_integrity_status":"verified","evidence_verified_at":"2026-10-20T15:00:01Z","status":"draft"}',
             200,
           );
         }
@@ -758,8 +766,18 @@ void main() {
         SharedPreferences.setMockInitialValues({});
         const supabaseUrl = String.fromEnvironment('KASAT_SUPABASE_URL');
         const anonKey = String.fromEnvironment('KASAT_SUPABASE_ANON_KEY');
+        const officerEmail = String.fromEnvironment('KASAT_LIVE_OFFICER_EMAIL');
+        const officerPassword =
+            String.fromEnvironment('KASAT_LIVE_OFFICER_PASSWORD');
         expect(supabaseUrl, isNotEmpty);
         expect(anonKey, isNotEmpty);
+        expect(
+          supabaseUrl.contains('itjyuvzjgtyakomreghv'),
+          isFalse,
+          reason: 'Live tests must never target kasat-production',
+        );
+        expect(officerEmail, isNotEmpty);
+        expect(officerPassword, isNotEmpty);
 
         final local = LocalIncidentRepository();
         await local.init();
@@ -816,7 +834,10 @@ void main() {
         final flushedCount = await synced.flushQueued();
         expect(flushedCount, greaterThanOrEqualTo(1));
 
-        final afterFlushRemote = await remote.lookup(flushTrackingId, null);
+        final afterFlushRemote = await remote.lookup(
+          flushTrackingId,
+          await local.lookup(flushTrackingId),
+        );
         expect(afterFlushRemote, isNotNull);
         expect(afterFlushRemote!.status, IncidentStatus.sent);
         expect(afterFlushRemote.clientEvidenceSha256, scrubbed.sha256);
@@ -842,8 +863,10 @@ void main() {
             'apikey': anonKey,
             'Content-Type': 'application/json',
           },
-          body:
-              '{"email":"meron.haile@bole-station.gov.et","password":"KasatOfficer!2026"}',
+          body: jsonEncode({
+            'email': officerEmail,
+            'password': officerPassword,
+          }),
         );
         expect(authResp.statusCode, 200);
         expect(authResp.body, contains('access_token'));
@@ -890,39 +913,59 @@ void main() {
         //    and report_audit_log check
         final emgCode = TrackingId.generate();
         final emgCodeDuplicate = TrackingId.generate();
-        final deviceToken = 'e2e-dev-${DateTime.now().millisecondsSinceEpoch}';
+        final deviceSecret =
+            'e2e-dev-secret-${DateTime.now().millisecondsSinceEpoch}-xxxxxxxx';
 
-        // Trigger via trigger_or_coalesce_emergency using KasatConfig demo Bole coordinates (8.9950, 38.7890)
         expect(KasatConfig.demoSurvivorLatitude, closeTo(8.9950, 0.0001));
         expect(KasatConfig.demoSurvivorLongitude, closeTo(38.7890, 0.0001));
         final firstEmgResp = await httpClient.post(
-          Uri.parse('$supabaseUrl/rest/v1/rpc/trigger_or_coalesce_emergency'),
+          Uri.parse('$supabaseUrl/functions/v1/emergency-alert'),
           headers: {
             'apikey': anonKey,
             'Authorization': 'Bearer $anonKey',
             'Content-Type': 'application/json',
           },
-          body:
-              '{"p_tracking_code":"$emgCode","p_approx_location":"${KasatConfig.demoSurvivorLandmark}","p_description":"Urgent silent alert in Bole sub-city requiring immediate dispatch verification.","p_silent_mode":true,"p_latitude":${KasatConfig.demoSurvivorLatitude},"p_longitude":${KasatConfig.demoSurvivorLongitude},"p_accuracy_meters":8.5,"p_device_token":"$deviceToken"}',
+          body: jsonEncode({
+            'p_tracking_code': emgCode,
+            'p_approx_location': KasatConfig.demoSurvivorLandmark,
+            'p_description':
+                'Urgent silent alert in Bole sub-city requiring immediate dispatch verification.',
+            'p_silent_mode': true,
+            'p_latitude': KasatConfig.demoSurvivorLatitude,
+            'p_longitude': KasatConfig.demoSurvivorLongitude,
+            'p_accuracy_meters': 8.5,
+            'p_device_secret': deviceSecret,
+          }),
         );
         expect(firstEmgResp.statusCode, 200);
-        expect(firstEmgResp.body, contains('"live_latitude":8.995'));
         expect(firstEmgResp.body, contains('"dispatch_status":"new"'));
+        expect(firstEmgResp.body, contains('"access_secret"'));
+        final firstEmgJson =
+            jsonDecode(firstEmgResp.body) as Map<String, dynamic>;
+        final liveEmgCode = firstEmgJson['tracking_code'] as String;
+        final liveAccessSecret = firstEmgJson['access_secret'] as String;
 
-        // Rapid second activation from the same device & coordinate coalesces into the SAME row
-        // (returns emgCode with activation_count = 2 instead of creating a duplicate card)
         final coalesceResp = await httpClient.post(
-          Uri.parse('$supabaseUrl/rest/v1/rpc/trigger_or_coalesce_emergency'),
+          Uri.parse('$supabaseUrl/functions/v1/emergency-alert'),
           headers: {
             'apikey': anonKey,
             'Authorization': 'Bearer $anonKey',
             'Content-Type': 'application/json',
           },
-          body:
-              '{"p_tracking_code":"$emgCodeDuplicate","p_approx_location":"${KasatConfig.demoSurvivorLandmark}","p_description":"Urgent silent alert in Bole sub-city requiring immediate dispatch verification.","p_silent_mode":true,"p_latitude":${KasatConfig.demoSurvivorLatitude},"p_longitude":${KasatConfig.demoSurvivorLongitude},"p_accuracy_meters":8.5,"p_device_token":"$deviceToken"}',
+          body: jsonEncode({
+            'p_tracking_code': emgCodeDuplicate,
+            'p_approx_location': KasatConfig.demoSurvivorLandmark,
+            'p_description':
+                'Urgent silent alert in Bole sub-city requiring immediate dispatch verification.',
+            'p_silent_mode': true,
+            'p_latitude': KasatConfig.demoSurvivorLatitude,
+            'p_longitude': KasatConfig.demoSurvivorLongitude,
+            'p_accuracy_meters': 8.5,
+            'p_device_secret': deviceSecret,
+          }),
         );
         expect(coalesceResp.statusCode, 200);
-        expect(coalesceResp.body, contains('"tracking_code":"$emgCode"'));
+        expect(coalesceResp.body, contains('"tracking_code":"$liveEmgCode"'));
         expect(coalesceResp.body, contains('"activation_count":2'));
 
         // Officer claims the alert (new -> claimed) and transitions to en_route
@@ -934,7 +977,7 @@ void main() {
             'Content-Type': 'application/json',
           },
           body:
-              '{"p_tracking_code":"$emgCode","p_next_status":"claimed","p_officer_name":"Insp. Meron Haile"}',
+              '{"p_tracking_code":"$liveEmgCode","p_next_status":"claimed"}',
         );
         expect(claimResp.statusCode, 200);
         expect(claimResp.body, contains('"dispatch_status":"claimed"'));
@@ -947,7 +990,7 @@ void main() {
             'Content-Type': 'application/json',
           },
           body:
-              '{"p_tracking_code":"$emgCode","p_next_status":"en_route","p_officer_name":"Insp. Meron Haile"}',
+              '{"p_tracking_code":"$liveEmgCode","p_next_status":"en_route"}',
         );
         expect(enRouteResp.statusCode, 200);
         expect(enRouteResp.body, contains('"dispatch_status":"en_route"'));
@@ -960,27 +1003,40 @@ void main() {
             'Authorization': 'Bearer $officerJwt',
             'Content-Type': 'application/json',
           },
-          body: '{"p_tracking_code":"$emgCode","p_window_sec":90}',
+          body: '{"p_tracking_code":"$liveEmgCode","p_window_sec":90}',
         );
         expect(arriveResp.statusCode, 200);
         expect(arriveResp.body, contains('"silent_mode":true'));
         expect(arriveResp.body, contains('"officer_arrived_at":'));
         expect(arriveResp.body, contains('"dispatch_status":"on_scene"'));
 
-        // Survivor's handset polls and sees officer_arrived_at, then taps "He is here — do not knock"
-        final afterArrival = await synced.lookup(emgCode);
-        expect(afterArrival?.officerArrivedAtUtc, isNotNull);
-
-        final afterSurvivorReply = await synced.submitApproachResponse(
-          emgCode,
-          response: 'abuser_present_do_not_knock',
+        final afterArrival = await httpClient.post(
+          Uri.parse('$supabaseUrl/rest/v1/rpc/lookup_own_report'),
+          headers: {
+            'apikey': anonKey,
+            'Authorization': 'Bearer $anonKey',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'p_access_secret': liveAccessSecret}),
         );
-        expect(
-          afterSurvivorReply?.approachResponse,
-          'abuser_present_do_not_knock',
-        );
+        expect(afterArrival.statusCode, 200);
+        expect(afterArrival.body, contains('officer_arrived_at'));
 
-        // Officer resolves the alert (on_scene -> resolved) so test alert moves to History
+        final afterSurvivorReply = await httpClient.post(
+          Uri.parse('$supabaseUrl/rest/v1/rpc/submit_approach_response'),
+          headers: {
+            'apikey': anonKey,
+            'Authorization': 'Bearer $anonKey',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'p_access_secret': liveAccessSecret,
+            'p_response': 'abuser_present_do_not_knock',
+          }),
+        );
+        expect(afterSurvivorReply.statusCode, 200);
+        expect(afterSurvivorReply.body, contains('abuser_present_do_not_knock'));
+
         final resolveResp = await httpClient.post(
           Uri.parse('$supabaseUrl/rest/v1/rpc/transition_report_dispatch'),
           headers: {
@@ -989,7 +1045,7 @@ void main() {
             'Content-Type': 'application/json',
           },
           body:
-              '{"p_tracking_code":"$emgCode","p_next_status":"resolved","p_officer_name":"Insp. Meron Haile","p_note":"E2E verification completed"}',
+              '{"p_tracking_code":"$liveEmgCode","p_next_status":"resolved","p_note":"E2E verification completed"}',
         );
         expect(resolveResp.statusCode, 200);
         expect(resolveResp.body, contains('"dispatch_status":"resolved"'));
@@ -1003,7 +1059,7 @@ void main() {
             'Content-Type': 'application/json',
           },
           body:
-              '{"p_tracking_code":"$flushTrackingId","p_next_status":"claimed","p_officer_name":"Insp. Meron Haile"}',
+              '{"p_tracking_code":"$flushTrackingId","p_next_status":"claimed"}',
         );
         await httpClient.post(
           Uri.parse('$supabaseUrl/rest/v1/rpc/transition_report_dispatch'),
@@ -1013,7 +1069,7 @@ void main() {
             'Content-Type': 'application/json',
           },
           body:
-              '{"p_tracking_code":"$flushTrackingId","p_next_status":"resolved","p_officer_name":"Insp. Meron Haile"}',
+              '{"p_tracking_code":"$flushTrackingId","p_next_status":"resolved"}',
         );
 
         // Verify report_audit_log recorded every transition
@@ -1037,7 +1093,7 @@ void main() {
         // ignore: avoid_print
         print(
           'LIVE_E2E_PROOF: flushed=$flushTrackingId draft=$draftTrackingId '
-          'emg=$emgCode '
+          'emg=$liveEmgCode '
           'officerDraftBody=${officerDraftResp.body} '
           'officerSentBody=${officerSentResp.body} '
           'auditBody=${auditResp.body}',

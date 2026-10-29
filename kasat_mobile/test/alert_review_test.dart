@@ -37,8 +37,8 @@ void main() {
     });
   });
 
-  test('a missing API key holds the post for a person', () async {
-    final reviewer = AnthropicAlertReviewer(apiKey: '');
+  test('a missing review proxy holds the post for a person', () async {
+    final reviewer = AnthropicAlertReviewer();
     final result = await reviewer.review(title: 'Test', body: 'A complete sentence.');
     expect(result.verdict, ReviewVerdict.pending);
   });

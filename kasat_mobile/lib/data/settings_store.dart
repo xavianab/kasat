@@ -84,7 +84,8 @@ class SettingsStore {
   static const _deviceRateLimitSecretKey = 'kasat.device_rl_secret.v1';
 
   static const pinLength = 6;
-  static const _hashRounds = 20000;
+  static const _hashRounds = 100000;
+  static const _legacyHashRounds = 20000;
 
   static final _random = Random.secure();
 
@@ -128,7 +129,10 @@ class SettingsStore {
     final stored = _prefs.getString(_pinHashKey);
     final salt = _prefs.getString(_pinSaltKey);
     if (stored == null || salt == null) return false;
-    return _constantTimeEquals(stored, _hash(pin, salt));
+    if (_constantTimeEquals(stored, _hash(pin, salt, _hashRounds))) {
+      return true;
+    }
+    return _constantTimeEquals(stored, _hash(pin, salt, _legacyHashRounds));
   }
 
   // --------------------------------------------------------------- disguise
@@ -168,11 +172,10 @@ class SettingsStore {
     return token;
   }
 
-  /// Anonymous one-way SHA-256 installation fingerprint sent only on emergency
-  /// dispatch (`x-kasat-device-hash`) so the server can coalesce repeat panic
-  /// taps into the same active alert and enforce per-device flood limits
-  /// without ever collecting hardware IMEI/IDFA.
-  String deviceRateLimitHash() {
+  /// High-entropy installation secret held only on this handset. Sent on
+  /// emergency dispatch so the server can coalesce repeat panic taps from the
+  /// same device without matching on location or IP.
+  String deviceSecret() {
     var secret = _prefs.getString(_deviceRateLimitSecretKey);
     if (secret == null || secret.isEmpty) {
       secret = base64Url.encode(
@@ -180,7 +183,12 @@ class SettingsStore {
       );
       _prefs.setString(_deviceRateLimitSecretKey, secret);
     }
-    return sha256.convert(utf8.encode('kasat-rl-v1|$secret')).toString();
+    return secret;
+  }
+
+  /// Legacy one-way fingerprint. Prefer [deviceSecret] for new RPCs.
+  String deviceRateLimitHash() {
+    return sha256.convert(utf8.encode('kasat-rl-v1|${deviceSecret()}')).toString();
   }
 
   Future<void> completeOnboarding() => _prefs.setBool(_onboardedKey, true);
@@ -195,9 +203,9 @@ class SettingsStore {
   /// Iterated SHA-256. A six-digit PIN only has a million possible values, so
   /// the rounds are what make an offline guess against a copied plist cost
   /// something rather than being instant.
-  static String _hash(String pin, String salt) {
+  static String _hash(String pin, String salt, [int rounds = _hashRounds]) {
     var digest = sha256.convert(utf8.encode('$salt|$pin')).bytes;
-    for (var i = 1; i < _hashRounds; i++) {
+    for (var i = 1; i < rounds; i++) {
       digest = sha256.convert(digest).bytes;
     }
     return base64Url.encode(digest);

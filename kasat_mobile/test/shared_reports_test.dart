@@ -56,23 +56,23 @@ void main() {
   test('remote client posts a draft then sends without leaking identity fields', () async {
     final bodies = <String>[];
     final client = RemoteReportsClient(
-      supabaseUrl: 'https://itjyuvzjgtyakomreghv.supabase.co',
+      supabaseUrl: 'https://example.supabase.co',
       supabaseAnonKey: 'test-anon-key',
       httpClient: MockClient((request) async {
         bodies.add(request.body);
-        expect(request.headers['x-tracking-code'], 'KST-2H7KQ');
         expect(request.body, isNot(contains('"phone"')));
         expect(request.body, isNot(contains('device_id')));
         expect(request.body, isNot(contains('ip_address')));
         expect(request.body, isNot(contains('"name"')));
-        if (request.method == 'POST') {
+        const secret = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+        if (request.url.path.endsWith('/rpc/create_draft_report')) {
           return http.Response(
-            '{"id":"r1","tracking_code":"KST-2H7KQ","incident_type":"HRSMT","approx_location":null,"description":"${draft().description}","photo_url":null,"status":"draft","sent_at":null,"created_at":"2026-10-19T00:00:00Z"}',
-            201,
+            '{"tracking_code":"KST-2H7KQ","access_secret":"$secret","incident_type":"HRSMT","approx_location":null,"description":"${draft().description}","photo_url":null,"status":"draft","sent_at":null,"created_at":"2026-10-19T00:00:00Z"}',
+            200,
           );
         }
         return http.Response(
-          '{"id":"r1","tracking_code":"KST-2H7KQ","incident_type":"HRSMT","approx_location":null,"description":"${draft().description}","photo_url":null,"status":"sent","sent_at":"2026-10-19T00:01:00Z","created_at":"2026-10-19T00:00:00Z"}',
+          '{"tracking_code":"KST-2H7KQ","access_secret":"$secret","incident_type":"HRSMT","approx_location":null,"description":"${draft().description}","photo_url":null,"status":"sent","sent_at":"2026-10-19T00:01:00Z","created_at":"2026-10-19T00:00:00Z"}',
           200,
         );
       }),
@@ -98,7 +98,7 @@ void main() {
 
   test('lookup maps under_review from the shared table', () async {
     final client = RemoteReportsClient(
-      supabaseUrl: 'https://itjyuvzjgtyakomreghv.supabase.co',
+      supabaseUrl: 'https://example.supabase.co',
       supabaseAnonKey: 'test-anon-key',
       httpClient: MockClient((request) async {
         return http.Response(
@@ -117,6 +117,8 @@ void main() {
       submittedAt: DateTime(2026, 10, 19),
       updatedAt: DateTime(2026, 10, 19),
       history: const [],
+      accessSecret:
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     );
     final remote = await client.lookup('KST-2H7KQ', local);
     expect(remote?.status, IncidentStatus.underReview);

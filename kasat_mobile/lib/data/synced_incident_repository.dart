@@ -170,6 +170,7 @@ class SyncedIncidentRepository implements IncidentRepository {
           latitude: latitude,
           longitude: longitude,
           accuracyMeters: accuracyMeters,
+          accessSecret: (await local.lookup(trackingId))?.accessSecret,
         );
       } catch (_) {
         // Next location tick will retry.
@@ -182,7 +183,10 @@ class SyncedIncidentRepository implements IncidentRepository {
     await local.stopEmergencyLocation(trackingId);
     if (_remote.enabled) {
       try {
-        await _remote.stopEmergencyLocation(trackingId);
+        await _remote.stopEmergencyLocation(
+          trackingId,
+          accessSecret: (await local.lookup(trackingId))?.accessSecret,
+        );
       } catch (_) {
         // Local state already stopped.
       }
@@ -227,6 +231,7 @@ class SyncedIncidentRepository implements IncidentRepository {
         channel: channel,
         handle: handle,
         safeNote: safeNote,
+        accessSecret: (await local.lookup(trackingId))?.accessSecret,
       );
     }
     return local.revealIdentity(

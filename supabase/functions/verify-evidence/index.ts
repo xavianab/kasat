@@ -1,32 +1,37 @@
-// Server-side evidence hashing Edge Function (`verify-evidence`).
-//
-// Why this exists:
-// A SHA-256 computed on the handset proves nothing for chain of custody because
-// a modified client could submit any hash string. This Edge Function runs on
-// Supabase's server, downloads the actual bytes stored in `report-photos`,
-// computes the authoritative SHA-256 server-side using WebCrypto, compares it
-// against the handset's `client_sha256` as a transport-integrity check, and
-// records the authoritative hash + UTC verification timestamp via the
-// `service_role`-only `record_server_evidence_hash` RPC.
+// Storage-webhook-only evidence hashing. Clients cannot invoke this path.
+// Object key must be <tracking_code>/<uuid>.<png|jpg|jpeg|webp>. photo_url is
+// never rewritten.
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-tracking-code",
+    "authorization, x-client-info, apikey, content-type, x-kasat-webhook-secret, x-webhook-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+const OBJECT_KEY_RE =
+  /^KST-[23456789ABCDEFGHJKMNPQRSTVWXYZ]{5}\/[0-9a-fA-F-]{36}\.(png|jpe?g|webp)$/;
 
 type VerifyRequest = {
   tracking_code?: string;
   photo_url?: string;
   object_key?: string;
   client_sha256?: string | null;
-  // Support Supabase Storage webhook format (`storage.objects` INSERT/UPDATE)
   record?: {
     bucket_id?: string;
     name?: string;
   };
 };
+
+function webhookAuthorized(req: Request): boolean {
+  const secret = Deno.env.get("KASAT_WEBHOOK_SECRET") ?? "";
+  if (!secret) return false;
+  const header =
+    req.headers.get("x-kasat-webhook-secret") ??
+    req.headers.get("x-webhook-secret") ??
+    "";
+  return header === secret;
+}
 
 function toHex(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -42,40 +47,36 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: CORS_HEADERS });
   }
 
+  if (!webhookAuthorized(req)) {
+    return Response.json({ error: "Unauthorized" }, { status: 401, headers: CORS_HEADERS });
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     if (!supabaseUrl || !serviceKey) {
       return Response.json(
-        { error: "Server configuration missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
+        { error: "Server configuration missing" },
         { status: 500, headers: CORS_HEADERS },
       );
     }
 
     const payload = (await req.json()) as VerifyRequest;
-    let trackingCode = payload.tracking_code?.trim() ?? "";
-    let objectKey = (payload.photo_url ?? payload.object_key)?.trim() ?? "";
+    let objectKey = (payload.record?.name ?? payload.object_key ?? payload.photo_url ?? "")
+      .trim()
+      .replace(/^report-photos\//, "");
+    if (objectKey.includes("..") || objectKey.includes("\\")) {
+      return Response.json({ error: "Invalid object key" }, { status: 400, headers: CORS_HEADERS });
+    }
+    if (payload.record?.bucket_id && payload.record.bucket_id !== "report-photos") {
+      return Response.json({ error: "Invalid bucket" }, { status: 400, headers: CORS_HEADERS });
+    }
+    if (!OBJECT_KEY_RE.test(objectKey)) {
+      return Response.json({ error: "Invalid object key" }, { status: 400, headers: CORS_HEADERS });
+    }
+    const trackingCode = objectKey.split("/")[0];
     const clientSha256 = payload.client_sha256?.trim() || null;
 
-    // Also support Storage webhook invocations where `record.name` is `<tracking_code>/<file>.png`
-    if ((!trackingCode || !objectKey) && payload.record?.name) {
-      objectKey = payload.record.name;
-      const parts = objectKey.split("/");
-      if (parts.length >= 2) {
-        trackingCode = parts[0];
-      }
-    }
-
-    objectKey = objectKey.replace(/^report-photos\//, "");
-
-    if (!trackingCode || !objectKey) {
-      return Response.json(
-        { error: "tracking_code and photo_url are required" },
-        { status: 400, headers: CORS_HEADERS },
-      );
-    }
-
-    // 1. Download the actual stored bytes from the private `report-photos` bucket
     const encodedKey = objectKey
       .split("/")
       .map((seg) => encodeURIComponent(seg))
@@ -92,9 +93,8 @@ Deno.serve(async (req) => {
     );
 
     if (!storageRes.ok) {
-      const detail = await storageRes.text();
       return Response.json(
-        { error: `Could not read stored evidence bytes (${storageRes.status})`, detail },
+        { error: "Could not read stored evidence bytes" },
         { status: 404, headers: CORS_HEADERS },
       );
     }
@@ -102,16 +102,14 @@ Deno.serve(async (req) => {
     const fileBytes = await storageRes.arrayBuffer();
     if (fileBytes.byteLength === 0) {
       return Response.json(
-        { error: "Stored evidence object is empty (0 bytes)" },
+        { error: "Stored evidence object is empty" },
         { status: 422, headers: CORS_HEADERS },
       );
     }
 
-    // 2. Compute authoritative SHA-256 server-side over the actual received bytes
     const digestBuffer = await crypto.subtle.digest("SHA-256", fileBytes);
     const serverSha256 = toHex(digestBuffer);
 
-    // 3. Persist authoritative hash + server UTC verification timestamp via service_role RPC
     const rpcRes = await fetch(
       `${supabaseUrl}/rest/v1/rpc/record_server_evidence_hash`,
       {
@@ -131,9 +129,8 @@ Deno.serve(async (req) => {
     );
 
     if (!rpcRes.ok) {
-      const errText = await rpcRes.text();
       return Response.json(
-        { error: `Failed to record server hash (${rpcRes.status})`, detail: errText },
+        { error: "Failed to record server hash" },
         { status: 500, headers: CORS_HEADERS },
       );
     }

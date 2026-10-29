@@ -108,6 +108,7 @@ class Incident {
     this.evidenceVerifiedAtUtc,
     this.evidenceIntegrityStatus,
     this.serverCreatedAtUtc,
+    this.accessSecret,
   });
 
   final String trackingId;
@@ -164,7 +165,12 @@ class Incident {
 
   final DateTime? serverCreatedAtUtc;
 
+  /// 256-bit handset secret used to prove ownership of this report. Never
+  /// shown in the UI; the short [trackingId] is display-only.
+  final String? accessSecret;
+
   Incident copyWith({
+    String? trackingId,
     IncidentStatus? status,
     DateTime? updatedAt,
     List<StatusEvent>? history,
@@ -190,9 +196,10 @@ class Incident {
     DateTime? evidenceVerifiedAtUtc,
     String? evidenceIntegrityStatus,
     DateTime? serverCreatedAtUtc,
+    String? accessSecret,
   }) {
     return Incident(
-      trackingId: trackingId,
+      trackingId: trackingId ?? this.trackingId,
       category: category,
       description: description,
       priority: priority,
@@ -228,6 +235,7 @@ class Incident {
       evidenceIntegrityStatus:
           evidenceIntegrityStatus ?? this.evidenceIntegrityStatus,
       serverCreatedAtUtc: serverCreatedAtUtc ?? this.serverCreatedAtUtc,
+      accessSecret: accessSecret ?? this.accessSecret,
     );
   }
 
@@ -264,6 +272,7 @@ class Incident {
         'evidenceVerifiedAtUtc': evidenceVerifiedAtUtc?.toIso8601String(),
         'evidenceIntegrityStatus': evidenceIntegrityStatus,
         'serverCreatedAtUtc': serverCreatedAtUtc?.toIso8601String(),
+        'accessSecret': accessSecret,
       };
 
   static Incident fromJson(Map<String, dynamic> json) {
@@ -317,6 +326,7 @@ class Incident {
       serverCreatedAtUtc: json['serverCreatedAtUtc'] == null
           ? null
           : DateTime.tryParse(json['serverCreatedAtUtc'] as String),
+      accessSecret: json['accessSecret'] as String?,
     );
   }
 }

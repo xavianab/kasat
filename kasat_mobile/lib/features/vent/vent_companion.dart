@@ -10,61 +10,45 @@ import 'vent_repository.dart';
 
 /// One companion message per Vent post, a few seconds after it is created.
 ///
-/// Failures are silent. A missing key, a timeout, or a bad reply simply means
-/// this post has no Kasat 🌸 message — never an error on her screen.
+/// Failures are silent. A missing backend, a timeout, or a bad reply simply
+/// means this post has no Kasat 🌸 message — never an error on her screen.
 class VentCompanion {
-  VentCompanion({http.Client? client, String? apiKey})
+  VentCompanion({http.Client? client, String? supabaseUrl, String? supabaseAnonKey})
       : _client = client ?? http.Client(),
-        _apiKey = apiKey ?? KasatConfig.anthropicApiKey;
+        _supabaseUrl = supabaseUrl ?? KasatConfig.supabaseUrl,
+        _supabaseAnonKey = supabaseAnonKey ?? KasatConfig.supabaseAnonKey;
 
   final http.Client _client;
-  final String _apiKey;
+  final String _supabaseUrl;
+  final String _supabaseAnonKey;
   static const _uuid = Uuid();
-
-  static const _system = '''
-You are Kasat, a quiet companion on a private board where people write what
-they cannot say out loud. You are not a therapist, not a crisis line, and not
-a doctor.
-
-Write like a caring friend texting back. Two to four short sentences.
-Do not say you are sorry to hear that. Do not diagnose. Do not give
-instructions unless the writer asked for them. Do not use the words
-"as an AI" or "language model". Do not ask a list of clinical questions.
-Acknowledge what they wrote. Leave the door open. That is enough.
-''';
 
   Future<void> maybeReply({
     required VentRepository vents,
     required VentPost post,
   }) async {
-    if (post.aiCompanionPosted || _apiKey.isEmpty) return;
+    if (post.aiCompanionPosted) return;
+    if (_supabaseUrl.isEmpty || _supabaseAnonKey.isEmpty) return;
 
     try {
       final response = await _client
           .post(
-            Uri.parse('https://api.anthropic.com/v1/messages'),
+            Uri.parse('$_supabaseUrl/functions/v1/ai-proxy'),
             headers: {
               'content-type': 'application/json',
-              'x-api-key': _apiKey,
-              'anthropic-version': '2023-06-01',
+              'apikey': _supabaseAnonKey,
+              'Authorization': 'Bearer $_supabaseAnonKey',
             },
             body: jsonEncode({
-              'model': KasatConfig.anthropicModel,
-              'max_tokens': 220,
-              'system': _system,
-              'messages': [
-                {'role': 'user', 'content': post.body},
-              ],
+              'kind': 'vent',
+              'body': post.body,
             }),
           )
           .timeout(const Duration(seconds: 12));
 
       if (response.statusCode < 200 || response.statusCode >= 300) return;
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-      final content = decoded['content'] as List<dynamic>?;
-      if (content == null || content.isEmpty) return;
-      final text = (content.first as Map<String, dynamic>)['text'] as String?;
-      final body = text?.trim();
+      final body = (decoded['text'] as String?)?.trim();
       if (body == null || body.isEmpty) return;
 
       await vents.addCompanionReply(

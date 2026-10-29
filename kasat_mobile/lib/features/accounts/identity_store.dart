@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:encrypt/encrypt.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Contact channel used only for accountability. Never shown on Vent Here,
@@ -23,27 +25,36 @@ class IdentityRecord {
   final String handle;
 }
 
-/// Encrypted-at-rest identity, stored under keys that do not appear in the
-/// incident or vent JSON.
-///
-/// SECURITY_TODO: the AES key currently lives in the same prefs file as the
-/// ciphertext. Before production this must move to the platform keychain,
-/// with access logging and a written retention policy. See SECURITY_TODO.md.
+/// Encrypted-at-rest identity. AES-256-GCM. The wrapping key lives in the
+/// platform keychain (or an in-memory fallback in tests), never next to the
+/// ciphertext in SharedPreferences.
 class IdentityStore {
-  static const _blobKey = 'kasat.identity.blob.v1';
-  static const _keyKey = 'kasat.identity.device_key.v1';
-
-  // Isolated from kasat.incidents.* and kasat.vent.* on purpose.
-  // Do not add a foreign key from this store to a report or a vent post.
+  static const _blobKey = 'kasat.identity.blob.v2';
+  static const _legacyBlobKey = 'kasat.identity.blob.v1';
+  static const _legacyKeyKey = 'kasat.identity.device_key.v1';
+  static const _secureKey = 'kasat.identity.device_key.v2';
 
   late SharedPreferences _prefs;
   final _random = Random.secure();
+  Key? _cachedKey;
+  FlutterSecureStorage? _secure;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    try {
+      if (Platform.environment['FLUTTER_TEST'] == 'true') {
+        _secure = null;
+      } else {
+        _secure = const FlutterSecureStorage();
+      }
+    } catch (_) {
+      _secure = null;
+    }
+    _cachedKey = await _loadKey();
   }
 
-  bool get hasIdentity => _prefs.getString(_blobKey) != null;
+  bool get hasIdentity =>
+      _prefs.getString(_blobKey) != null || _prefs.getString(_legacyBlobKey) != null;
 
   Future<void> save(IdentityRecord record) async {
     final payload = jsonEncode({
@@ -51,23 +62,29 @@ class IdentityStore {
       'channel': record.channel.name,
       'handle': record.handle.trim(),
     });
-    final key = _deviceKey();
-    final iv = IV.fromSecureRandom(16);
-    final encrypter = Encrypter(AES(key));
+    final key = _cachedKey ?? await _loadKey();
+    _cachedKey = key;
+    final iv = IV.fromSecureRandom(12);
+    final encrypter = Encrypter(AES(key, mode: AESMode.gcm));
     final encrypted = encrypter.encrypt(payload, iv: iv);
     await _prefs.setString(
       _blobKey,
-      jsonEncode({'iv': iv.base64, 'data': encrypted.base64}),
+      jsonEncode({'v': 'gcm', 'iv': iv.base64, 'data': encrypted.base64}),
     );
+    await _prefs.remove(_legacyBlobKey);
+    await _prefs.remove(_legacyKeyKey);
   }
 
   IdentityRecord? read() {
-    final raw = _prefs.getString(_blobKey);
+    final key = _cachedKey;
+    if (key == null) return null;
+    final raw = _prefs.getString(_blobKey) ?? _prefs.getString(_legacyBlobKey);
     if (raw == null) return null;
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
       final iv = IV.fromBase64(map['iv'] as String);
-      final encrypter = Encrypter(AES(_deviceKey()));
+      final mode = map['v'] == 'gcm' ? AESMode.gcm : AESMode.sic;
+      final encrypter = Encrypter(AES(key, mode: mode));
       final plain = encrypter.decrypt64(map['data'] as String, iv: iv);
       final decoded = jsonDecode(plain) as Map<String, dynamic>;
       return IdentityRecord(
@@ -85,14 +102,38 @@ class IdentityStore {
 
   Future<void> clear() async {
     await _prefs.remove(_blobKey);
+    await _prefs.remove(_legacyBlobKey);
   }
 
-  Key _deviceKey() {
-    final existing = _prefs.getString(_keyKey);
-    if (existing != null) return Key.fromBase64(existing);
-    final bytes = Uint8List.fromList(List<int>.generate(32, (_) => _random.nextInt(256)));
+  Future<Key> _loadKey() async {
+    try {
+      final stored = await _secure
+          ?.read(key: _secureKey)
+          .timeout(const Duration(milliseconds: 300));
+      if (stored != null && stored.isNotEmpty) {
+        return Key.fromBase64(stored);
+      }
+    } catch (_) {}
+    final legacy = _prefs.getString(_legacyKeyKey);
+    if (legacy != null && legacy.isNotEmpty) {
+      final key = Key.fromBase64(legacy);
+      try {
+        await _secure
+            ?.write(key: _secureKey, value: legacy)
+            .timeout(const Duration(milliseconds: 300));
+        await _prefs.remove(_legacyKeyKey);
+      } catch (_) {}
+      return key;
+    }
+    final bytes = Uint8List.fromList(
+      List<int>.generate(32, (_) => _random.nextInt(256)),
+    );
     final key = Key(bytes);
-    _prefs.setString(_keyKey, key.base64);
+    try {
+      await _secure
+          ?.write(key: _secureKey, value: key.base64)
+          .timeout(const Duration(milliseconds: 300));
+    } catch (_) {}
     return key;
   }
 }
