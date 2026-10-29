@@ -1,0 +1,6 @@
+#include "Generated.xcconfig"
+
+// Alternate home screen icons for the disguise setting. Declared here
+// rather than in project.pbxproj so the Flutter-managed Xcode project
+// stays untouched.
+ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = AltIconNotes AltIconCalculator

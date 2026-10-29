@@ -1,0 +1,13 @@
+.DS_Store
+*.log
+.env*
+!.env.example
+.vscode/launch.json
+kasat_mobile/.vscode/launch.json
+kasat_mobile/dart_defines.local.json
+.cursor/
+supabase/.temp/
+kasat_mobile/simulator_live.png
+kasat_mobile/welcome_*.png
+kasat_mobile/integration_test/welcome_amharic_pass_test.dart
+
