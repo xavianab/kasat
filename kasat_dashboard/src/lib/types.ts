@@ -78,6 +78,12 @@ export const COUNTRY_LABELS: Record<string, string> = {
 
 export interface Incident {
   trackingId: string;
+  /** Database report id, set when the row comes from Supabase. */
+  reportId?: string;
+  /** Survivor incident_type text, when the row comes from Supabase. */
+  incidentType?: string | null;
+  /** Officer display name from the report, when the row comes from Supabase. */
+  assigneeName?: string | null;
   category: CategoryCode;
   description: string;
   priority: Priority;

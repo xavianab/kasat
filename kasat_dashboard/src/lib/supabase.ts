@@ -1,12 +1,11 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Browser-side Supabase client.
  *
- * Reads go through row level security using the operator's session, so the
- * anon key is safe to ship. `supabase/schema.sql` at the repo root defines the
- * policies this relies on — without them the anon key would expose every
- * survivor payload.
+ * The session lives in cookies so middleware can call getUser(). Reads go
+ * through row level security, so the publishable key is safe to ship.
  */
 let browserClient: SupabaseClient | null = null;
 
@@ -22,9 +21,7 @@ export function getSupabaseBrowserClient(): SupabaseClient {
     );
   }
 
-  browserClient = createClient(url, key, {
-    auth: { persistSession: true, autoRefreshToken: true },
-  });
+  browserClient = createBrowserClient(url, key);
   return browserClient;
 }
 

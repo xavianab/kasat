@@ -268,7 +268,9 @@ function Workflow() {
         </ul>
         <div className="mt-3 flex flex-wrap gap-2">
           <StatusLozenge status="new" />
-          <StatusLozenge status="progress" />
+          <StatusLozenge status="claimed" />
+          <StatusLozenge status="en_route" />
+          <StatusLozenge status="on_scene" />
           <StatusLozenge status="resolved" />
         </div>
       </section>
@@ -276,9 +278,6 @@ function Workflow() {
         <h2 className="text-sm font-semibold">{t("notEnabled")}</h2>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <StatusLozenge status="claimed" />
-          <StatusLozenge status="waiting" />
-          <StatusLozenge status="referred" />
-          <StatusLozenge status="closed" />
         </div>
         <div className="mt-3 flex items-center gap-2">
           <PriorityIcon priority="P1" />
@@ -408,6 +407,7 @@ export function AccessLogView() {
     location_view: t("actionLocation"),
     create: t("actionCreate"),
     reply: t("actionReply"),
+    note: t("actionNote"),
     status: t("actionStatus"),
   };
   return (

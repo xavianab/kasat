@@ -33,6 +33,8 @@ import { cn } from "@/lib/utils";
 const LOZENGE: Record<DeskStatus, string> = {
   new: "bg-[#F1F2F4] text-[#44546F] dark:bg-[#2C333A] dark:text-[#C7D1DB]",
   claimed: "bg-[#E9F2FF] text-[#0055CC] dark:bg-[#1C2B41] dark:text-[#85B8FF]",
+  en_route: "bg-[#E9F2FF] text-[#0055CC] dark:bg-[#1C2B41] dark:text-[#85B8FF]",
+  on_scene: "bg-[#E9F2FF] text-[#0055CC] dark:bg-[#1C2B41] dark:text-[#85B8FF]",
   progress: "bg-[#E9F2FF] text-[#0055CC] dark:bg-[#1C2B41] dark:text-[#85B8FF]",
   waiting: "bg-[#FFF7D6] text-[#7F5F01] dark:bg-[#3D3418] dark:text-[#F5CD47]",
   escalated: "bg-[#FFF3EB] text-[#A54800] dark:bg-[#3D2B1F] dark:text-[#FEC195]",

@@ -42,7 +42,7 @@ import {
   spaceTypeLabel,
   type QueueId,
 } from "@/lib/desk";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import { CATEGORIES, PRIORITIES, type CategoryCode, type Priority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -140,7 +140,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const counts = queueCounts(incidents, desk.phases);
+  const counts = queueCounts(incidents, desk.phases, desk.officerId);
+  const queueLinks = desk.live ? QUEUE_LINKS.filter((link) => link.id !== "waiting") : QUEUE_LINKS;
   const unread = alerts.filter((alert) => !alert.read).length;
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -202,11 +203,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }
 
   async function logOut() {
-    if (isSupabaseConfigured()) {
-      const { getSupabaseBrowserClient } = await import("@/lib/supabase");
-      await getSupabaseBrowserClient().auth.signOut();
+    try {
+      window.sessionStorage.removeItem("kasat.desk.state.v3");
+      if (isSupabaseConfigured()) {
+        await getSupabaseBrowserClient().auth.signOut();
+      }
+    } finally {
+      window.location.assign("/login");
     }
-    router.push("/login");
   }
 
   const iconOnly = collapsed && !narrow;
@@ -244,7 +248,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       <nav aria-label={t("queues")} className="grid gap-3">
         <NavGroup title={t("queues")} hidden={iconOnly}>
-          {QUEUE_LINKS.map((link) => (
+          {queueLinks.map((link) => (
             <NavItem
               key={link.id}
               href={link.href}
@@ -492,6 +496,22 @@ function NavItem({
   );
 }
 
+type OfficerMenuIdentity = {
+  name: string;
+  email: string;
+  station: string;
+  initials: string;
+};
+
+function initialsFromName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "…";
+  const first = parts[0]?.[0] ?? "";
+  const second = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : (parts[0]?.[1] ?? "");
+  const initials = `${first}${second}`.toUpperCase();
+  return initials || "…";
+}
+
 function AccountMenu({ onLogOut }: { onLogOut: () => void }) {
   const { t } = useI18n();
   const { theme, setTheme } = useTheme();
@@ -500,6 +520,31 @@ function AccountMenu({ onLogOut }: { onLogOut: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
   const holdTheme = useRef(false);
+  const configured = isSupabaseConfigured();
+  const [profile, setProfile] = useState<OfficerMenuIdentity | null>(null);
+
+  useEffect(() => {
+    if (!configured) return;
+    let cancelled = false;
+    void getSupabaseBrowserClient()
+      .rpc("current_officer_profile")
+      .then(({ data, error }) => {
+        if (cancelled || error || !data || typeof data !== "object") return;
+        const row = data as { name?: unknown; email?: unknown; station?: { name?: unknown } };
+        const name = typeof row.name === "string" ? row.name : "";
+        const email = typeof row.email === "string" ? row.email : "";
+        const station = typeof row.station?.name === "string" ? row.station.name : "";
+        if (!name && !email) return;
+        setProfile({ name: name || "…", email, station, initials: initialsFromName(name) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [configured]);
+
+  const identity: OfficerMenuIdentity = configured
+    ? (profile ?? { name: "…", email: "", station: "", initials: "…" })
+    : { name: OPERATOR.name, email: OPERATOR.email, station: t("orgName"), initials: OPERATOR.initials };
 
   function chooseTheme(value: string) {
     setTheme(value);
@@ -525,17 +570,17 @@ function AccountMenu({ onLogOut }: { onLogOut: () => void }) {
           if (!menuOpen) setMenuOpen(true);
         }}
       >
-        {OPERATOR.initials}
+        {identity.initials}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[280px] overflow-visible">
         <div className="flex items-center gap-2 px-2 py-2">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary-fill text-sm font-semibold text-primary-on">
-            {OPERATOR.initials}
+            {identity.initials}
           </span>
           <span className="min-w-0">
-            <span className="block truncate font-medium">{OPERATOR.name}</span>
-            <span className="block truncate text-xs text-muted">{OPERATOR.email}</span>
-            <span className="block truncate text-xs text-muted">{t("orgName")}</span>
+            <span className="block truncate font-medium">{identity.name}</span>
+            <span className="block truncate text-xs text-muted">{identity.email}</span>
+            <span className="block truncate text-xs text-muted">{identity.station}</span>
           </span>
         </div>
         <DropdownMenuSeparator />

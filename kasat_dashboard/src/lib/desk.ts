@@ -39,7 +39,26 @@ export const DEFAULT_SPACE: SpaceDetails = {
   defaultAssignee: OPERATOR.name,
 };
 
-export type DeskStatus = "new" | "claimed" | "progress" | "waiting" | "escalated" | "referred" | "resolved" | "closed";
+export type DeskStatus =
+  | "new"
+  | "claimed"
+  | "en_route"
+  | "on_scene"
+  | "progress"
+  | "waiting"
+  | "escalated"
+  | "referred"
+  | "resolved"
+  | "closed";
+
+/** dispatch_status values that exist on reports. Unknown values stay New. */
+export function dispatchDeskStatus(dispatch: string | null | undefined): DeskStatus {
+  if (dispatch === "claimed") return "claimed";
+  if (dispatch === "en_route") return "en_route";
+  if (dispatch === "on_scene") return "on_scene";
+  if (dispatch === "resolved") return "resolved";
+  return "new";
+}
 
 export const INITIAL_PHASES: Record<string, DeskStatus> = {
   "KST-8X9P2": "new",
@@ -50,14 +69,12 @@ export const INITIAL_PHASES: Record<string, DeskStatus> = {
   "KST-9WM2K": "resolved",
 };
 
-/** Statuses an officer may move to from the current one. */
+/** Statuses an officer may move to. Only values transition_report_dispatch saves. */
 export function allowedStatusMoves(status: DeskStatus): DeskStatus[] {
   if (status === "new") return ["claimed"];
-  if (status === "claimed") return ["progress"];
-  if (status === "progress") return ["waiting", "escalated", "resolved"];
-  if (status === "waiting") return ["progress", "escalated"];
-  if (status === "escalated") return ["progress", "resolved"];
-  if (status === "resolved") return ["closed"];
+  if (status === "claimed" || status === "progress") return ["en_route", "on_scene", "resolved"];
+  if (status === "en_route") return ["on_scene", "resolved"];
+  if (status === "on_scene") return ["resolved"];
   return [];
 }
 
@@ -104,8 +121,14 @@ export function isWaiting(incident: Incident, phase?: DeskStatus | null) {
   return deskStatus(incident, phase) === "waiting";
 }
 
+export function caseDeskCategory(incident: Incident): DeskCategory | null {
+  const raw = incident.incidentType;
+  if (raw && (DESK_CATEGORIES as readonly string[]).includes(raw)) return raw as DeskCategory;
+  return sampleCategory(incident);
+}
+
 export function categoryText(incident: Incident, t: (key: keyof Messages) => string) {
-  const sample = sampleCategory(incident);
+  const sample = caseDeskCategory(incident);
   if (sample) return t(DESK_CATEGORY_KEY[sample]);
   return categoryLabel(incident.category, t);
 }
@@ -115,7 +138,18 @@ export function deskCategoryLabel(category: DeskCategory, t: (key: keyof Message
 }
 
 export function deskStatus(incident: Incident, phase?: DeskStatus | null): DeskStatus {
-  if (phase === "closed" || phase === "escalated" || phase === "waiting" || phase === "claimed" || phase === "progress" || phase === "resolved" || phase === "new") {
+  if (
+    phase === "closed" ||
+    phase === "escalated" ||
+    phase === "waiting" ||
+    phase === "referred" ||
+    phase === "claimed" ||
+    phase === "en_route" ||
+    phase === "on_scene" ||
+    phase === "progress" ||
+    phase === "resolved" ||
+    phase === "new"
+  ) {
     return phase;
   }
   if (incident.status === "RESOLVED") return "resolved";
@@ -125,23 +159,27 @@ export function deskStatus(incident: Incident, phase?: DeskStatus | null): DeskS
   return "new";
 }
 
-export function inQueue(incident: Incident, queue: QueueId, phase?: DeskStatus | null) {
+export function inQueue(incident: Incident, queue: QueueId, phase?: DeskStatus | null, officerId: string = OPERATOR.id) {
   const status = deskStatus(incident, phase);
   if (queue === "unclaimed") return status === "new";
-  if (queue === "mine") return incident.assignedStation === OPERATOR.id && status !== "resolved" && status !== "closed" && status !== "waiting";
+  if (queue === "mine") return incident.assignedStation === officerId && status !== "resolved" && status !== "closed" && status !== "waiting";
   if (queue === "open") return status !== "resolved" && status !== "closed";
   if (queue === "waiting") return status === "waiting";
   return status === "resolved" || status === "closed";
 }
 
-export function queueCounts(incidents: Incident[], phases: Record<string, DeskStatus> = {}): Record<QueueId, number> {
+export function queueCounts(
+  incidents: Incident[],
+  phases: Record<string, DeskStatus> = {},
+  officerId: string = OPERATOR.id,
+): Record<QueueId, number> {
   const phaseOf = (incident: Incident) => phases[incident.trackingId];
   return {
-    unclaimed: incidents.filter((item) => inQueue(item, "unclaimed", phaseOf(item))).length,
-    mine: incidents.filter((item) => inQueue(item, "mine", phaseOf(item))).length,
-    open: incidents.filter((item) => inQueue(item, "open", phaseOf(item))).length,
-    waiting: incidents.filter((item) => inQueue(item, "waiting", phaseOf(item))).length,
-    resolved: incidents.filter((item) => inQueue(item, "resolved", phaseOf(item))).length,
+    unclaimed: incidents.filter((item) => inQueue(item, "unclaimed", phaseOf(item), officerId)).length,
+    mine: incidents.filter((item) => inQueue(item, "mine", phaseOf(item), officerId)).length,
+    open: incidents.filter((item) => inQueue(item, "open", phaseOf(item), officerId)).length,
+    waiting: incidents.filter((item) => inQueue(item, "waiting", phaseOf(item), officerId)).length,
+    resolved: incidents.filter((item) => inQueue(item, "resolved", phaseOf(item), officerId)).length,
   };
 }
 
@@ -157,6 +195,8 @@ export function pinUrgentFirst(incidents: Incident[], phases: Record<string, Des
 const STATUS_KEY: Record<DeskStatus, keyof Messages> = {
   new: "statusNew",
   claimed: "statusClaimed",
+  en_route: "statusEnRoute",
+  on_scene: "statusOnScene",
   progress: "statusProgress",
   waiting: "statusWaiting",
   escalated: "statusEscalated",
@@ -213,6 +253,7 @@ export function exactPlace(incident: Incident) {
 }
 
 export function assigneeName(incident: Incident) {
+  if (incident.assigneeName) return incident.assigneeName;
   if (!incident.assignedStation) return null;
   if (incident.assignedStation === OPERATOR.id) return OPERATOR.name;
   return incident.assignedStation;

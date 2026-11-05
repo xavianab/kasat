@@ -8,6 +8,7 @@ import { useI18n } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import {
   assigneeName,
+  caseDeskCategory,
   categoryText,
   DESK_CATEGORIES,
   deskCategoryLabel,
@@ -15,11 +16,9 @@ import {
   inQueue,
   pinUrgentFirst,
   priorityLabel,
-  sampleCategory,
   summaryOf,
   type QueueId,
 } from "@/lib/desk";
-import { isSupabaseConfigured } from "@/lib/supabase";
 import type { Priority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +59,7 @@ export function QueueView({ queue }: { queue: QueueId }) {
   }, [title]);
 
   const queued = useMemo(
-    () => pinUrgentFirst(incidents.filter((item) => inQueue(item, queue, desk.statusOf(item))), desk.phases),
+    () => pinUrgentFirst(incidents.filter((item) => inQueue(item, queue, desk.statusOf(item), desk.officerId)), desk.phases),
     [incidents, queue, desk],
   );
   const areas = useMemo(() => Array.from(new Set(queued.map((item) => generalArea(item, t)))).sort(), [queued, t]);
@@ -74,7 +73,7 @@ export function QueueView({ queue }: { queue: QueueId }) {
     if (search && !haystack.includes(search.toLowerCase())) return false;
     if (status !== "all" && desk.statusOf(item) !== status) return false;
     if (priority !== "all" && item.priority !== priority) return false;
-    if (category !== "all" && sampleCategory(item) !== category) return false;
+    if (category !== "all" && caseDeskCategory(item) !== category) return false;
     if (area !== "all" && generalArea(item, t) !== area) return false;
     if (assignee !== "all" && (assigneeName(item) ?? t("unassigned")) !== assignee) return false;
     return true;
@@ -105,7 +104,12 @@ export function QueueView({ queue }: { queue: QueueId }) {
       <Breadcrumbs page={title} />
       <div>
         <h1 className="text-xl font-semibold">{title}</h1>
-        {!isSupabaseConfigured() ? (
+        {desk.loadError ? (
+          <p className="mt-1 text-sm text-danger" role="alert">
+            {t("serverUnreachable")} {desk.loadError}
+          </p>
+        ) : null}
+        {!desk.live ? (
           <p className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted">
             <span>{t("fixtureNote")}</span>
             <Button
@@ -145,11 +149,9 @@ export function QueueView({ queue }: { queue: QueueId }) {
           <option value="all">{t("all")}</option>
           <option value="new">{t("statusNew")}</option>
           <option value="claimed">{t("statusClaimed")}</option>
-          <option value="progress">{t("statusProgress")}</option>
-          <option value="waiting">{t("statusWaiting")}</option>
-          <option value="escalated">{t("statusEscalated")}</option>
+          <option value="en_route">{t("statusEnRoute")}</option>
+          <option value="on_scene">{t("statusOnScene")}</option>
           <option value="resolved">{t("statusResolved")}</option>
-          <option value="closed">{t("statusClosed")}</option>
         </Filter>
         <Filter label={t("filterPriority")} value={priority} onChange={setPriority}>
           <option value="all">{t("all")}</option>

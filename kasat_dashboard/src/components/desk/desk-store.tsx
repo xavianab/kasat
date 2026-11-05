@@ -2,11 +2,25 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-import { sendOfficerReply } from "@/lib/case-messages";
+import { listCaseMessages, sendOfficerReply, type ListedCaseMessage } from "@/lib/case-messages";
+import {
+  deskToDispatch,
+  fetchAccessLog,
+  fetchCaseNotes,
+  fetchOfficerSession,
+  fetchSensitiveReport,
+  fetchStationReports,
+  mergeReports,
+  reportToIncident,
+  saveCaseNote,
+  transitionDispatch,
+  type ServerReport,
+} from "@/lib/live-desk";
 import {
   allowedStatusMoves,
   DEFAULT_SPACE,
   deskStatus,
+  dispatchDeskStatus,
   INITIAL_PHASES,
   newTrackingId,
   OPERATOR,
@@ -21,7 +35,7 @@ const STORAGE_KEY = "kasat.desk.state.v3";
 const SPACE_KEY = "kasat.desk.space.v1";
 const SOUND_KEY = "kasat.desk.sound";
 
-export type AccessAction = "claim" | "resolve" | "location_view" | "create" | "reply" | "status";
+export type AccessAction = "claim" | "resolve" | "location_view" | "create" | "reply" | "note" | "status";
 
 export type AccessEvent = {
   id: string;
@@ -85,6 +99,9 @@ type DeskState = {
 
 type DeskValue = DeskState & {
   ready: boolean;
+  live: boolean;
+  officerId: string;
+  loadError: string | null;
   space: SpaceDetails;
   soundAlerts: boolean;
   setSoundAlerts: (on: boolean) => void;
@@ -93,7 +110,9 @@ type DeskValue = DeskState & {
   resolve: (trackingId: string) => void;
   setStatus: (trackingId: string, next: DeskStatus) => void;
   addNote: (trackingId: string, body: string) => void;
+  loadNotes: (trackingId: string) => Promise<void>;
   addReply: (trackingId: string, body: string) => void;
+  loadReplies: (trackingId: string) => Promise<void>;
   linkCases: (fromId: string, toId: string, kind: CaseLink["kind"]) => void;
   createCase: (input: CreateInput) => string;
   simulateUrgent: () => string;
@@ -108,6 +127,37 @@ const DeskContext = createContext<DeskValue | null>(null);
 
 function eventId() {
   return crypto.randomUUID();
+}
+
+function applyServerReport(current: DeskState, row: ServerReport): DeskState {
+  const incident = reportToIncident(row, true);
+  const previous = current.incidents.find((item) => item.trackingId === incident.trackingId);
+  if (previous?.location && incident.location && previous.location.latitude !== 0 && incident.location.latitude === 0) {
+    incident.location = {
+      ...incident.location,
+      latitude: previous.location.latitude,
+      longitude: previous.location.longitude,
+    };
+  }
+  const exists = current.incidents.some((item) => item.trackingId === incident.trackingId);
+  return {
+    ...current,
+    incidents: exists
+      ? current.incidents.map((item) => (item.trackingId === incident.trackingId ? incident : item))
+      : [incident, ...current.incidents],
+    phases: { ...current.phases, [incident.trackingId]: dispatchDeskStatus(row.dispatch_status) },
+  };
+}
+
+function repliesFromServer(trackingId: string, rows: ListedCaseMessage[]): DeskReply[] {
+  return rows.map((row) => ({
+    id: row.id,
+    trackingId,
+    at: row.created_at,
+    actor: row.officer_name ?? (row.sender === "survivor" ? "Survivor" : "Officer"),
+    sender: row.sender,
+    body: row.body,
+  }));
 }
 
 export function DeskProvider({
@@ -132,8 +182,47 @@ export function DeskProvider({
   const [ready, setReady] = useState(false);
   const incidentsRef = useRef(state.incidents);
   incidentsRef.current = state.incidents;
+  const live = isSupabaseConfigured() && process.env.NEXT_PUBLIC_DEMO_MODE !== "true";
+  const [officerId, setOfficerId] = useState(OPERATOR.id);
+  const [stationId, setStationId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const officerName = useRef(OPERATOR.name);
 
   useEffect(() => {
+    if (live) {
+      window.sessionStorage.removeItem(STORAGE_KEY);
+      let cancelled = false;
+      void (async () => {
+        try {
+          const session = await fetchOfficerSession();
+          if (cancelled) return;
+          officerName.current = session.name;
+          setOfficerId(session.id);
+          setStationId(session.stationId);
+          const rows = await fetchStationReports();
+          if (cancelled) return;
+          const packed = mergeReports(rows, []);
+          const log = await fetchAccessLog(packed.incidents);
+          if (cancelled) return;
+          setState((current) => ({
+            ...current,
+            incidents: packed.incidents,
+            phases: packed.phases,
+            notes: [],
+            replies: [],
+            log,
+          }));
+          setLoadError(null);
+        } catch (error) {
+          if (!cancelled) setLoadError(error instanceof Error ? error.message : "unavailable");
+        } finally {
+          if (!cancelled) setReady(true);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
     try {
       const raw = window.sessionStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -158,14 +247,37 @@ export function DeskProvider({
       // Ignore a damaged local copy and keep the fixture queue.
     }
     setReady(true);
-  }, []);
+  }, [live]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || live) return;
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [ready, state]);
+  }, [ready, state, live]);
+
+  const refreshLog = useCallback(async (incidents: Incident[]) => {
+    const log = await fetchAccessLog(incidents);
+    setState((current) => ({ ...current, log }));
+  }, []);
 
   const claim = useCallback((trackingId: string) => {
+    if (live) {
+      void (async () => {
+        try {
+          const row = await transitionDispatch(trackingId, "claimed");
+          let nextIncidents: Incident[] = [];
+          setState((current) => {
+            const next = applyServerReport(current, row);
+            nextIncidents = next.incidents;
+            return next;
+          });
+          await refreshLog(nextIncidents);
+          setLoadError(null);
+        } catch (error) {
+          setLoadError(error instanceof Error ? error.message : "unavailable");
+        }
+      })();
+      return;
+    }
     const at = new Date().toISOString();
     setState((current) => {
       const incident = current.incidents.find((item) => item.trackingId === trackingId);
@@ -197,9 +309,27 @@ export function DeskProvider({
         ],
       };
     });
-  }, []);
+  }, [live, refreshLog]);
 
   const resolve = useCallback((trackingId: string) => {
+    if (live) {
+      void (async () => {
+        try {
+          const row = await transitionDispatch(trackingId, "resolved");
+          let nextIncidents: Incident[] = [];
+          setState((current) => {
+            const next = applyServerReport(current, row);
+            nextIncidents = next.incidents;
+            return next;
+          });
+          await refreshLog(nextIncidents);
+          setLoadError(null);
+        } catch (error) {
+          setLoadError(error instanceof Error ? error.message : "unavailable");
+        }
+      })();
+      return;
+    }
     const at = new Date().toISOString();
     setState((current) => {
       const incident = current.incidents.find((item) => item.trackingId === trackingId);
@@ -224,9 +354,28 @@ export function DeskProvider({
         ],
       };
     });
-  }, []);
+  }, [live, refreshLog]);
 
   const setStatus = useCallback((trackingId: string, next: DeskStatus) => {
+    const target = deskToDispatch(next);
+    if (live && target && target !== "claimed") {
+      void (async () => {
+        try {
+          const row = await transitionDispatch(trackingId, target);
+          let nextIncidents: Incident[] = [];
+          setState((current) => {
+            const updated = applyServerReport(current, row);
+            nextIncidents = updated.incidents;
+            return updated;
+          });
+          await refreshLog(nextIncidents);
+          setLoadError(null);
+        } catch (error) {
+          setLoadError(error instanceof Error ? error.message : "unavailable");
+        }
+      })();
+      return;
+    }
     setState((current) => {
       const incident = current.incidents.find((item) => item.trackingId === trackingId);
       if (!incident) return current;
@@ -237,7 +386,11 @@ export function DeskProvider({
       }
       const at = new Date().toISOString();
       const wire =
-        next === "progress" ? "UNDER_INVESTIGATION" : next === "resolved" || next === "closed" ? "RESOLVED" : incident.status;
+        next === "progress" || next === "en_route" || next === "on_scene"
+          ? "UNDER_INVESTIGATION"
+          : next === "resolved"
+            ? "RESOLVED"
+            : incident.status;
       return {
         ...current,
         phases: { ...current.phases, [trackingId]: next },
@@ -259,11 +412,32 @@ export function DeskProvider({
         ],
       };
     });
-  }, []);
+  }, [live, refreshLog]);
 
   const addReply = useCallback((trackingId: string, body: string) => {
     const text = body.trim();
     if (!text) return;
+    if (live) {
+      void (async () => {
+        try {
+          await sendOfficerReply(trackingId, text);
+          const rows = await listCaseMessages(trackingId);
+          let nextIncidents: Incident[] = incidentsRef.current;
+          setState((current) => {
+            nextIncidents = current.incidents;
+            return {
+              ...current,
+              replies: [...current.replies.filter((item) => item.trackingId !== trackingId), ...repliesFromServer(trackingId, rows)],
+            };
+          });
+          await refreshLog(nextIncidents);
+          setLoadError(null);
+        } catch (error) {
+          setLoadError(error instanceof Error ? error.message : "unavailable");
+        }
+      })();
+      return;
+    }
     const at = new Date().toISOString();
     setState((current) => {
       const incident = current.incidents.find((item) => item.trackingId === trackingId);
@@ -280,10 +454,34 @@ export function DeskProvider({
         ],
       };
     });
-    void sendOfficerReply(trackingId, text).catch(() => {
-      // Sample mode, or the case is not in Supabase yet. The reply is already on screen.
-    });
-  }, []);
+  }, [live, refreshLog]);
+
+  const loadReplies = useCallback(async (trackingId: string) => {
+    if (!live) return;
+    const rows = await listCaseMessages(trackingId);
+    setState((current) => ({
+      ...current,
+      replies: [...current.replies.filter((item) => item.trackingId !== trackingId), ...repliesFromServer(trackingId, rows)],
+    }));
+  }, [live]);
+
+  const loadNotes = useCallback(async (trackingId: string) => {
+    if (!live) return;
+    const rows = await fetchCaseNotes(trackingId);
+    setState((current) => ({
+      ...current,
+      notes: [
+        ...current.notes.filter((item) => item.trackingId !== trackingId),
+        ...rows.map((row) => ({
+          id: row.id,
+          trackingId,
+          at: row.created_at,
+          actor: row.officer_name ?? "Officer",
+          body: row.note,
+        })),
+      ],
+    }));
+  }, [live]);
 
   const linkCases = useCallback((fromId: string, toId: string, kind: CaseLink["kind"]) => {
     if (fromId === toId) return;
@@ -363,6 +561,32 @@ export function DeskProvider({
   const addNote = useCallback((trackingId: string, body: string) => {
     const text = body.trim();
     if (!text) return;
+    if (live) {
+      void (async () => {
+        try {
+          await saveCaseNote(trackingId, text);
+          const rows = await fetchCaseNotes(trackingId);
+          setState((current) => ({
+            ...current,
+            notes: [
+              ...current.notes.filter((item) => item.trackingId !== trackingId),
+              ...rows.map((row) => ({
+                id: row.id,
+                trackingId,
+                at: row.created_at,
+                actor: row.officer_name ?? officerName.current,
+                body: row.note,
+              })),
+            ],
+          }));
+          await refreshLog(incidentsRef.current);
+          setLoadError(null);
+        } catch (error) {
+          setLoadError(error instanceof Error ? error.message : "unavailable");
+        }
+      })();
+      return;
+    }
     setState((current) => ({
       ...current,
       notes: [
@@ -370,7 +594,7 @@ export function DeskProvider({
         { id: eventId(), trackingId, at: new Date().toISOString(), actor: OPERATOR.name, body: text },
       ],
     }));
-  }, []);
+  }, [live, refreshLog]);
 
   const createCase = useCallback((input: CreateInput) => {
     const at = new Date().toISOString();
@@ -405,6 +629,29 @@ export function DeskProvider({
   }, []);
 
   const logLocationView = useCallback((trackingId: string) => {
+    if (live) {
+      void (async () => {
+        try {
+          const current = incidentsRef.current.find((item) => item.trackingId === trackingId);
+          const hasCoords = Boolean(
+            current?.location && !(current.location.latitude === 0 && current.location.longitude === 0),
+          );
+          let incidents = incidentsRef.current;
+          if (current?.assignedStation && !hasCoords) {
+            const row = await fetchSensitiveReport(trackingId);
+            setState((existing) => {
+              const next = applyServerReport(existing, row);
+              incidents = next.incidents;
+              return next;
+            });
+          }
+          await refreshLog(incidents);
+        } catch (error) {
+          setLoadError(error instanceof Error ? error.message : "unavailable");
+        }
+      })();
+      return;
+    }
     setState((current) => {
       const already = current.log.some(
         (entry) =>
@@ -426,7 +673,7 @@ export function DeskProvider({
         ],
       };
     });
-  }, []);
+  }, [live, refreshLog]);
 
   const toggleWatch = useCallback((trackingId: string) => {
     setState((current) => ({
@@ -453,56 +700,63 @@ export function DeskProvider({
   );
 
   useEffect(() => {
-    if (!ready || !isSupabaseConfigured()) return;
+    if (!ready || !live || !stationId) return;
     const supabase = getSupabaseBrowserClient();
     const channel = supabase
-      .channel("desk-urgent")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "incidents", filter: "priority=eq.P1" }, (payload) => {
-        ingestLiveUrgent(payload.new as Record<string, unknown>);
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "incidents", filter: "priority=eq.P1" }, (payload) => {
-        ingestLiveUrgent(payload.new as Record<string, unknown>);
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "reports", filter: "is_emergency=eq.true" }, (payload) => {
-        ingestLiveUrgent(payload.new as Record<string, unknown>);
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "reports", filter: "is_emergency=eq.true" }, (payload) => {
-        ingestLiveUrgent(payload.new as Record<string, unknown>);
-      })
+      .channel(`desk-station-${stationId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "report_queue_events", filter: `station_id=eq.${stationId}` },
+        (payload) => {
+          const row = (payload.new ?? {}) as Record<string, unknown>;
+          if (row.is_emergency === true) {
+            const trackingId = String(row.tracking_code ?? "");
+            const area = typeof row.tracking_code === "string" ? trackingId : "Addis Ababa";
+            if (trackingId.startsWith("KST-")) {
+              setState((current) => {
+                if (current.alerts.some((alert) => alert.trackingId === trackingId && !alert.read)) return current;
+                return {
+                  ...current,
+                  alerts: [
+                    {
+                      id: eventId(),
+                      trackingId,
+                      at: new Date().toISOString(),
+                      category: "Urgent",
+                      area,
+                      read: false,
+                    },
+                    ...current.alerts,
+                  ],
+                };
+              });
+            }
+          }
+          void fetchStationReports()
+            .then((rows) => {
+              setState((current) => {
+                const packed = mergeReports(rows, current.incidents);
+                return { ...current, incidents: packed.incidents, phases: packed.phases };
+              });
+            })
+            .catch((error: unknown) => {
+              setLoadError(error instanceof Error ? error.message : "unavailable");
+            });
+        },
+      )
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
-
-    function ingestLiveUrgent(row: Record<string, unknown>) {
-      const trackingId = String(row.tracking_id ?? row.tracking_code ?? "");
-      if (!trackingId.startsWith("KST-")) return;
-      const areaText = typeof row.approx_location === "string" ? row.approx_location : "";
-      const area = /^-?\d+\.\d+/.test(areaText) ? "Addis Ababa" : areaText || "Addis Ababa";
-      setState((current) => {
-        if (current.alerts.some((alert) => alert.trackingId === trackingId && !alert.read)) return current;
-        return {
-          ...current,
-          alerts: [
-            {
-              id: eventId(),
-              trackingId,
-              at: new Date().toISOString(),
-              category: String(row.incident_type ?? row.category ?? "Other"),
-              area,
-              read: false,
-            },
-            ...current.alerts,
-          ],
-        };
-      });
-    }
-  }, [ready]);
+  }, [ready, live, stationId]);
 
   const value = useMemo<DeskValue>(
     () => ({
       ...state,
       ready,
+      live,
+      officerId,
+      loadError,
       space,
       soundAlerts,
       setSoundAlerts,
@@ -511,7 +765,9 @@ export function DeskProvider({
       resolve,
       setStatus,
       addNote,
+      loadNotes,
       addReply,
+      loadReplies,
       linkCases,
       createCase,
       simulateUrgent,
@@ -524,6 +780,9 @@ export function DeskProvider({
     [
       state,
       ready,
+      live,
+      officerId,
+      loadError,
       space,
       soundAlerts,
       setSoundAlerts,
@@ -532,7 +791,9 @@ export function DeskProvider({
       resolve,
       setStatus,
       addNote,
+      loadNotes,
       addReply,
+      loadReplies,
       linkCases,
       createCase,
       simulateUrgent,

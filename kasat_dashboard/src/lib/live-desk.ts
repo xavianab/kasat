@@ -1,0 +1,216 @@
+import { dispatchDeskStatus, type DeskStatus } from "@/lib/desk";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
+import type { Incident, IncidentStatus } from "@/lib/types";
+
+export type LiveAccessEvent = {
+  id: string;
+  at: string;
+  actor: string;
+  trackingId: string;
+  action: "claim" | "resolve" | "location_view" | "create" | "reply" | "status" | "note";
+  detail: string;
+};
+
+export type OfficerSession = {
+  id: string;
+  name: string;
+  email: string;
+  stationId: string;
+  stationName: string;
+};
+
+export type ServerReport = {
+  id: string;
+  tracking_code: string;
+  incident_type: string | null;
+  approx_location: string | null;
+  description: string | null;
+  status: string | null;
+  dispatch_status: string | null;
+  claimed_by_officer_id: string | null;
+  claimed_by_name: string | null;
+  claimed_at: string | null;
+  en_route_at: string | null;
+  on_scene_at: string | null;
+  resolved_at: string | null;
+  sent_at: string | null;
+  created_at: string | null;
+  is_emergency: boolean | null;
+  live_latitude?: number | null;
+  live_longitude?: number | null;
+};
+
+export type ServerNote = {
+  id: string;
+  note: string;
+  created_at: string;
+  officer_name: string | null;
+};
+
+export function deskToDispatch(status: DeskStatus): "claimed" | "en_route" | "on_scene" | "resolved" | null {
+  if (status === "claimed" || status === "en_route" || status === "on_scene" || status === "resolved") return status;
+  return null;
+}
+
+function placeFromApprox(text: string | null) {
+  const approx = text?.trim() ?? "";
+  const subCity = approx.match(/^([^,]+?)\s+sub-city/i)?.[1]?.trim() ?? null;
+  const woreda = approx.match(/woreda\s+[^,]+/i)?.[0]?.trim() ?? null;
+  const parts = approx.split(",").map((part) => part.trim()).filter(Boolean);
+  const landmark = parts.length >= 3 ? parts.slice(2).join(", ") : null;
+  return { approx, subCity, woreda, landmark };
+}
+
+function hasRealCoordinates(latitude: number, longitude: number) {
+  return !(latitude === 0 && longitude === 0) && Number.isFinite(latitude) && Number.isFinite(longitude);
+}
+
+export function reportToIncident(row: ServerReport, includeCoordinates: boolean): Incident {
+  const place = placeFromApprox(row.approx_location);
+  const latitude = includeCoordinates && row.live_latitude != null ? Number(row.live_latitude) : 0;
+  const longitude = includeCoordinates && row.live_longitude != null ? Number(row.live_longitude) : 0;
+  const submitted = row.sent_at || row.created_at || new Date().toISOString();
+  const wire: IncidentStatus =
+    row.status === "resolved" || row.dispatch_status === "resolved"
+      ? "RESOLVED"
+      : row.status === "under_review"
+        ? "UNDER_INVESTIGATION"
+        : "RECEIVED";
+  const actor = row.claimed_by_name || "Officer";
+  const history: Incident["history"] = [{ status: "RECEIVED", at: submitted, actor: "INTAKE", note: null }];
+  if (row.claimed_at) history.push({ status: "RECEIVED", at: row.claimed_at, actor, note: "Claimed" });
+  if (row.en_route_at) history.push({ status: "UNDER_INVESTIGATION", at: row.en_route_at, actor, note: "en_route" });
+  if (row.on_scene_at) history.push({ status: "UNDER_INVESTIGATION", at: row.on_scene_at, actor, note: "on_scene" });
+  if (row.resolved_at) history.push({ status: "RESOLVED", at: row.resolved_at, actor, note: null });
+  return {
+    trackingId: row.tracking_code,
+    reportId: row.id,
+    category: "HRSMT",
+    incidentType: row.incident_type,
+    description: row.description ?? "",
+    priority: row.is_emergency ? "P1" : "P3",
+    status: wire,
+    countryCode: "ET",
+    submittedAt: submitted,
+    updatedAt: row.resolved_at || row.on_scene_at || row.en_route_at || row.claimed_at || submitted,
+    history,
+    location: place.approx
+      ? {
+          latitude: hasRealCoordinates(latitude, longitude) ? latitude : 0,
+          longitude: hasRealCoordinates(latitude, longitude) ? longitude : 0,
+          precision: "DISTRICT",
+          note: place.approx,
+          subCity: place.subCity,
+          woreda: place.woreda,
+          landmark: place.landmark,
+        }
+      : null,
+    attachments: [],
+    assignedStation: row.claimed_by_officer_id,
+    assigneeName: row.claimed_by_name,
+  };
+}
+
+export function phasesFor(rows: ServerReport[]): Record<string, DeskStatus> {
+  return Object.fromEntries(rows.map((row) => [row.tracking_code, dispatchDeskStatus(row.dispatch_status)]));
+}
+
+export function mergeReports(rows: ServerReport[], previous: Incident[]) {
+  const prev = new Map(previous.map((item) => [item.trackingId, item]));
+  const incidents = rows.map((row) => {
+    const include = row.live_latitude != null && row.live_longitude != null;
+    const next = reportToIncident(row, include);
+    const old = prev.get(row.tracking_code);
+    if (old?.location && next.location && old.location.latitude !== 0 && next.location.latitude === 0) {
+      next.location = { ...next.location, latitude: old.location.latitude, longitude: old.location.longitude };
+    }
+    return next;
+  });
+  return { incidents, phases: phasesFor(rows) };
+}
+
+export async function fetchOfficerSession(): Promise<OfficerSession> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("current_officer_profile");
+  if (error) throw error;
+  const row = data as {
+    id: string;
+    name: string;
+    email: string;
+    station: { id: string; name: string };
+  };
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    stationId: row.station.id,
+    stationName: row.station.name,
+  };
+}
+
+export async function fetchStationReports(): Promise<ServerReport[]> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("list_station_reports");
+  if (error) throw error;
+  return (data ?? []) as ServerReport[];
+}
+
+export async function transitionDispatch(trackingId: string, next: string): Promise<ServerReport> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("transition_report_dispatch", {
+    p_tracking_code: trackingId,
+    p_next_status: next,
+  });
+  if (error) throw error;
+  return data as ServerReport;
+}
+
+export async function fetchSensitiveReport(trackingId: string): Promise<ServerReport> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("get_report_sensitive", { p_tracking_code: trackingId });
+  if (error) throw error;
+  return data as ServerReport;
+}
+
+export async function saveCaseNote(trackingId: string, body: string) {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.rpc("add_case_note", { p_tracking_code: trackingId, p_note: body });
+  if (error) throw error;
+}
+
+export async function fetchCaseNotes(trackingId: string): Promise<ServerNote[]> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("list_case_notes", { p_tracking_code: trackingId });
+  if (error) throw error;
+  return (data ?? []) as ServerNote[];
+}
+
+function auditAction(action: string): LiveAccessEvent["action"] {
+  if (action === "dispatch_claimed") return "claim";
+  if (action === "location_unlock") return "location_view";
+  if (action === "reply") return "reply";
+  if (action === "note") return "note";
+  if (action === "dispatch_resolved") return "resolve";
+  return "status";
+}
+
+export async function fetchAccessLog(incidents: Incident[]): Promise<LiveAccessEvent[]> {
+  const supabase = getSupabaseBrowserClient();
+  const [{ data, error }, officers] = await Promise.all([
+    supabase.from("report_audit_log").select("id, action, created_at, officer_id, report_id").order("created_at", { ascending: true }),
+    supabase.from("officers").select("id, name"),
+  ]);
+  if (error) throw error;
+  const tracking = new Map(incidents.filter((item) => item.reportId).map((item) => [item.reportId as string, item.trackingId]));
+  const names = new Map(((officers.data ?? []) as { id: string; name: string }[]).map((row) => [row.id, row.name]));
+  return ((data ?? []) as { id: string; action: string; created_at: string; officer_id: string | null; report_id: string }[]).map(
+    (row) => ({
+      id: row.id,
+      at: row.created_at,
+      actor: (row.officer_id && names.get(row.officer_id)) || "Officer",
+      trackingId: tracking.get(row.report_id) ?? row.report_id,
+      action: auditAction(row.action),
+      detail: row.action,
+    }),
+  );
+}

@@ -57,6 +57,21 @@ export function CaseView({ trackingId }: { trackingId: string }) {
   }, [trackingId]);
 
   useEffect(() => {
+    if (!desk.live) return;
+    void desk.loadNotes(trackingId).catch(() => {
+      // A case outside this station has no notes to show.
+    });
+  }, [trackingId, desk.live, desk.loadNotes]);
+
+  useEffect(() => {
+    const current = desk.incidents.find((item) => item.trackingId === trackingId);
+    if (!current?.assignedStation) return;
+    void desk.loadReplies(trackingId).catch(() => {
+      // Sample mode has no server messages. A failed read leaves the local list.
+    });
+  }, [trackingId, desk.incidents, desk.loadReplies]);
+
+  useEffect(() => {
     if (!incident || !incident.assignedStation || !hasCoordinates(incident)) return;
     desk.logLocationView(incident.trackingId);
     // Log once when this claimed case is opened.
@@ -563,8 +578,14 @@ function DropdownMenuLabelHidden() {
   return <span className="sr-only">{t("statusAction")}</span>;
 }
 
-function historyLabel(status: IncidentStatus, note: string | null, t: (key: "statusNew" | "statusClaimed" | "statusProgress" | "statusResolved") => string) {
+function historyLabel(
+  status: IncidentStatus,
+  note: string | null,
+  t: (key: "statusNew" | "statusClaimed" | "statusEnRoute" | "statusOnScene" | "statusProgress" | "statusResolved") => string,
+) {
   if (note === "Claimed") return t("statusClaimed");
+  if (note === "en_route") return t("statusEnRoute");
+  if (note === "on_scene") return t("statusOnScene");
   if (status === "RECEIVED") return t("statusNew");
   if (status === "UNDER_INVESTIGATION") return t("statusProgress");
   return t("statusResolved");
@@ -586,8 +607,8 @@ function HistoryList({ incidentHistory }: { incidentHistory: { status: IncidentS
   if (incidentHistory.length === 0) return <p className="text-sm text-muted">{t("noHistory")}</p>;
   return (
     <ul className="grid gap-2 text-sm">
-      {[...incidentHistory].reverse().map((event) => (
-        <li key={`${event.status}-${event.at}`}>
+      {[...incidentHistory].reverse().map((event, index) => (
+        <li key={`${event.status}-${event.note ?? "none"}-${event.at}-${index}`}>
           <span className="font-medium">{historyLabel(event.status, event.note, t)}</span>
           <span className="text-muted">
             {" · "}

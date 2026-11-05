@@ -57,6 +57,7 @@ export const en = {
   authFailed: "Sign-in failed. Check the email and password.",
   openDesk: "Open the desk",
   fixtureNote: "Supabase is not connected. This queue is local sample data.",
+  serverUnreachable: "Can't reach the server.",
   filterStatus: "Status",
   filterPriority: "Priority",
   filterCategory: "Category",
@@ -80,6 +81,8 @@ export const en = {
   queueKeys: "J and K move between rows. Enter opens the selected case.",
   statusNew: "New",
   statusClaimed: "Claimed",
+  statusEnRoute: "En route",
+  statusOnScene: "On scene",
   statusProgress: "In progress",
   statusWaiting: "Pending",
   statusEscalated: "Escalated",
@@ -291,6 +294,7 @@ export const en = {
   soundAlertsHelp: "Play a short chime for urgent reports. The browser only plays sound after you turn this on.",
   urgentLozenge: "Urgent",
   actionReply: "Replied to the survivor",
+  actionNote: "Added a note",
   actionStatus: "Changed status",
 };
 
@@ -354,6 +358,7 @@ export const am: Messages = {
   authFailed: "መግባት አልተሳካም። ኢሜይል እና የይለፍ ቃል ያረጋግጡ።",
   openDesk: "ዴስኩን ክፈት",
   fixtureNote: "Supabase አልተገናኘም። ይህ ወረፋ የአካባቢ ናሙና ነው።",
+  serverUnreachable: "ሰርቨሩ አልተገኘም።",
   filterStatus: "ሁኔታ",
   filterPriority: "ቅድሚያ",
   filterCategory: "ምድብ",
@@ -377,6 +382,8 @@ export const am: Messages = {
   queueKeys: "J እና K ረድፎችን ይቀይራሉ። Enter የተመረጠውን ጉዳይ ይከፍታል።",
   statusNew: "አዲስ",
   statusClaimed: "የተያዘ",
+  statusEnRoute: "በመንገድ ላይ",
+  statusOnScene: "በቦታው",
   statusProgress: "በሂደት ላይ",
   statusWaiting: "በመጠባበቅ ላይ",
   statusEscalated: "ከፍ የተደረገ",
@@ -586,6 +593,7 @@ export const am: Messages = {
   soundAlertsHelp: "ለአስቸኳይ ሪፖርት አጭር ድምጽ ያጫውቱ። አሳሹ ይህን ከከፈቱ በኋላ ብቻ ድምጽ ያጫውታል።",
   urgentLozenge: "አስቸኳይ",
   actionReply: "ለተጎጂው መልስ ላከ",
+  actionNote: "ማስታወሻ ጨመረ",
   actionStatus: "ሁኔታ ቀየረ",
 };
 
