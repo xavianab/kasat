@@ -53,6 +53,12 @@ export interface ApproxLocation {
   longitude: number;
   precision: "BLOCK" | "DISTRICT" | "CITY" | "REGION";
   note: string | null;
+  /** Sub-city name sent by the survivor app, e.g. "Bole". */
+  subCity?: string | null;
+  /** Woreda or kebele text sent by the survivor app. */
+  woreda?: string | null;
+  /** Landmark or description the survivor wrote. */
+  landmark?: string | null;
 }
 
 export interface StatusEvent {
@@ -72,6 +78,12 @@ export const COUNTRY_LABELS: Record<string, string> = {
 
 export interface Incident {
   trackingId: string;
+  /** Database report id, set when the row comes from Supabase. */
+  reportId?: string;
+  /** Survivor incident_type text, when the row comes from Supabase. */
+  incidentType?: string | null;
+  /** Officer display name from the report, when the row comes from Supabase. */
+  assigneeName?: string | null;
   category: CategoryCode;
   description: string;
   priority: Priority;

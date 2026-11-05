@@ -944,6 +944,7 @@ grant execute on function public.prepare_evidence_object(text, text) to service_
 -- ---------------------------------------------------------------------------
 -- M3 / M4: claim lock; officer name from officers row; H3 keep approach_response
 -- ---------------------------------------------------------------------------
+drop function if exists public.transition_report_dispatch(text, text, text, text);
 create or replace function public.transition_report_dispatch(
   p_tracking_code text,
   p_next_status text,
@@ -1040,6 +1041,7 @@ $$;
 revoke all on function public.transition_report_dispatch(text, text, text, text) from public, anon;
 grant execute on function public.transition_report_dispatch(text, text, text, text) to authenticated;
 
+drop function if exists public.signal_officer_arrived(text, integer);
 create or replace function public.signal_officer_arrived(
   p_tracking_code text,
   p_window_sec integer default 90
@@ -1094,6 +1096,7 @@ $$;
 revoke all on function public.signal_officer_arrived(text, integer) from public, anon;
 grant execute on function public.signal_officer_arrived(text, integer) to authenticated;
 
+drop function if exists public.log_approach_no_response(text);
 create or replace function public.log_approach_no_response(p_tracking_code text)
 returns jsonb
 language plpgsql
@@ -1147,6 +1150,7 @@ $$;
 revoke all on function public.log_approach_no_response(text) from public, anon;
 grant execute on function public.log_approach_no_response(text) to authenticated;
 
+drop function if exists public.record_sla_escalation(text, text, text);
 create or replace function public.record_sla_escalation(
   p_tracking_code text,
   p_sla_status text,
