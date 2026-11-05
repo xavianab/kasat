@@ -1,24 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Dispatch is fixture-only today. When Supabase is configured, require a
- * session cookie before showing /dispatch so the service-role key is never
- * needed in the browser and the queue is not a public page.
+ * The desk is fixture-only until Supabase is configured. When it is, require
+ * a session cookie before showing staff pages. The check itself is unchanged:
+ * a Supabase auth cookie, otherwise the login page.
  */
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const configured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
-  if (!configured) {
-    return NextResponse.next();
-  }
+  if (!configured) return NextResponse.next();
 
   const isLogin = path === "/login" || path.startsWith("/auth");
-  const isDispatch = path === "/dispatch" || path.startsWith("/dispatch/");
-  if (!isDispatch || isLogin) {
-    return NextResponse.next();
-  }
+  const isStaff =
+    path.startsWith("/dispatch") ||
+    path.startsWith("/queues") ||
+    path.startsWith("/cases") ||
+    path.startsWith("/reports") ||
+    path.startsWith("/access-log") ||
+    path.startsWith("/settings") ||
+    path.startsWith("/account");
+  if (!isStaff || isLogin) return NextResponse.next();
 
   const hasSession = request.cookies
     .getAll()
@@ -32,5 +35,13 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dispatch/:path*"],
+  matcher: [
+    "/dispatch/:path*",
+    "/queues/:path*",
+    "/cases/:path*",
+    "/reports/:path*",
+    "/access-log/:path*",
+    "/settings/:path*",
+    "/account/:path*",
+  ],
 };
