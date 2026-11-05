@@ -315,6 +315,7 @@ function LanguageCard() {
 
 export function AccountPage({ kind }: { kind: "profile" | "settings" }) {
   const { t } = useI18n();
+  const desk = useDesk();
   const title = kind === "profile" ? t("profile") : t("accountSettings");
   useEffect(() => {
     document.title = `${title} · Kasat Desk`;
@@ -337,6 +338,29 @@ export function AccountPage({ kind }: { kind: "profile" | "settings" }) {
           <span className="text-muted">{t("space")}: </span>
           {t("orgName")}
         </p>
+        {kind === "settings" ? (
+          <label className="mt-2 flex items-start gap-2">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={desk.soundAlerts}
+              onChange={(event) => {
+                desk.setSoundAlerts(event.target.checked);
+                if (event.target.checked) {
+                  const Context = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+                  if (Context) {
+                    const audio = new Context();
+                    void audio.resume().finally(() => void audio.close());
+                  }
+                }
+              }}
+            />
+            <span>
+              <span className="block font-medium">{t("soundAlerts")}</span>
+              <span className="block text-muted">{t("soundAlertsHelp")}</span>
+            </span>
+          </label>
+        ) : null}
       </section>
     </PageBody>
   );
@@ -383,6 +407,8 @@ export function AccessLogView() {
     resolve: t("actionResolve"),
     location_view: t("actionLocation"),
     create: t("actionCreate"),
+    reply: t("actionReply"),
+    status: t("actionStatus"),
   };
   return (
     <PageBody>

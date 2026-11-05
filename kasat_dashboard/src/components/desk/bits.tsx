@@ -16,9 +16,9 @@ import {
 import { useEffect, useState } from "react";
 
 import { useI18n } from "@/components/i18n-provider";
+import { useDesk } from "./desk-store";
 import {
   assigneeName,
-  deskStatus,
   firstResponseSla,
   generalArea,
   priorityLabel,
@@ -31,18 +31,20 @@ import type { Incident, Priority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const LOZENGE: Record<DeskStatus, string> = {
-  new: "bg-surface text-muted",
-  claimed: "bg-primary/10 text-primary",
-  progress: "bg-primary/10 text-primary",
-  waiting: "bg-warning/10 text-warning",
-  referred: "bg-referred/10 text-referred",
-  resolved: "bg-success/10 text-success",
-  closed: "bg-surface text-muted",
+  new: "bg-[#F1F2F4] text-[#44546F] dark:bg-[#2C333A] dark:text-[#C7D1DB]",
+  claimed: "bg-[#E9F2FF] text-[#0055CC] dark:bg-[#1C2B41] dark:text-[#85B8FF]",
+  progress: "bg-[#E9F2FF] text-[#0055CC] dark:bg-[#1C2B41] dark:text-[#85B8FF]",
+  waiting: "bg-[#FFF7D6] text-[#7F5F01] dark:bg-[#3D3418] dark:text-[#F5CD47]",
+  escalated: "bg-[#FFF3EB] text-[#A54800] dark:bg-[#3D2B1F] dark:text-[#FEC195]",
+  referred: "bg-[#F3F0FF] text-[#5E4DB2] dark:bg-[#2B273F] dark:text-[#B8ACF6]",
+  resolved: "bg-[#DCFFF1] text-[#216E4E] dark:bg-[#1C3329] dark:text-[#7EE2B8]",
+  closed: "bg-[#F1F2F4] text-[#44546F] dark:bg-[#2C333A] dark:text-[#C7D1DB]",
 };
 
 export function StatusLozenge({ incident, status }: { incident?: Incident; status?: DeskStatus }) {
   const { t } = useI18n();
-  const value = status ?? (incident ? deskStatus(incident) : "new");
+  const desk = useDesk();
+  const value = status ?? (incident ? desk.statusOf(incident) : "new");
   return (
     <span className={cn("inline-flex rounded-[3px] px-1.5 py-0.5 text-[11px] font-semibold tracking-wide uppercase", LOZENGE[value])}>
       {statusLabel(value, t)}
@@ -58,11 +60,20 @@ const PRIORITY_ICON = {
 } as const;
 
 const PRIORITY_CLASS: Record<Priority, string> = {
-  P1: "text-danger",
-  P2: "text-warning",
-  P3: "text-[#B38600] dark:text-warning",
-  P4: "text-primary",
+  P1: "text-[#AE2E24]",
+  P2: "text-[#C25100]",
+  P3: "text-[#7F5F01]",
+  P4: "text-[#0C66E4] dark:text-[#579DFF]",
 };
+
+export function UrgentLozenge() {
+  const { t } = useI18n();
+  return (
+    <span className="inline-flex rounded-[3px] bg-[#FFECEB] px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-[#AE2E24] uppercase dark:bg-[#42221F] dark:text-[#F87168]">
+      {t("urgentLozenge")}
+    </span>
+  );
+}
 
 export function PriorityIcon({ priority }: { priority: Priority }) {
   const { t } = useI18n();

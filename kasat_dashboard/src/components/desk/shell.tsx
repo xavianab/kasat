@@ -99,6 +99,22 @@ function ThemeThumb({ mode }: { mode: "light" | "dark" | "system" }) {
   );
 }
 
+function playChime() {
+  const Context = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!Context) return;
+  const audio = new Context();
+  const osc = audio.createOscillator();
+  const gain = audio.createGain();
+  osc.frequency.value = 880;
+  gain.gain.value = 0.04;
+  osc.connect(gain);
+  gain.connect(audio.destination);
+  osc.start();
+  gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.35);
+  osc.stop(audio.currentTime + 0.4);
+  window.setTimeout(() => void audio.close(), 600);
+}
+
 function DisabledTip({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Tooltip>
@@ -116,18 +132,46 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
-  const { incidents, space, createCase } = useDesk();
+  const desk = useDesk();
+  const { incidents, space, createCase, alerts, soundAlerts } = desk;
   const narrow = useMedia("(max-width: 1023px)");
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const counts = queueCounts(incidents);
+  const counts = queueCounts(incidents, desk.phases);
+  const unread = alerts.filter((alert) => !alert.read).length;
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [shake, setShake] = useState(false);
+  const seenAlerts = useRef<number | null>(null);
 
   useEffect(() => {
     setDrawerOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!desk.ready) return;
+    if (seenAlerts.current === null) {
+      seenAlerts.current = alerts.length;
+      return;
+    }
+    if (alerts.length <= seenAlerts.current) {
+      seenAlerts.current = alerts.length;
+      return;
+    }
+    seenAlerts.current = alerts.length;
+    const latest = alerts[0];
+    setAlertsOpen(true);
+    setShake(true);
+    const timer = window.setTimeout(() => setShake(false), 500);
+    if (latest && typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification(t("urgentTitle"), { body: `${latest.category} · ${latest.area}` });
+    }
+    if (soundAlerts) playChime();
+    return () => window.clearTimeout(timer);
+  }, [alerts, desk.ready, soundAlerts, t]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("kasat.desk.sidebar");
@@ -232,7 +276,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-surface text-text">
-      <header className="sticky top-0 z-30 flex h-12 items-center gap-2 border-b border-border bg-bg px-3">
+      <header className="sticky top-0 z-30 flex min-h-12 flex-wrap items-center gap-2 border-b border-border bg-bg px-3 py-2">
         <Button variant="ghost" size="icon" aria-label={t("toggleSidebar")} onClick={toggleSidebar}>
           <PanelLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
@@ -253,32 +297,57 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <KasatMark size={22} />
           <span className="hidden font-semibold sm:inline">{t("appName")}</span>
         </Link>
-        <form onSubmit={onSearch} className="mx-auto hidden w-full max-w-[420px] md:block" role="search">
+        <form onSubmit={onSearch} className="relative order-last w-full md:order-none md:mx-auto md:max-w-[420px] md:flex-1" role="search">
+          {/* TODO: When Ask Kasat AI is built, survivor data must not be sent to any outside AI service without anonymisation and an agreement in place. */}
           <label className="relative block">
             <span className="sr-only">{t("searchLabel")}</span>
             <Search className="pointer-events-none absolute top-2 left-2 h-4 w-4 text-muted" aria-hidden="true" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
+              onFocus={() => setSearchOpen(true)}
+              onBlur={() => window.setTimeout(() => setSearchOpen(false), 150)}
               placeholder={t("searchPlaceholder")}
               className="h-8 w-full rounded-[6px] border border-border bg-bg pr-2 pl-8"
+              aria-expanded={searchOpen}
             />
           </label>
+          {searchOpen ? (
+            <div className="absolute top-9 right-0 left-0 z-40 rounded-[6px] border border-border bg-bg p-1 shadow-[0_8px_24px_rgba(23,43,77,0.12)]">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="block" tabIndex={0}>
+                    <button type="button" disabled className="w-full rounded-[4px] px-2 py-1.5 text-left text-sm text-muted">
+                      {t("askAi")}
+                    </button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{t("comingSoon")}</TooltipContent>
+              </Tooltip>
+            </div>
+          ) : null}
         </form>
         <div className="ml-auto flex items-center gap-1">
           <Button variant="primary" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" aria-hidden="true" />
             {t("create")}
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] hover:bg-surface" aria-label={t("notificationsBell")}>
-              <Bell className="h-4 w-4" aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{t("notifications")}</DropdownMenuLabel>
-              <DropdownMenuItem disabled>{t("notificationsEmpty")}</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <button
+            type="button"
+            className={cn("relative inline-flex h-8 w-8 items-center justify-center rounded-[6px] hover:bg-surface", shake && "kasat-shake")}
+            aria-label={t("notificationsBell")}
+            onClick={() => {
+              setAlertsOpen((open) => !open);
+              desk.markAllAlertsRead();
+            }}
+          >
+            <Bell className="h-4 w-4" aria-hidden="true" />
+            {unread > 0 ? (
+              <span className="absolute top-0.5 right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#AE2E24] px-1 text-[10px] font-semibold text-white">
+                {unread}
+              </span>
+            ) : null}
+          </button>
           <Button variant="ghost" size="icon" aria-label={t("helpButton")} onClick={() => setHelpOpen(true)}>
             <CircleHelp className="h-4 w-4" aria-hidden="true" />
           </Button>
@@ -304,6 +373,49 @@ export function Shell({ children }: { children: React.ReactNode }) {
         )}
         <div className="min-w-0 flex-1">{children}</div>
       </div>
+
+      {alertsOpen ? (
+        <div className="fixed inset-0 z-50">
+          <button className="absolute inset-0 bg-[#172B4D]/40" aria-label={t("close")} onClick={() => setAlertsOpen(false)} />
+          <aside className="kasat-slide absolute inset-y-0 right-0 w-[min(100%,360px)] overflow-y-auto border-l border-border bg-bg p-4 shadow-xl">
+            <h2 className="text-base font-semibold">{alerts[0] && !alerts[0].read ? t("urgentTitle") : t("notifications")}</h2>
+            {alerts.length === 0 ? <p className="mt-3 text-sm text-muted">{t("notificationsEmpty")}</p> : null}
+            <ul className="mt-3 grid gap-3">
+              {alerts.map((alert) => (
+                <li key={alert.id} className="rounded-[6px] border border-border p-3">
+                  <p className="text-sm font-semibold text-[#AE2E24]">{t("urgentTitle")}</p>
+                  <p className="mt-1 text-sm">{alert.category}</p>
+                  <p className="text-sm text-muted">{alert.area}</p>
+                  <p className="mt-1 text-xs text-muted">{alert.at}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        desk.markAlertRead(alert.id);
+                        setAlertsOpen(false);
+                        router.push(`/cases/${alert.trackingId}`);
+                      }}
+                    >
+                      {t("openCase")}
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        desk.claim(alert.trackingId);
+                        desk.markAlertRead(alert.id);
+                        setAlertsOpen(false);
+                        router.push(`/cases/${alert.trackingId}`);
+                      }}
+                    >
+                      {t("claimNow")}
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        </div>
+      ) : null}
 
       <CreateCaseDialog
         open={createOpen}

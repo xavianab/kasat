@@ -1,4 +1,7 @@
 import type { Messages } from "./messages";
+import { claimedPlace, publicPlace } from "./places";
+
+export { publicPlace };
 import { fill } from "./utils";
 import type { CategoryCode, Incident, IncidentStatus, Priority } from "./types";
 
@@ -36,7 +39,27 @@ export const DEFAULT_SPACE: SpaceDetails = {
   defaultAssignee: OPERATOR.name,
 };
 
-export type DeskStatus = "new" | "claimed" | "progress" | "waiting" | "referred" | "resolved" | "closed";
+export type DeskStatus = "new" | "claimed" | "progress" | "waiting" | "escalated" | "referred" | "resolved" | "closed";
+
+export const INITIAL_PHASES: Record<string, DeskStatus> = {
+  "KST-8X9P2": "new",
+  "KST-4RT7Q": "new",
+  "KST-3HM6N": "progress",
+  "KST-7CK2L": "progress",
+  "KST-5WP8D": "waiting",
+  "KST-9WM2K": "resolved",
+};
+
+/** Statuses an officer may move to from the current one. */
+export function allowedStatusMoves(status: DeskStatus): DeskStatus[] {
+  if (status === "new") return ["claimed"];
+  if (status === "claimed") return ["progress"];
+  if (status === "progress") return ["waiting", "escalated", "resolved"];
+  if (status === "waiting") return ["progress", "escalated"];
+  if (status === "escalated") return ["progress", "resolved"];
+  if (status === "resolved") return ["closed"];
+  return [];
+}
 
 export type QueueId = "unclaimed" | "mine" | "open" | "waiting" | "resolved";
 
@@ -77,8 +100,8 @@ export function sampleCategory(incident: Incident): DeskCategory | null {
   return SAMPLE_DESK[incident.trackingId]?.category ?? null;
 }
 
-export function isWaiting(incident: Incident) {
-  return Boolean(SAMPLE_DESK[incident.trackingId]?.waiting) && incident.status !== "RESOLVED";
+export function isWaiting(incident: Incident, phase?: DeskStatus | null) {
+  return deskStatus(incident, phase) === "waiting";
 }
 
 export function categoryText(incident: Incident, t: (key: keyof Messages) => string) {
@@ -91,30 +114,44 @@ export function deskCategoryLabel(category: DeskCategory, t: (key: keyof Message
   return t(DESK_CATEGORY_KEY[category]);
 }
 
-export function deskStatus(incident: Incident): DeskStatus {
+export function deskStatus(incident: Incident, phase?: DeskStatus | null): DeskStatus {
+  if (phase === "closed" || phase === "escalated" || phase === "waiting" || phase === "claimed" || phase === "progress" || phase === "resolved" || phase === "new") {
+    return phase;
+  }
   if (incident.status === "RESOLVED") return "resolved";
-  if (isWaiting(incident)) return "waiting";
+  if (SAMPLE_DESK[incident.trackingId]?.waiting) return "waiting";
   if (incident.status === "UNDER_INVESTIGATION") return "progress";
   if (incident.assignedStation) return "claimed";
   return "new";
 }
 
-export function inQueue(incident: Incident, queue: QueueId) {
-  if (queue === "unclaimed") return isUnclaimed(incident);
-  if (queue === "mine") return incident.assignedStation === OPERATOR.id && incident.status !== "RESOLVED" && !isWaiting(incident);
-  if (queue === "open") return incident.status !== "RESOLVED";
-  if (queue === "waiting") return isWaiting(incident);
-  return incident.status === "RESOLVED";
+export function inQueue(incident: Incident, queue: QueueId, phase?: DeskStatus | null) {
+  const status = deskStatus(incident, phase);
+  if (queue === "unclaimed") return status === "new";
+  if (queue === "mine") return incident.assignedStation === OPERATOR.id && status !== "resolved" && status !== "closed" && status !== "waiting";
+  if (queue === "open") return status !== "resolved" && status !== "closed";
+  if (queue === "waiting") return status === "waiting";
+  return status === "resolved" || status === "closed";
 }
 
-export function queueCounts(incidents: Incident[]): Record<QueueId, number> {
+export function queueCounts(incidents: Incident[], phases: Record<string, DeskStatus> = {}): Record<QueueId, number> {
+  const phaseOf = (incident: Incident) => phases[incident.trackingId];
   return {
-    unclaimed: incidents.filter((item) => inQueue(item, "unclaimed")).length,
-    mine: incidents.filter((item) => inQueue(item, "mine")).length,
-    open: incidents.filter((item) => inQueue(item, "open")).length,
-    waiting: incidents.filter((item) => inQueue(item, "waiting")).length,
-    resolved: incidents.filter((item) => inQueue(item, "resolved")).length,
+    unclaimed: incidents.filter((item) => inQueue(item, "unclaimed", phaseOf(item))).length,
+    mine: incidents.filter((item) => inQueue(item, "mine", phaseOf(item))).length,
+    open: incidents.filter((item) => inQueue(item, "open", phaseOf(item))).length,
+    waiting: incidents.filter((item) => inQueue(item, "waiting", phaseOf(item))).length,
+    resolved: incidents.filter((item) => inQueue(item, "resolved", phaseOf(item))).length,
   };
+}
+
+export function pinUrgentFirst(incidents: Incident[], phases: Record<string, DeskStatus> = {}) {
+  return [...incidents].sort((a, b) => {
+    const aPin = a.priority === "P1" && deskStatus(a, phases[a.trackingId]) === "new" ? 0 : 1;
+    const bPin = b.priority === "P1" && deskStatus(b, phases[b.trackingId]) === "new" ? 0 : 1;
+    if (aPin !== bPin) return aPin - bPin;
+    return Date.parse(b.submittedAt) - Date.parse(a.submittedAt);
+  });
 }
 
 const STATUS_KEY: Record<DeskStatus, keyof Messages> = {
@@ -122,6 +159,7 @@ const STATUS_KEY: Record<DeskStatus, keyof Messages> = {
   claimed: "statusClaimed",
   progress: "statusProgress",
   waiting: "statusWaiting",
+  escalated: "statusEscalated",
   referred: "statusReferred",
   resolved: "statusResolved",
   closed: "statusClosed",
@@ -145,7 +183,7 @@ export function categoryLabel(category: CategoryCode, t: (key: keyof Messages) =
 }
 
 const PRIORITY_KEY: Record<Priority, keyof Messages> = {
-  P1: "priorityHighest",
+  P1: "priorityUrgent",
   P2: "priorityHigh",
   P3: "priorityMedium",
   P4: "priorityLow",
@@ -166,13 +204,12 @@ export function hasCoordinates(incident: Incident) {
   return !(incident.location.latitude === 0 && incident.location.longitude === 0);
 }
 
-export function generalArea(incident: Incident, t: (key: keyof Messages) => string) {
-  const country = countryLabel(incident.countryCode, t);
-  if (!incident.location) return country;
-  const precisionKey = `precision${incident.location.precision}` as keyof Messages;
-  const precision = t(precisionKey);
-  if (incident.location.note) return incident.location.note;
-  return `${precision} · ${country}`;
+export function generalArea(incident: Incident, _t?: (key: keyof Messages) => string) {
+  return publicPlace(incident);
+}
+
+export function exactPlace(incident: Incident) {
+  return claimedPlace(incident);
 }
 
 export function assigneeName(incident: Incident) {
@@ -216,7 +253,7 @@ function responseTarget(priority: Priority) {
 export function firstResponseSla(incident: Incident, now: number): { label: string; tone: SlaTone } {
   const submitted = Date.parse(incident.submittedAt);
   const target = responseTarget(incident.priority);
-  const claim = incident.history.find((event) => event.status !== "RECEIVED");
+  const claim = incident.history.find((event) => event.status !== "RECEIVED" || event.note === "Claimed");
   const elapsed = claim ? Date.parse(claim.at) - submitted : Math.max(0, now - submitted);
   const ratio = elapsed / target;
   if (claim) {
@@ -226,11 +263,12 @@ export function firstResponseSla(incident: Incident, now: number): { label: stri
   return { label: formatDuration(elapsed), tone };
 }
 
-export function resolutionSla(incident: Incident, now: number): { label: string; tone: SlaTone; paused: boolean } {
+export function resolutionSla(incident: Incident, now: number, phase?: DeskStatus | null): { label: string; tone: SlaTone; paused: boolean } {
   const submitted = Date.parse(incident.submittedAt);
   const target = incident.priority === "P1" ? 4 * 60 * 60_000 : incident.priority === "P2" ? 12 * 60 * 60_000 : 48 * 60 * 60_000;
-  const paused = isWaiting(incident);
-  if (incident.status === "RESOLVED") {
+  const status = deskStatus(incident, phase);
+  const paused = status === "waiting";
+  if (status === "resolved" || status === "closed") {
     return { label: formatDuration(Date.parse(incident.updatedAt) - submitted), tone: "met", paused: false };
   }
   const elapsed = Math.max(0, now - submitted);

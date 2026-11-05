@@ -77,6 +77,43 @@ a {
   outline-offset: 2px;
 }
 
+@keyframes kasat-shake {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-14deg);
+  }
+  50% {
+    transform: rotate(12deg);
+  }
+  75% {
+    transform: rotate(-8deg);
+  }
+}
+
+@keyframes kasat-slide {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+.kasat-shake {
+  animation: kasat-shake 0.45s linear;
+}
+
+.kasat-slide {
+  animation: kasat-slide 0.22s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kasat-shake,
+  .kasat-slide {
+    animation: none;
+  }
+}
+
 button,
 input,
 select,

@@ -11,9 +11,9 @@ import {
   categoryText,
   DESK_CATEGORIES,
   deskCategoryLabel,
-  deskStatus,
   generalArea,
   inQueue,
+  pinUrgentFirst,
   priorityLabel,
   sampleCategory,
   summaryOf,
@@ -23,7 +23,7 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import type { Priority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-import { AreaText, Assignee, PriorityIcon, RelativeTime, SlaBadge, StatusLozenge } from "./bits";
+import { AreaText, Assignee, PriorityIcon, RelativeTime, SlaBadge, StatusLozenge, UrgentLozenge } from "./bits";
 import { useDesk } from "./desk-store";
 import { Breadcrumbs, PageBody } from "./shell";
 
@@ -33,7 +33,8 @@ export function QueueView({ queue }: { queue: QueueId }) {
   const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
-  const { incidents } = useDesk();
+  const desk = useDesk();
+  const { incidents } = desk;
   const title =
     queue === "unclaimed"
       ? t("queueUnclaimed")
@@ -58,7 +59,10 @@ export function QueueView({ queue }: { queue: QueueId }) {
     document.title = `${title} · Kasat Desk`;
   }, [title]);
 
-  const queued = useMemo(() => incidents.filter((item) => inQueue(item, queue)), [incidents, queue]);
+  const queued = useMemo(
+    () => pinUrgentFirst(incidents.filter((item) => inQueue(item, queue, desk.statusOf(item))), desk.phases),
+    [incidents, queue, desk],
+  );
   const areas = useMemo(() => Array.from(new Set(queued.map((item) => generalArea(item, t)))).sort(), [queued, t]);
   const assignees = useMemo(
     () => Array.from(new Set(queued.map((item) => assigneeName(item) ?? t("unassigned")))).sort(),
@@ -68,7 +72,7 @@ export function QueueView({ queue }: { queue: QueueId }) {
   const filtered = queued.filter((item) => {
     const haystack = `${item.trackingId} ${item.description}`.toLowerCase();
     if (search && !haystack.includes(search.toLowerCase())) return false;
-    if (status !== "all" && deskStatus(item) !== status) return false;
+    if (status !== "all" && desk.statusOf(item) !== status) return false;
     if (priority !== "all" && item.priority !== priority) return false;
     if (category !== "all" && sampleCategory(item) !== category) return false;
     if (area !== "all" && generalArea(item, t) !== area) return false;
@@ -93,6 +97,7 @@ export function QueueView({ queue }: { queue: QueueId }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [active, rows, router]);
 
+  const urgentCount = incidents.filter((item) => item.priority === "P1" && desk.statusOf(item) === "new").length;
   const filtersActive = search || status !== "all" || priority !== "all" || category !== "all" || area !== "all" || assignee !== "all";
 
   return (
@@ -100,8 +105,29 @@ export function QueueView({ queue }: { queue: QueueId }) {
       <Breadcrumbs page={title} />
       <div>
         <h1 className="text-xl font-semibold">{title}</h1>
-        {!isSupabaseConfigured() ? <p className="mt-1 text-sm text-muted">{t("fixtureNote")}</p> : null}
+        {!isSupabaseConfigured() ? (
+          <p className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted">
+            <span>{t("fixtureNote")}</span>
+            <button
+              type="button"
+              className="text-primary hover:underline"
+              onClick={() => {
+                if (typeof Notification !== "undefined" && Notification.permission === "default") {
+                  void Notification.requestPermission();
+                }
+                desk.simulateUrgent();
+              }}
+            >
+              {t("simulateUrgent")}
+            </button>
+          </p>
+        ) : null}
       </div>
+      {urgentCount > 0 ? (
+        <p className="rounded-[6px] bg-[#FFECEB] px-3 py-2 text-sm font-medium text-[#AE2E24] dark:bg-[#42221F] dark:text-[#F87168]" role="status">
+          {urgentCount === 1 ? t("urgentBannerOne") : t("urgentBannerMany", { n: urgentCount })}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-end gap-2">
         <label className="grid gap-1 text-xs text-muted">
           {t("searchLabel")}
@@ -119,7 +145,10 @@ export function QueueView({ queue }: { queue: QueueId }) {
           <option value="new">{t("statusNew")}</option>
           <option value="claimed">{t("statusClaimed")}</option>
           <option value="progress">{t("statusProgress")}</option>
+          <option value="waiting">{t("statusWaiting")}</option>
+          <option value="escalated">{t("statusEscalated")}</option>
           <option value="resolved">{t("statusResolved")}</option>
+          <option value="closed">{t("statusClosed")}</option>
         </Filter>
         <Filter label={t("filterPriority")} value={priority} onChange={setPriority}>
           <option value="all">{t("all")}</option>
@@ -215,7 +244,10 @@ export function QueueView({ queue }: { queue: QueueId }) {
                       <AreaText incident={incident} />
                     </td>
                     <td className="px-3 py-2">
-                      <PriorityIcon priority={incident.priority} />
+                      <span className="inline-flex items-center gap-2">
+                        <PriorityIcon priority={incident.priority} />
+                        {incident.priority === "P1" ? <UrgentLozenge /> : null}
+                      </span>
                     </td>
                     <td className="px-3 py-2">
                       <StatusLozenge incident={incident} />
