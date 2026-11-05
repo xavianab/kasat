@@ -96,6 +96,7 @@ class _RevealIdentityScreenState extends State<RevealIdentityScreen> {
         channel: _channel.name,
         handle: _handle.text.trim(),
         safeNote: _safeNote.text.trim().isEmpty ? null : _safeNote.text.trim(),
+        accessSecret: widget.incident.accessSecret,
       );
       if (!mounted) return;
       HapticFeedback.mediumImpact();
@@ -142,14 +143,12 @@ class _RevealIdentityScreenState extends State<RevealIdentityScreen> {
                   padding: const EdgeInsets.all(KSpace.xl),
                   children: [
                     const KNote(
-                      title: 'This cannot be undone (one-way only)',
+                      title: 'Please confirm',
                       icon: Icons.warning_amber_rounded,
                       color: KC.urgent,
-                      body: 'Once you share your name and contact details on '
-                          'this report, it moves permanently from anonymous '
-                          'to named for the station handling your case. '
-                          'You cannot make this report anonymous again. '
-                          'Any other reports you file stay anonymous.',
+                      body: 'The officer handling your case will see your name '
+                          'and phone number. This cannot be undone. Any other '
+                          'reports you file stay anonymous.',
                     ),
                     const SizedBox(height: KSpace.lg),
                     KPanel(
@@ -241,9 +240,9 @@ class _RevealIdentityScreenState extends State<RevealIdentityScreen> {
                               child: Padding(
                                 padding: const EdgeInsets.only(top: 8),
                                 child: Text(
-                                  'I understand that revealing my identity on '
-                                  'case ${widget.incident.trackingId} is '
-                                  'permanent and cannot be undone.',
+                                  'The officer handling your case will see '
+                                  'your name and phone number. I understand '
+                                  'this is permanent and cannot be undone.',
                                   style: KType.sans(
                                     size: 13.5,
                                     weight: FontWeight.w600,

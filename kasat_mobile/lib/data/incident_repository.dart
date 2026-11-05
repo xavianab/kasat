@@ -64,5 +64,6 @@ abstract interface class IncidentRepository {
     required String channel,
     required String handle,
     String? safeNote,
+    String? accessSecret,
   });
 }

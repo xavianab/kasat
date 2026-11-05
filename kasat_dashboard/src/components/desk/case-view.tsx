@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { fetchRevealedIdentity, type RevealedIdentity } from "@/lib/live-desk";
 import {
   allowedStatusMoves,
   assigneeName,
@@ -33,6 +34,7 @@ import type { IncidentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { PauseMark, PriorityIcon, RelativeTime, StatusLozenge, useNow } from "./bits";
+import { CaseAttachments } from "./case-attachments";
 import { useDesk } from "./desk-store";
 import { Breadcrumbs, PageBody } from "./shell";
 
@@ -50,6 +52,11 @@ export function CaseView({ trackingId }: { trackingId: string }) {
   const [linkQuery, setLinkQuery] = useState("");
   const [linkKind, setLinkKind] = useState<"relates" | "duplicate">("relates");
   const [toast, setToast] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState<RevealedIdentity | null>(null);
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopenReason, setReopenReason] = useState("");
+  const [reopenError, setReopenError] = useState<string | null>(null);
+  const [reopening, setReopening] = useState(false);
   const now = useNow();
 
   useEffect(() => {
@@ -62,6 +69,24 @@ export function CaseView({ trackingId }: { trackingId: string }) {
       // A case outside this station has no notes to show.
     });
   }, [trackingId, desk.live, desk.loadNotes]);
+
+  useEffect(() => {
+    if (!desk.live) {
+      setRevealed(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchRevealedIdentity(trackingId)
+      .then((row) => {
+        if (!cancelled) setRevealed(row);
+      })
+      .catch(() => {
+        if (!cancelled) setRevealed(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [trackingId, desk.live, incident?.assignedStation, incident?.status]);
 
   useEffect(() => {
     const current = desk.incidents.find((item) => item.trackingId === trackingId);
@@ -196,7 +221,9 @@ export function CaseView({ trackingId }: { trackingId: string }) {
               <Soon />
             </Field>
             <Field label={t("attachments")}>
-              {incident.attachments.length === 0 ? (
+              {desk.live ? (
+                <CaseAttachments trackingId={incident.trackingId} claimed={!unclaimed} />
+              ) : incident.attachments.length === 0 ? (
                 <span className="text-muted">{t("noAttachments")}</span>
               ) : (
                 <ul className="grid gap-1">
@@ -378,6 +405,18 @@ export function CaseView({ trackingId }: { trackingId: string }) {
               else desk.setStatus(incident.trackingId, next);
             }}
           />
+          {desk.live && phase === "resolved" && (incident.assignedStation === desk.officerId || desk.spaceAdmin) ? (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReopenReason("");
+                setReopenError(null);
+                setReopenOpen(true);
+              }}
+            >
+              {t("reopenCase")}
+            </Button>
+          ) : null}
           <Card title={t("slas")}>
             <Field label={t("slaFirst")}>
               {now ? (
@@ -423,7 +462,21 @@ export function CaseView({ trackingId }: { trackingId: string }) {
             </Field>
           </Card>
           <Card title={t("identity")}>
-            <p className="text-sm">{t("identityHidden")}</p>
+            {revealed?.fullName ? (
+              <div className="grid gap-2 text-sm">
+                <Field label={t("identityName")}>{revealed.fullName}</Field>
+                {revealed.contactHandle ? (
+                  <Field label={t("identityPhone")}>{revealed.contactHandle}</Field>
+                ) : null}
+                {revealed.safeNote ? <Field label={t("identitySafe")}>{revealed.safeNote}</Field> : null}
+              </div>
+            ) : revealed?.revealed && unclaimed ? (
+              <p className="text-sm">{t("identityClaimToView")}</p>
+            ) : revealed?.revealed ? (
+              <p className="text-sm">{t("identityRestricted")}</p>
+            ) : (
+              <p className="text-sm">{t("identityHidden")}</p>
+            )}
           </Card>
           <p className="text-xs text-muted">
             {t("created")} <RelativeTime iso={incident.submittedAt} />
@@ -432,6 +485,41 @@ export function CaseView({ trackingId }: { trackingId: string }) {
           </p>
         </aside>
       </div>
+      <Dialog open={reopenOpen} onOpenChange={setReopenOpen}>
+        <DialogContent closeLabel={t("close")}>
+          <DialogTitle>{t("reopenCase")}</DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-muted">{t("reopenReason")}</DialogDescription>
+          <textarea
+            value={reopenReason}
+            onChange={(event) => setReopenReason(event.target.value)}
+            maxLength={280}
+            className="mt-3 min-h-20 w-full rounded-[6px] border border-border bg-bg p-2 text-sm"
+          />
+          {reopenError ? <p className="mt-2 text-sm text-danger">{reopenError}</p> : null}
+          <div className="mt-3 flex justify-end">
+            <Button
+              variant="primary"
+              disabled={reopening || reopenReason.trim().length === 0}
+              onClick={() => {
+                setReopening(true);
+                setReopenError(null);
+                void desk
+                  .reopen(incident.trackingId, reopenReason.trim())
+                  .then(() => {
+                    setReopenOpen(false);
+                    setReopenReason("");
+                  })
+                  .catch((cause: unknown) => {
+                    setReopenError(cause instanceof Error ? cause.message : "unavailable");
+                  })
+                  .finally(() => setReopening(false));
+              }}
+            >
+              {t("reopenConfirm")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {toast ? (
         <p role="status" className="fixed right-4 bottom-4 z-50 rounded-[6px] bg-[#172B4D] px-3 py-2 text-sm text-white shadow-lg">
           {toast}
@@ -661,7 +749,7 @@ function ReplyList({
   );
 }
 
-function AccessList({ events }: { events: { id: string; action: string; actor: string; at: string }[] }) {
+function AccessList({ events }: { events: { id: string; action: string; actor: string; at: string; detail?: string }[] }) {
   const { t } = useI18n();
   const label = {
     claim: t("actionClaim"),
@@ -669,13 +757,17 @@ function AccessList({ events }: { events: { id: string; action: string; actor: s
     location_view: t("actionLocation"),
     create: t("actionCreate"),
     reply: t("actionReply"),
+    note: t("actionNote"),
     status: t("actionStatus"),
+    reopen: t("actionReopen"),
+    evidence: t("actionEvidence"),
   } as const;
   return (
     <ul className="grid gap-2 text-sm">
       {[...events].reverse().map((event) => (
         <li key={event.id}>
           {label[event.action as keyof typeof label] ?? event.action}
+          {event.action === "reopen" && event.detail ? <span className="text-muted"> · {event.detail}</span> : null}
           <span className="text-muted">
             {" · "}
             {event.actor} · <RelativeTime iso={event.at} />

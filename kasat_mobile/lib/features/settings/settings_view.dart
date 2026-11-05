@@ -161,6 +161,29 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     const SizedBox(height: KSpace.md),
                     KPanel(
+                      title: 'Update notifications',
+                      subtitle: settings.updateNotificationsEnabled
+                          ? 'On. A short note when you are not in the app.'
+                          : 'Off.',
+                      child: SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          'Notify me about updates',
+                          style: KType.sans(size: 14, weight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          'The note never includes the message.',
+                          style: KType.sans(size: 13, color: KC.muted, height: 1.4),
+                        ),
+                        value: settings.updateNotificationsEnabled,
+                        onChanged: (on) async {
+                          await settings.setUpdateNotificationsEnabled(on);
+                          if (mounted) setState(() {});
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: KSpace.md),
+                    KPanel(
                       title: 'Save my details (optional)',
                       subtitle:
                           'Optional. Stays encrypted on this phone only — never synced to a server.',

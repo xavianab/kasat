@@ -764,8 +764,14 @@ void main() {
       await tester.runAsync(() async {
         HttpOverrides.global = null;
         SharedPreferences.setMockInitialValues({});
-        const supabaseUrl = String.fromEnvironment('KASAT_SUPABASE_URL');
-        const anonKey = String.fromEnvironment('KASAT_SUPABASE_ANON_KEY');
+        const supabaseUrl = String.fromEnvironment(
+          'SUPABASE_URL',
+          defaultValue: String.fromEnvironment('KASAT_SUPABASE_URL'),
+        );
+        const anonKey = String.fromEnvironment(
+          'SUPABASE_ANON_KEY',
+          defaultValue: String.fromEnvironment('KASAT_SUPABASE_ANON_KEY'),
+        );
         const officerEmail = String.fromEnvironment('KASAT_LIVE_OFFICER_EMAIL');
         const officerPassword =
             String.fromEnvironment('KASAT_LIVE_OFFICER_PASSWORD');

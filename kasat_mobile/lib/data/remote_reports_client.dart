@@ -548,4 +548,121 @@ class RemoteReportsClient {
       accessSecret: accessSecret,
     );
   }
+
+  Future<CaseProgress> getMyCaseStatus(String accessSecret) async {
+    final res = await _http
+        .post(
+          _rpc('get_my_case_status'),
+          headers: _jsonHeaders(),
+          body: jsonEncode({'p_access_secret': accessSecret}),
+        )
+        .timeout(_timeout);
+    if (res.statusCode >= 300) {
+      final message = utf8.decode(res.bodyBytes);
+      if (message.contains('too many requests')) {
+        throw Exception('too many requests');
+      }
+      throw Exception('status failed (${res.statusCode})');
+    }
+    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    if (decoded is! Map) {
+      throw Exception('status failed (empty)');
+    }
+    return CaseProgress.fromJson(Map<String, dynamic>.from(decoded));
+  }
+
+  Future<List<SurvivorReply>> listSurvivorReplies(String accessSecret) async {
+    final res = await _http
+        .post(
+          _rpc('list_survivor_replies'),
+          headers: _jsonHeaders(),
+          body: jsonEncode({'p_access_secret': accessSecret}),
+        )
+        .timeout(_timeout);
+    if (res.statusCode >= 300) {
+      throw Exception('replies failed (${res.statusCode})');
+    }
+    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map>()
+        .map((row) => SurvivorReply.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<void> sendSurvivorReply(String accessSecret, String body) async {
+    final res = await _http
+        .post(
+          _rpc('send_survivor_reply'),
+          headers: _jsonHeaders(),
+          body: jsonEncode({
+            'p_access_secret': accessSecret,
+            'p_body': body.trim(),
+          }),
+        )
+        .timeout(_timeout);
+    if (res.statusCode >= 300) {
+      final message = utf8.decode(res.bodyBytes);
+      if (message.contains('too many messages')) {
+        throw Exception('too many messages');
+      }
+      throw Exception('reply failed (${res.statusCode})');
+    }
+  }
+}
+
+class CaseProgress {
+  const CaseProgress({
+    required this.status,
+    required this.dispatchStatus,
+    required this.sentAt,
+    required this.claimedAt,
+    required this.enRouteAt,
+    required this.onSceneAt,
+    required this.resolvedAt,
+    required this.reopened,
+  });
+
+  final String status;
+  final String dispatchStatus;
+  final DateTime? sentAt;
+  final DateTime? claimedAt;
+  final DateTime? enRouteAt;
+  final DateTime? onSceneAt;
+  final DateTime? resolvedAt;
+  final bool reopened;
+
+  factory CaseProgress.fromJson(Map<String, dynamic> json) {
+    DateTime? at(String key) => DateTime.tryParse(json[key] as String? ?? '')?.toUtc();
+    return CaseProgress(
+      status: json['status'] as String? ?? '',
+      dispatchStatus: json['dispatch_status'] as String? ?? '',
+      sentAt: at('sent_at'),
+      claimedAt: at('claimed_at'),
+      enRouteAt: at('en_route_at'),
+      onSceneAt: at('on_scene_at'),
+      resolvedAt: at('resolved_at'),
+      reopened: json['reopened'] as bool? ?? false,
+    );
+  }
+}
+
+class SurvivorReply {
+  const SurvivorReply({
+    required this.sender,
+    required this.body,
+    required this.createdAt,
+  });
+
+  final String sender;
+  final String body;
+  final DateTime createdAt;
+
+  factory SurvivorReply.fromJson(Map<String, dynamic> json) {
+    return SurvivorReply(
+      sender: json['sender'] as String? ?? '',
+      body: json['body'] as String? ?? '',
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
 }

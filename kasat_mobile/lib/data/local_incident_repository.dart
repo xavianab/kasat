@@ -320,6 +320,7 @@ class LocalIncidentRepository implements IncidentRepository {
     required String channel,
     required String handle,
     String? safeNote,
+    String? accessSecret,
   }) async {
     final current = _cache[trackingId];
     if (current == null) return null;

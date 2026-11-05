@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'app.dart';
 import 'core/network_status.dart';
+import 'core/update_notifier.dart';
 import 'data/attachment_store.dart';
 import 'data/local_alert_repository.dart';
 import 'data/local_incident_repository.dart';
@@ -16,6 +17,7 @@ import 'theme/kasat_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await UpdateNotifier.init();
 
   SystemChrome.setSystemUIOverlayStyle(KasatTheme.overlay);
   await SystemChrome.setPreferredOrientations([

@@ -7,7 +7,7 @@ export type LiveAccessEvent = {
   at: string;
   actor: string;
   trackingId: string;
-  action: "claim" | "resolve" | "location_view" | "create" | "reply" | "status" | "note";
+  action: "claim" | "resolve" | "location_view" | "create" | "reply" | "status" | "note" | "reopen" | "evidence";
   detail: string;
 };
 
@@ -20,6 +20,7 @@ export type OfficerSession = {
   stationCode: string;
   stationRegion: string;
   generalArea: string;
+  spaceAdmin: boolean;
 };
 
 /** Prefer the station's name. Use its code when the name is blank. */
@@ -147,6 +148,7 @@ export async function fetchOfficerSession(): Promise<OfficerSession> {
     id: string;
     name: string;
     email: string;
+    isSpaceAdmin?: boolean;
     station: {
       id: string;
       name: string | null;
@@ -164,6 +166,7 @@ export async function fetchOfficerSession(): Promise<OfficerSession> {
     stationCode: row.station.code?.trim() ?? "",
     stationRegion: row.station.region?.trim() ?? "",
     generalArea: row.station.generalArea?.trim() ?? "",
+    spaceAdmin: row.isSpaceAdmin === true,
   };
 }
 
@@ -182,6 +185,34 @@ export async function transitionDispatch(trackingId: string, next: string): Prom
   });
   if (error) throw error;
   return data as ServerReport;
+}
+
+export type RevealedIdentity = {
+  revealed: boolean;
+  fullName: string | null;
+  contactChannel: string | null;
+  contactHandle: string | null;
+  safeNote: string | null;
+};
+
+export async function fetchRevealedIdentity(trackingId: string): Promise<RevealedIdentity> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("get_revealed_identity", { p_tracking_code: trackingId });
+  if (error) throw error;
+  const row = (data ?? {}) as {
+    revealed?: boolean;
+    full_name?: string | null;
+    contact_channel?: string | null;
+    contact_handle?: string | null;
+    safe_note?: string | null;
+  };
+  return {
+    revealed: row.revealed === true,
+    fullName: row.full_name?.trim() || null,
+    contactChannel: row.contact_channel?.trim() || null,
+    contactHandle: row.contact_handle?.trim() || null,
+    safeNote: row.safe_note?.trim() || null,
+  };
 }
 
 export async function fetchSensitiveReport(trackingId: string): Promise<ServerReport> {
@@ -210,26 +241,82 @@ function auditAction(action: string): LiveAccessEvent["action"] {
   if (action === "reply") return "reply";
   if (action === "note") return "note";
   if (action === "dispatch_resolved") return "resolve";
+  if (action === "reopened") return "reopen";
+  if (action === "evidence_viewed") return "evidence";
   return "status";
 }
 
 export async function fetchAccessLog(incidents: Incident[]): Promise<LiveAccessEvent[]> {
   const supabase = getSupabaseBrowserClient();
   const [{ data, error }, officers] = await Promise.all([
-    supabase.from("report_audit_log").select("id, action, created_at, officer_id, report_id").order("created_at", { ascending: true }),
+    supabase.from("report_audit_log").select("id, action, detail, created_at, officer_id, report_id").order("created_at", { ascending: true }),
     supabase.from("officers").select("id, name"),
   ]);
   if (error) throw error;
   const tracking = new Map(incidents.filter((item) => item.reportId).map((item) => [item.reportId as string, item.trackingId]));
   const names = new Map(((officers.data ?? []) as { id: string; name: string }[]).map((row) => [row.id, row.name]));
-  return ((data ?? []) as { id: string; action: string; created_at: string; officer_id: string | null; report_id: string }[]).map(
+  return ((data ?? []) as { id: string; action: string; detail: string | null; created_at: string; officer_id: string | null; report_id: string }[]).map(
     (row) => ({
       id: row.id,
       at: row.created_at,
       actor: (row.officer_id && names.get(row.officer_id)) || "Officer",
       trackingId: tracking.get(row.report_id) ?? row.report_id,
       action: auditAction(row.action),
-      detail: row.action,
+      detail: row.action === "reopened" ? (row.detail ?? "reopened") : row.action,
     }),
   );
+}
+
+export type CaseFile = {
+  objectKey: string;
+  integrityStatus: string | null;
+  evidenceSha256: string | null;
+};
+
+export async function fetchAttachmentSummary(trackingId: string): Promise<{ count: number; files: CaseFile[] | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("case_attachment_summary", { p_tracking_code: trackingId });
+  if (error) throw error;
+  const row = (data ?? {}) as {
+    count?: number;
+    files?: { object_key?: string; integrity_status?: string | null; evidence_sha256?: string | null }[] | null;
+  };
+  return {
+    count: Number(row.count ?? 0),
+    files: Array.isArray(row.files)
+      ? row.files
+          .filter((file) => typeof file.object_key === "string" && file.object_key.length > 0)
+          .map((file) => ({
+            objectKey: file.object_key as string,
+            integrityStatus: file.integrity_status ?? null,
+            evidenceSha256: file.evidence_sha256 ?? null,
+          }))
+      : null,
+  };
+}
+
+export async function viewCaseAttachment(trackingId: string, objectKey: string): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.rpc("view_case_attachment", {
+    p_tracking_code: trackingId,
+    p_object_key: objectKey,
+  });
+  if (error) throw error;
+}
+
+export async function signedAttachmentUrl(objectKey: string): Promise<string> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.storage.from("report-photos").createSignedUrl(objectKey, 300);
+  if (error || !data?.signedUrl) throw error ?? new Error("signed url missing");
+  return data.signedUrl;
+}
+
+export async function reopenCase(trackingId: string, reason: string): Promise<ServerReport> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("reopen_case", {
+    p_tracking_code: trackingId,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  return data as ServerReport;
 }

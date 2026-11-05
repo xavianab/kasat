@@ -9,6 +9,7 @@ import '../../models/approx_location.dart';
 import '../../models/attachment.dart';
 import '../../models/incident.dart';
 import '../../models/incident_category.dart';
+import '../../models/incident_priority.dart';
 import '../../theme/kasat_theme.dart';
 import '../../widgets/k_field.dart';
 import '../../widgets/kasat_button.dart';
@@ -137,7 +138,7 @@ class _ReportFormViewState extends State<ReportFormView> {
     );
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit({bool urgent = false}) async {
     final category = _category;
     if (category == null || !_descriptionOk) return;
 
@@ -357,7 +358,8 @@ class _ReportFormViewState extends State<ReportFormView> {
           category: category,
           descriptionOk: _descriptionOk,
           onSubmit: _submit,
-        ),
+          onSubmit: () => _submit(),
+          onUrgent: () => _submit(urgent: true),
       ],
     );
   }
@@ -388,13 +390,15 @@ class _SubmitBar extends StatelessWidget {
     required this.descriptionOk,
     required this.onSubmit,
   });
+    required this.onUrgent,
+  });
 
   final bool enabled;
   final bool busy;
   final IncidentCategory? category;
   final bool descriptionOk;
   final VoidCallback onSubmit;
-
+  final VoidCallback onUrgent;
   String get _hint {
     if (category == null) return 'Choose what kind of thing happened to continue';
     if (!descriptionOk) {
@@ -446,6 +450,14 @@ class _SubmitBar extends StatelessWidget {
             onPressed: enabled ? onSubmit : null,
           ),
         ],
+          const SizedBox(height: KSpace.sm),
+          KButton(
+            label: 'Send urgent',
+            icon: Icons.priority_high_rounded,
+            kind: KButtonKind.secondary,
+            busy: busy,
+            onPressed: enabled ? onUrgent : null,
+          ),
       ),
     );
   }

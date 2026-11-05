@@ -12,6 +12,7 @@ import {
   fetchStationReports,
   mergeReports,
   reportToIncident,
+  reopenCase,
   saveCaseNote,
   transitionDispatch,
   type ServerReport,
@@ -35,7 +36,7 @@ const STORAGE_KEY = "kasat.desk.state.v3";
 const SPACE_KEY = "kasat.desk.space.v1";
 const SOUND_KEY = "kasat.desk.sound";
 
-export type AccessAction = "claim" | "resolve" | "location_view" | "create" | "reply" | "note" | "status";
+export type AccessAction = "claim" | "resolve" | "location_view" | "create" | "reply" | "note" | "status" | "reopen" | "evidence";
 
 export type AccessEvent = {
   id: string;
@@ -108,6 +109,8 @@ type DeskValue = DeskState & {
   statusOf: (incident: Incident) => DeskStatus;
   claim: (trackingId: string) => void;
   resolve: (trackingId: string) => void;
+  reopen: (trackingId: string, reason: string) => Promise<void>;
+  spaceAdmin: boolean;
   setStatus: (trackingId: string, next: DeskStatus) => void;
   addNote: (trackingId: string, body: string) => void;
   loadNotes: (trackingId: string) => Promise<void>;
@@ -186,6 +189,7 @@ export function DeskProvider({
   const incidentsRef = useRef(state.incidents);
   incidentsRef.current = state.incidents;
   const [officerId, setOfficerId] = useState(OPERATOR.id);
+  const [spaceAdmin, setSpaceAdmin] = useState(false);
   const [stationId, setStationId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const officerName = useRef(OPERATOR.name);
@@ -200,6 +204,7 @@ export function DeskProvider({
           if (cancelled) return;
           officerName.current = session.name;
           setOfficerId(session.id);
+          setSpaceAdmin(session.spaceAdmin);
           setStationId(session.stationId);
           setSpace((current) => ({
             ...current,
@@ -369,6 +374,19 @@ export function DeskProvider({
         ],
       };
     });
+  }, [live, refreshLog]);
+
+  const reopen = useCallback(async (trackingId: string, reason: string) => {
+    if (!live) return;
+    const row = await reopenCase(trackingId, reason);
+    let nextIncidents: Incident[] = [];
+    setState((current) => {
+      const next = applyServerReport(current, row);
+      nextIncidents = next.incidents;
+      return next;
+    });
+    await refreshLog(nextIncidents);
+    setLoadError(null);
   }, [live, refreshLog]);
 
   const setStatus = useCallback((trackingId: string, next: DeskStatus) => {
@@ -783,6 +801,8 @@ export function DeskProvider({
       statusOf,
       claim,
       resolve,
+      reopen,
+      spaceAdmin,
       setStatus,
       addNote,
       loadNotes,
@@ -809,6 +829,8 @@ export function DeskProvider({
       statusOf,
       claim,
       resolve,
+      reopen,
+      spaceAdmin,
       setStatus,
       addNote,
       loadNotes,

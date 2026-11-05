@@ -11,8 +11,19 @@ abstract final class KasatConfig {
   /// [supabaseUrl]/[supabaseAnonKey] are populated and swap the repository
   /// binding in `main.dart`.
   static const useSupabase = bool.fromEnvironment('KASAT_USE_SUPABASE');
-  static const supabaseUrl = String.fromEnvironment('KASAT_SUPABASE_URL');
-  static const supabaseAnonKey = String.fromEnvironment('KASAT_SUPABASE_ANON_KEY');
+
+  /// Passed at build time. Never store the project URL or anon key in source.
+  /// `--dart-define=SUPABASE_URL=https://PROJECT.supabase.co`
+  /// `--dart-define=SUPABASE_ANON_KEY=...`
+  /// The older `KASAT_SUPABASE_URL` / `KASAT_SUPABASE_ANON_KEY` names still work.
+  static const supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: String.fromEnvironment('KASAT_SUPABASE_URL'),
+  );
+  static const supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue: String.fromEnvironment('KASAT_SUPABASE_ANON_KEY'),
+  );
 
   /// Never push a status change to her lock screen. Someone else might see it.
   /// She learns of police updates only by looking up her tracking code.

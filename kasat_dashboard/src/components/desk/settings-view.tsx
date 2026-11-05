@@ -409,6 +409,8 @@ export function AccessLogView() {
     reply: t("actionReply"),
     note: t("actionNote"),
     status: t("actionStatus"),
+    reopen: t("actionReopen"),
+    evidence: t("actionEvidence"),
   };
   return (
     <PageBody>
@@ -433,7 +435,10 @@ export function AccessLogView() {
                 <tr key={event.id} className="border-b border-border last:border-0">
                   <td className="px-3 py-2">{event.at}</td>
                   <td className="px-3 py-2">{event.actor}</td>
-                  <td className="px-3 py-2">{label[event.action]}</td>
+                  <td className="px-3 py-2">
+                    {label[event.action]}
+                    {event.action === "reopen" && event.detail ? ` · ${event.detail}` : ""}
+                  </td>
                   <td className="px-3 py-2">{event.trackingId}</td>
                 </tr>
               ))}

@@ -24,6 +24,16 @@ class SyncedIncidentRepository implements IncidentRepository {
         await local.submit(draft, trackingId: trackingId, offline: offline);
     if (!offline && _remote.enabled && incident.status == IncidentStatus.draft) {
       try {
+        if (incident.isEmergency) {
+          final sent = await _remote.insertEmergency(incident);
+          await local.updateIncident(sent);
+          if (sent.status == IncidentStatus.sent ||
+              sent.status == IncidentStatus.underReview ||
+              sent.status == IncidentStatus.resolved) {
+            return (await local.lookup(trackingId)) ?? sent;
+          }
+          return await local.sendToPolice(trackingId) ?? sent;
+        }
         final synced = await _remote.insertDraft(incident, strictPhoto: true);
         await local.updateIncident(synced);
         return synced;
@@ -223,15 +233,19 @@ class SyncedIncidentRepository implements IncidentRepository {
     required String channel,
     required String handle,
     String? safeNote,
+    String? accessSecret,
   }) async {
     if (_remote.enabled) {
+      final secret = (accessSecret != null && accessSecret.isNotEmpty)
+          ? accessSecret
+          : (await local.lookup(trackingId))?.accessSecret;
       await _remote.revealIdentity(
         trackingId,
         fullName: fullName,
         channel: channel,
         handle: handle,
         safeNote: safeNote,
-        accessSecret: (await local.lookup(trackingId))?.accessSecret,
+        accessSecret: secret,
       );
     }
     return local.revealIdentity(
