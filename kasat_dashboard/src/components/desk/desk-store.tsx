@@ -268,7 +268,12 @@ export function DeskProvider({
           setState((current) => {
             const next = applyServerReport(current, row);
             nextIncidents = next.incidents;
-            return next;
+            return {
+              ...next,
+              alerts: next.alerts.map((alert) =>
+                alert.trackingId === trackingId ? { ...alert, read: true } : alert,
+              ),
+            };
           });
           await refreshLog(nextIncidents);
           setLoadError(null);
@@ -709,28 +714,33 @@ export function DeskProvider({
         { event: "*", schema: "public", table: "report_queue_events", filter: `station_id=eq.${stationId}` },
         (payload) => {
           const row = (payload.new ?? {}) as Record<string, unknown>;
-          if (row.is_emergency === true) {
-            const trackingId = String(row.tracking_code ?? "");
-            const area = typeof row.tracking_code === "string" ? trackingId : "Addis Ababa";
-            if (trackingId.startsWith("KST-")) {
-              setState((current) => {
-                if (current.alerts.some((alert) => alert.trackingId === trackingId && !alert.read)) return current;
-                return {
-                  ...current,
-                  alerts: [
-                    {
-                      id: eventId(),
-                      trackingId,
-                      at: new Date().toISOString(),
-                      category: "Urgent",
-                      area,
-                      read: false,
-                    },
-                    ...current.alerts,
-                  ],
-                };
-              });
-            }
+          const trackingId = String(row.tracking_code ?? "");
+          const dispatchStatus = typeof row.dispatch_status === "string" ? row.dispatch_status : "";
+          if (trackingId.startsWith("KST-") && dispatchStatus && dispatchStatus !== "new") {
+            setState((current) => ({
+              ...current,
+              alerts: current.alerts.map((alert) =>
+                alert.trackingId === trackingId ? { ...alert, read: true } : alert,
+              ),
+            }));
+          } else if (row.is_emergency === true && dispatchStatus === "new" && trackingId.startsWith("KST-")) {
+            setState((current) => {
+              if (current.alerts.some((alert) => alert.trackingId === trackingId)) return current;
+              return {
+                ...current,
+                alerts: [
+                  {
+                    id: eventId(),
+                    trackingId,
+                    at: new Date().toISOString(),
+                    category: "Urgent",
+                    area: trackingId,
+                    read: false,
+                  },
+                  ...current.alerts,
+                ],
+              };
+            });
           }
           void fetchStationReports()
             .then((rows) => {
