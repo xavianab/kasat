@@ -141,7 +141,7 @@ export function CaseView({ trackingId }: { trackingId: string }) {
             {watching ? 1 : 0}
           </Button>
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex h-8 items-center gap-2 rounded-[6px] border border-border bg-bg px-3" aria-label={t("share")}>
+            <DropdownMenuTrigger className="inline-flex h-8 items-center gap-2 rounded-[6px] border border-primary-fill bg-bg px-3" aria-label={t("share")}>
               <Share2 className="h-4 w-4" aria-hidden="true" />
               {t("share")}
             </DropdownMenuTrigger>
@@ -157,7 +157,7 @@ export function CaseView({ trackingId }: { trackingId: string }) {
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] border border-border bg-bg" aria-label={t("more")}>
+            <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] border border-primary-fill bg-bg" aria-label={t("more")}>
               <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -433,7 +433,7 @@ export function CaseView({ trackingId }: { trackingId: string }) {
             </p>
           ) : null}
           <svg viewBox="0 0 120 80" className="mt-3 h-32 w-full rounded-[6px] bg-surface" aria-hidden="true">
-            <circle cx="62" cy="40" r="6" fill="#0C66E4" />
+            <circle cx="62" cy="40" r="6" fill="var(--primary-fill)" />
           </svg>
         </DialogContent>
       </Dialog>
@@ -538,7 +538,7 @@ function StatusMenu({
   const { t } = useI18n();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex h-8 items-center justify-between gap-2 rounded-[6px] bg-[#0C66E4] px-3 text-sm font-medium text-white dark:bg-[#579DFF] dark:text-[#1D2125]">
+      <DropdownMenuTrigger className="inline-flex h-8 items-center justify-between gap-2 rounded-[6px] bg-primary-fill px-3 text-sm font-medium text-primary-on hover:bg-primary-fill-hover active:bg-primary-fill-pressed">
         {label}
         <span aria-hidden="true">▾</span>
       </DropdownMenuTrigger>

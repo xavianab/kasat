@@ -94,7 +94,7 @@ function ThemeThumb({ mode }: { mode: "light" | "dark" | "system" }) {
       className={cn("flex h-8 w-12 items-end rounded-[4px] border border-border p-1", dark ? "bg-[#1D2125]" : "bg-white")}
       aria-hidden="true"
     >
-      <span className={cn("mb-1 h-1 w-7 rounded-full", dark ? "bg-[#579DFF]" : "bg-[#0C66E4]")} />
+      <span className="mb-1 h-1 w-7 rounded-full bg-primary-fill" />
     </span>
   );
 }
@@ -466,7 +466,11 @@ function NavItem({
   const body = (
     <>
       {iconOnly ? <span className="text-xs font-semibold">{label.slice(0, 1)}</span> : <span className="truncate">{label}</span>}
-      {!iconOnly && count !== undefined ? <span className="ml-auto text-xs text-muted">{count}</span> : null}
+      {!iconOnly && count !== undefined ? (
+        <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-fill px-1.5 text-[11px] font-semibold text-primary-on">
+          {count}
+        </span>
+      ) : null}
     </>
   );
   if (!iconOnly) {
@@ -513,7 +517,7 @@ function AccountMenu({ onLogOut }: { onLogOut: () => void }) {
       }}
     >
       <DropdownMenuTrigger
-        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary-fill text-xs font-semibold text-primary-on"
         aria-label={t("accountMenu")}
         onClick={() => {
           // Radix opens on pointerdown. A click that arrives without that
@@ -525,7 +529,7 @@ function AccountMenu({ onLogOut }: { onLogOut: () => void }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[280px] overflow-visible">
         <div className="flex items-center gap-2 px-2 py-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary-fill text-sm font-semibold text-primary-on">
             {OPERATOR.initials}
           </span>
           <span className="min-w-0">

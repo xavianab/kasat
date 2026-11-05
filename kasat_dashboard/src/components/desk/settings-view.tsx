@@ -92,7 +92,7 @@ function DetailsForm() {
               aria-pressed={draft.icon === icon}
               className={cn(
                 "inline-flex h-8 w-8 items-center justify-center rounded-[6px] border",
-                draft.icon === icon ? "border-primary" : "border-border",
+                draft.icon === icon ? "border-primary-fill" : "border-border",
               )}
               onClick={() => setDraft({ ...draft, icon })}
             >

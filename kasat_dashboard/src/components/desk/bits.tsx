@@ -63,7 +63,7 @@ const PRIORITY_CLASS: Record<Priority, string> = {
   P1: "text-[#AE2E24]",
   P2: "text-[#C25100]",
   P3: "text-[#7F5F01]",
-  P4: "text-[#0C66E4] dark:text-[#579DFF]",
+  P4: "text-primary-fill",
 };
 
 export function UrgentLozenge() {
@@ -83,7 +83,7 @@ export function PriorityIcon({ priority }: { priority: Priority }) {
 
 export function LowestPriorityIcon() {
   const { t } = useI18n();
-  return <ChevronsDown className="h-4 w-4 text-primary" aria-label={t("priorityLowest")} />;
+  return <ChevronsDown className="h-4 w-4 text-primary-fill" aria-label={t("priorityLowest")} />;
 }
 
 export function Assignee({ incident }: { incident: Incident }) {

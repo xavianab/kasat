@@ -108,9 +108,10 @@ export function QueueView({ queue }: { queue: QueueId }) {
         {!isSupabaseConfigured() ? (
           <p className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted">
             <span>{t("fixtureNote")}</span>
-            <button
+            <Button
               type="button"
-              className="text-primary hover:underline"
+              variant="primary"
+              size="sm"
               onClick={() => {
                 if (typeof Notification !== "undefined" && Notification.permission === "default") {
                   void Notification.requestPermission();
@@ -119,7 +120,7 @@ export function QueueView({ queue }: { queue: QueueId }) {
               }}
             >
               {t("simulateUrgent")}
-            </button>
+            </Button>
           </p>
         ) : null}
       </div>
