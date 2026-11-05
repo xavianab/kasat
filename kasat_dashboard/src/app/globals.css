@@ -1,29 +1,58 @@
-/*
- * Kasat operator tokens. Mirrors kasat_mobile/lib/theme/kasat_theme.dart —
- * the two surfaces are one product and must not drift apart.
- */
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --canvas: #09090b;
-  --surface: #18181b;
-  --surface-hi: #1f1f23;
-  --border: #27272a;
-  --border-hi: #3f3f46;
+  --bg: #ffffff;
+  --surface: #f7f8f9;
+  --border: #dcdfe4;
+  --text: #172b4d;
+  --muted: #626f86;
+  --primary: #0c66e4;
+  --primary-fill: #579dff;
+  --primary-fill-hover: #85b8ff;
+  --primary-fill-pressed: #388bff;
+  --primary-on: #1d2125;
+  --danger: #c9372c;
+  --warning: #a54800;
+  --success: #216e4e;
+  --focus: #388bff;
+  --referred: #5e4db2;
+  color-scheme: light;
+}
 
-  --accent: #10b981;
-  --accent-deep: #065f46;
+.dark {
+  --bg: #1d2125;
+  --surface: #22272b;
+  --border: #384047;
+  --text: #dee4ea;
+  --muted: #9fadbc;
+  --primary: #579dff;
+  --danger: #f87168;
+  --warning: #f5cd47;
+  --success: #4bce97;
+  --focus: #388bff;
+  --referred: #b8acf6;
+  color-scheme: dark;
+}
 
-  --text: #fafafa;
-  --muted: #a1a1aa;
-  --faint: #52525b;
-
-  --danger: #ef4444;
-  --warn: #f59e0b;
-  --info: #60a5fa;
-
-  --mono: ui-monospace, "SF Mono", Menlo, "Cascadia Mono", monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
-
-  --radius: 6px;
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-fill: var(--primary-fill);
+  --color-primary-fill-hover: var(--primary-fill-hover);
+  --color-primary-fill-pressed: var(--primary-fill-pressed);
+  --color-primary-on: var(--primary-on);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-focus: var(--focus);
+  --color-referred: var(--referred);
+  --font-sans: var(--font-inter), var(--font-ethiopic), ui-sans-serif, sans-serif;
 }
 
 * {
@@ -34,159 +63,69 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--canvas);
+}
+
+body {
+  background: var(--surface);
   color: var(--text);
-  font-family: var(--sans);
   font-size: 14px;
-  -webkit-font-smoothing: antialiased;
+  line-height: 1.45;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
 }
 
-/* ---- primitives ---- */
-
-.mono {
-  font-family: var(--mono);
-  letter-spacing: 0.04em;
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
-.label {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
+@keyframes kasat-shake {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-14deg);
+  }
+  50% {
+    transform: rotate(12deg);
+  }
+  75% {
+    transform: rotate(-8deg);
+  }
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 6px;
-  border: 1px solid var(--border-hi);
-  border-radius: 4px;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
+@keyframes kasat-slide {
+  from {
+    transform: translateX(100%);
+  }
 }
 
-.dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
+.kasat-shake {
+  animation: kasat-shake 0.45s linear;
 }
 
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
+.kasat-slide {
+  animation: kasat-slide 0.22s ease-out;
 }
 
-.panel-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  background: var(--surface-hi);
-  border-bottom: 1px solid var(--border);
+@media (prefers-reduced-motion: reduce) {
+  .kasat-shake,
+  .kasat-slide {
+    animation: none;
+  }
 }
 
-.panel-body {
-  padding: 12px;
-}
-
-/* ---- shell ---- */
-
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 46px;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.wordmark {
-  font-family: var(--mono);
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.3em;
-}
-
-.shell {
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 16px;
-}
-
-/* ---- metrics ---- */
-
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 8px;
-}
-
-.metric {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 10px 12px;
-}
-
-.metric-value {
-  font-family: var(--mono);
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1.1;
-}
-
-/* ---- triage table ---- */
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.table th {
-  text-align: left;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  font-family: var(--mono);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.table td {
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-
-.table tbody tr:hover {
-  background: var(--surface-hi);
-  cursor: pointer;
-}
-
-.empty {
-  padding: 32px 12px;
-  text-align: center;
-  color: var(--faint);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-}
