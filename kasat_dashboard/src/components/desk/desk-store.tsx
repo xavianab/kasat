@@ -11,7 +11,7 @@ import {
 } from "@/lib/desk";
 import type { CategoryCode, Incident, Priority } from "@/lib/types";
 
-const STORAGE_KEY = "kasat.desk.state.v1";
+const STORAGE_KEY = "kasat.desk.state.v2";
 const SPACE_KEY = "kasat.desk.space.v1";
 
 export type AccessAction = "claim" | "resolve" | "location_view" | "create";

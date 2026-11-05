@@ -1,81 +1,125 @@
 import type { Incident } from "./types";
 
 /**
- * Stand-in queue so the dashboard renders before Supabase is wired.
- *
- * Shapes are byte-identical to what `kasat_mobile` serialises, so replacing
- * this with a `from("incidents").select()` is a one-line change in the page.
+ * Local sample queue. These rows are desk-only stand-ins.
+ * They are not written to Supabase, and they use no real names or places.
  */
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
 
 export const fixtureIncidents: Incident[] = [
   {
     trackingId: "KST-8X9P2",
-    category: "CRTCL",
-    description:
-      "Armed group moving through the eastern quarter after curfew. Several residents locked inside a compound.",
+    category: "ASSLT",
+    description: "I was assaulted walking home. I don't want my family to know.",
     priority: "P1",
     status: "RECEIVED",
     countryCode: "ET",
     submittedAt: hoursAgo(0.4),
     updatedAt: hoursAgo(0.4),
     history: [{ status: "RECEIVED", at: hoursAgo(0.4), actor: "INTAKE", note: null }],
-    location: { latitude: -6.79, longitude: 39.21, precision: "DISTRICT", note: null },
+    location: { latitude: 9.012, longitude: 38.742, precision: "DISTRICT", note: null },
     attachments: [],
     assignedStation: null,
   },
   {
     trackingId: "KST-4RT7Q",
+    category: "TRFCK",
+    description: "A neighbour is forcing a 15-year-old into marriage next week.",
+    priority: "P2",
+    status: "RECEIVED",
+    countryCode: "ET",
+    submittedAt: hoursAgo(0.85),
+    updatedAt: hoursAgo(0.85),
+    history: [{ status: "RECEIVED", at: hoursAgo(0.85), actor: "INTAKE", note: null }],
+    location: { latitude: 8.994, longitude: 38.781, precision: "DISTRICT", note: null },
+    attachments: [],
+    assignedStation: null,
+  },
+  {
+    trackingId: "KST-3HM6N",
+    category: "ASSLT",
+    description: "My husband beats me when he comes home drunk.",
+    priority: "P2",
+    status: "UNDER_INVESTIGATION",
+    countryCode: "ET",
+    submittedAt: hoursAgo(8),
+    updatedAt: hoursAgo(7.8),
+    history: [
+      { status: "RECEIVED", at: hoursAgo(8), actor: "INTAKE", note: null },
+      {
+        status: "UNDER_INVESTIGATION",
+        at: hoursAgo(7.8),
+        actor: "STN-04",
+        note: "Claimed. Survivor asked that no one come to the house.",
+      },
+    ],
+    location: { latitude: 9.031, longitude: 38.769, precision: "BLOCK", note: null },
+    attachments: [],
+    assignedStation: "STN-04",
+  },
+  {
+    trackingId: "KST-7CK2L",
+    category: "ASSLT",
+    description: "A teacher has been touching students after class.",
+    priority: "P1",
+    status: "UNDER_INVESTIGATION",
+    countryCode: "ET",
+    submittedAt: hoursAgo(3),
+    updatedAt: hoursAgo(2),
+    history: [
+      { status: "RECEIVED", at: hoursAgo(3), actor: "INTAKE", note: null },
+      {
+        status: "UNDER_INVESTIGATION",
+        at: hoursAgo(2),
+        actor: "STN-04",
+        note: "First response was after the target time.",
+      },
+    ],
+    location: { latitude: 8.987, longitude: 38.755, precision: "DISTRICT", note: null },
+    attachments: [],
+    assignedStation: "STN-04",
+  },
+  {
+    trackingId: "KST-5WP8D",
     category: "HRSMT",
     description:
-      "Repeated unwanted contact from a former colleague over three weeks, escalating to threats made outside my workplace.",
+      "A man follows me from work and waits by the gate. I need a few days before I can speak again.",
     priority: "P3",
     status: "UNDER_INVESTIGATION",
     countryCode: "ET",
-    submittedAt: hoursAgo(31),
-    updatedAt: hoursAgo(25),
+    submittedAt: hoursAgo(30),
+    updatedAt: hoursAgo(6),
     history: [
-      { status: "RECEIVED", at: hoursAgo(31), actor: "INTAKE", note: null },
+      { status: "RECEIVED", at: hoursAgo(30), actor: "INTAKE", note: null },
       {
         status: "UNDER_INVESTIGATION",
-        at: hoursAgo(25),
+        at: hoursAgo(24),
         actor: "STN-04",
-        note: "Assigned to duty officer. Statement corroboration in progress.",
+        note: "Waiting on the survivor before the next message.",
       },
     ],
     location: null,
-    attachments: [
-      {
-        id: "a1c4e9f0",
-        label: "EVIDENCE-01",
-        mimeType: "image/png",
-        byteSize: 412_336,
-        storagePath: "incidents/KST-4RT7Q/a1c4e9f0.png",
-        strippedMetadata: true,
-        width: 1280,
-        height: 960,
-      },
-    ],
+    attachments: [],
     assignedStation: "STN-04",
   },
   {
     trackingId: "KST-9WM2K",
-    category: "FRAUD",
+    category: "HRSMT",
     description:
-      "Fraudulent transfer requests sent from a spoofed account claiming to be my landlord.",
+      "Someone I trusted shared private photos and said my family would see them. The images were removed and the contact has stopped.",
     priority: "P4",
     status: "RESOLVED",
     countryCode: "ET",
-    submittedAt: hoursAgo(216),
-    updatedAt: hoursAgo(72),
+    submittedAt: hoursAgo(200),
+    updatedAt: hoursAgo(120),
     history: [
-      { status: "RECEIVED", at: hoursAgo(216), actor: "INTAKE", note: null },
-      { status: "UNDER_INVESTIGATION", at: hoursAgo(192), actor: "STN-04", note: null },
+      { status: "RECEIVED", at: hoursAgo(200), actor: "INTAKE", note: null },
+      { status: "UNDER_INVESTIGATION", at: hoursAgo(195), actor: "STN-04", note: null },
       {
         status: "RESOLVED",
-        at: hoursAgo(72),
+        at: hoursAgo(120),
         actor: "STN-04",
-        note: "Account frozen by the issuing bank. Case closed.",
+        note: "Contact stopped. Survivor confirmed she is safe for now.",
       },
     ],
     location: null,

@@ -8,16 +8,19 @@ import { useI18n } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import {
   assigneeName,
-  categoryLabel,
+  categoryText,
+  DESK_CATEGORIES,
+  deskCategoryLabel,
   deskStatus,
   generalArea,
   inQueue,
   priorityLabel,
+  sampleCategory,
   summaryOf,
   type QueueId,
 } from "@/lib/desk";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { CATEGORIES, type Priority } from "@/lib/types";
+import type { Priority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { AreaText, Assignee, PriorityIcon, RelativeTime, SlaBadge, StatusLozenge } from "./bits";
@@ -67,7 +70,7 @@ export function QueueView({ queue }: { queue: QueueId }) {
     if (search && !haystack.includes(search.toLowerCase())) return false;
     if (status !== "all" && deskStatus(item) !== status) return false;
     if (priority !== "all" && item.priority !== priority) return false;
-    if (category !== "all" && item.category !== category) return false;
+    if (category !== "all" && sampleCategory(item) !== category) return false;
     if (area !== "all" && generalArea(item, t) !== area) return false;
     if (assignee !== "all" && (assigneeName(item) ?? t("unassigned")) !== assignee) return false;
     return true;
@@ -128,9 +131,9 @@ export function QueueView({ queue }: { queue: QueueId }) {
         </Filter>
         <Filter label={t("filterCategory")} value={category} onChange={setCategory}>
           <option value="all">{t("all")}</option>
-          {CATEGORIES.map((item) => (
+          {DESK_CATEGORIES.map((item) => (
             <option key={item} value={item}>
-              {categoryLabel(item, t)}
+              {deskCategoryLabel(item, t)}
             </option>
           ))}
         </Filter>
@@ -207,7 +210,7 @@ export function QueueView({ queue }: { queue: QueueId }) {
                       </Link>
                     </td>
                     <td className="max-w-[280px] truncate px-3 py-2">{summaryOf(incident)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{categoryLabel(incident.category, t)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{categoryText(incident, t)}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       <AreaText incident={incident} />
                     </td>

@@ -16,7 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   assigneeName,
-  categoryLabel,
+  categoryText,
+  firstResponseSla,
   deskStatus,
   generalArea,
   hasCoordinates,
@@ -29,7 +30,7 @@ import {
 import type { IncidentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-import { PriorityIcon, RelativeTime, StatusLozenge, useNow } from "./bits";
+import { PauseMark, PriorityIcon, RelativeTime, StatusLozenge, useNow } from "./bits";
 import { useDesk } from "./desk-store";
 import { Breadcrumbs, PageBody } from "./shell";
 
@@ -95,9 +96,6 @@ export function CaseView({ trackingId }: { trackingId: string }) {
   const viewedActor = viewer?.actor ?? claimEvent?.actor;
   const viewedAt = viewer?.at ?? claimEvent?.at;
   const resolution = now ? resolutionSla(incident, now) : null;
-  const first = now
-    ? incident.history.find((item) => item.status !== "RECEIVED")
-    : null;
 
   async function copy(value: string, kind: "key" | "link") {
     await navigator.clipboard.writeText(value);
@@ -149,7 +147,7 @@ export function CaseView({ trackingId }: { trackingId: string }) {
               {t("anonymousViaApp")} · <RelativeTime iso={incident.submittedAt} />
             </p>
             <Field label={t("description")}>{incident.description}</Field>
-            <Field label={t("category")}>{categoryLabel(incident.category, t)}</Field>
+            <Field label={t("category")}>{categoryText(incident, t)}</Field>
             <Field label={t("reportLanguage")}>
               <Soon />
             </Field>
@@ -281,17 +279,18 @@ export function CaseView({ trackingId }: { trackingId: string }) {
           />
           <Card title={t("slas")}>
             <Field label={t("slaFirst")}>
-              {first && now ? (
-                <span className="text-success">
-                  {relativeTime(first.at, now, t)} · {t("slaMet")}
-                </span>
+              {now ? (
+                <SlaText sla={firstResponseSla(incident, now)} metLabel={t("slaMet")} />
               ) : (
                 <span>{t("awaiting")}</span>
               )}
             </Field>
             <Field label={t("slaResolve")}>
-              <span className={cn(resolution?.tone === "red" && "text-danger", resolution?.tone === "amber" && "text-warning", resolution?.tone === "met" && "text-success")}>
-                {resolution ? (incident.status === "RESOLVED" ? t("resolvedIn", { time: resolution.label }) : resolution.label) : "—"}
+              <span className="inline-flex items-center gap-1">
+                {resolution?.paused ? <PauseMark /> : null}
+                <span className={cn(resolution?.tone === "red" && "text-danger", resolution?.tone === "amber" && "text-warning", resolution?.tone === "met" && "text-success")}>
+                  {resolution ? (incident.status === "RESOLVED" ? t("resolvedIn", { time: resolution.label }) : resolution.label) : "—"}
+                </span>
               </span>
             </Field>
           </Card>
@@ -307,7 +306,7 @@ export function CaseView({ trackingId }: { trackingId: string }) {
               </span>
             </Field>
             <Field label={t("reporter")}>{t("anonymousSurvivor")}</Field>
-            <Field label={t("category")}>{categoryLabel(incident.category, t)}</Field>
+            <Field label={t("category")}>{categoryText(incident, t)}</Field>
             <Field label={t("priority")}>
               <span className="inline-flex items-center gap-2">
                 <PriorityIcon priority={incident.priority} />
@@ -410,6 +409,17 @@ function historyLabel(status: IncidentStatus, t: (key: "statusNew" | "statusProg
   if (status === "RECEIVED") return t("statusNew");
   if (status === "UNDER_INVESTIGATION") return t("statusProgress");
   return t("statusResolved");
+}
+
+function SlaText({ sla, metLabel }: { sla: { label: string; tone: string }; metLabel: string }) {
+  const tone =
+    sla.tone === "red" ? "text-danger" : sla.tone === "amber" ? "text-warning" : sla.tone === "met" ? "text-success" : "text-text";
+  return (
+    <span className={tone}>
+      {sla.label}
+      {sla.tone === "met" ? ` · ${metLabel}` : ""}
+    </span>
+  );
 }
 
 function HistoryList({ incidentHistory }: { incidentHistory: { status: IncidentStatus; at: string; actor: string; note: string | null }[] }) {

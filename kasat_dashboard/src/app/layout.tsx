@@ -18,6 +18,7 @@ export const metadata: Metadata = {
   title: "Kasat Desk",
   description: "Kasat Desk for authorized staff.",
   robots: { index: false, follow: false },
+  icons: { icon: "/brand/kasat-bloom.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -8,6 +8,8 @@ import { useI18n } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { isSupabaseConfigured, getSupabaseBrowserClient } from "@/lib/supabase";
 
+import { KasatMark } from "./kasat-mark";
+
 export function LoginCard() {
   const { t } = useI18n();
   const router = useRouter();
@@ -38,7 +40,7 @@ export function LoginCard() {
     <main className="flex min-h-screen items-center justify-center bg-surface p-4">
       <div className="w-full max-w-[400px] rounded-[6px] border border-border bg-bg p-6">
         <div className="mb-4 flex items-center gap-2">
-          <img src="/brand/kasat-bloom.svg" alt="" width={24} height={24} />
+          <KasatMark size={22} />
           <h1 className="text-lg font-semibold">{t("signInTitle")}</h1>
         </div>
         <form className="grid gap-3" onSubmit={onSubmit}>

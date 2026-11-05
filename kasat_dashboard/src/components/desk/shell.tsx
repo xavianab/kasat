@@ -3,6 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Bell,
+  Check,
   ChevronRight,
   CircleHelp,
   LayoutGrid,
@@ -19,7 +20,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useI18n } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
@@ -29,12 +30,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -52,6 +48,7 @@ import { cn } from "@/lib/utils";
 
 import { SpaceGlyph } from "./bits";
 import { useDesk } from "./desk-store";
+import { KasatMark } from "./kasat-mark";
 
 const QUEUE_LINKS: { id: QueueId; href: string; label: "queueUnclaimed" | "queueMine" | "queueOpen" | "queueWaiting" | "queueResolved" }[] = [
   { id: "unclaimed", href: "/queues/unclaimed", label: "queueUnclaimed" },
@@ -246,14 +243,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <DropdownMenuContent>
             <DropdownMenuLabel>{t("appSwitcherLabel")}</DropdownMenuLabel>
             <DropdownMenuItem>
-              <img src="/brand/kasat-bloom.svg" alt="" width={16} height={16} />
+              <KasatMark size={16} />
               {t("appName")}
               <span className="ml-auto text-xs text-muted">{t("current")}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <Link href="/queues/unclaimed" className="flex items-center gap-2 pr-2">
-          <img src="/brand/kasat-bloom.svg" alt="" width={20} height={20} />
+          <KasatMark size={22} />
           <span className="hidden font-semibold sm:inline">{t("appName")}</span>
         </Link>
         <form onSubmit={onSearch} className="mx-auto hidden w-full max-w-[420px] md:block" role="search">
@@ -384,15 +381,37 @@ function AccountMenu({ onLogOut }: { onLogOut: () => void }) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const current = theme ?? "system";
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
+  const holdTheme = useRef(false);
+
+  function chooseTheme(value: string) {
+    setTheme(value);
+    holdTheme.current = false;
+    setMenuOpen(false);
+  }
+
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      open={menuOpen}
+      onOpenChange={(open) => {
+        if (!open && holdTheme.current) return;
+        setMenuOpen(open);
+        if (!open) setThemeOpen(false);
+      }}
+    >
       <DropdownMenuTrigger
         className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white"
         aria-label={t("accountMenu")}
+        onClick={() => {
+          // Radix opens on pointerdown. A click that arrives without that
+          // event still needs to open the menu, and must not toggle it shut.
+          if (!menuOpen) setMenuOpen(true);
+        }}
       >
         {OPERATOR.initials}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[280px]">
+      <DropdownMenuContent align="end" className="w-[280px] overflow-visible">
         <div className="flex items-center gap-2 px-2 py-2">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
             {OPERATOR.initials}
@@ -404,37 +423,22 @@ function AccountMenu({ onLogOut }: { onLogOut: () => void }) {
           </span>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => router.push("/account/profile")}>
+        <DropdownMenuItem onPointerEnter={() => setThemeOpen(false)} onSelect={() => router.push("/account/profile")}>
           <UserRound className="h-4 w-4" aria-hidden="true" />
           {t("profile")}
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => router.push("/account/settings")}>
+        <DropdownMenuItem onPointerEnter={() => setThemeOpen(false)} onSelect={() => router.push("/account/settings")}>
           <Settings className="h-4 w-4" aria-hidden="true" />
           {t("accountSettings")}
         </DropdownMenuItem>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <span className="flex items-center gap-2">
-              <Sun className="h-4 w-4" aria-hidden="true" />
-              {t("theme")}
-            </span>
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            <DropdownMenuRadioGroup value={current} onValueChange={setTheme}>
-              <ThemeChoice value="light" label={t("themeLight")} icon={<Sun className="h-4 w-4" aria-hidden="true" />} />
-              <ThemeChoice value="dark" label={t("themeDark")} icon={<Moon className="h-4 w-4" aria-hidden="true" />} />
-              <ThemeChoice value="system" label={t("themeSystem")} icon={<Monitor className="h-4 w-4" aria-hidden="true" />} />
-            </DropdownMenuRadioGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
+        <ThemeSubmenu open={themeOpen} onOpen={() => setThemeOpen(true)} current={current} holding={holdTheme} onChoose={chooseTheme} />
         <DropdownMenuSeparator />
         <DisabledTip label={t("oneAccount")}>
           <DropdownMenuItem disabled>
             {t("switchAccount")}
           </DropdownMenuItem>
         </DisabledTip>
-        <DropdownMenuItem onSelect={onLogOut}>
+        <DropdownMenuItem onPointerEnter={() => setThemeOpen(false)} onSelect={onLogOut}>
           <LogOut className="h-4 w-4" aria-hidden="true" />
           {t("logOut")}
         </DropdownMenuItem>
@@ -443,15 +447,92 @@ function AccountMenu({ onLogOut }: { onLogOut: () => void }) {
   );
 }
 
-function ThemeChoice({ value, label, icon }: { value: string; label: string; icon: React.ReactNode }) {
+function ThemeSubmenu({
+  open,
+  onOpen,
+  current,
+  holding,
+  onChoose,
+}: {
+  open: boolean;
+  onOpen: () => void;
+  current: string;
+  holding: { current: boolean };
+  onChoose: (value: string) => void;
+}) {
+  const { t } = useI18n();
+  const choices: { value: "light" | "dark" | "system"; label: string; icon: React.ReactNode }[] = [
+    { value: "light", label: t("themeLight"), icon: <Sun className="h-4 w-4" aria-hidden="true" /> },
+    { value: "dark", label: t("themeDark"), icon: <Moon className="h-4 w-4" aria-hidden="true" /> },
+    { value: "system", label: t("themeSystem"), icon: <Monitor className="h-4 w-4" aria-hidden="true" /> },
+  ];
+
   return (
-    <DropdownMenuRadioItem value={value} className="items-center">
-      <ThemeThumb mode={value as "light" | "dark" | "system"} />
-      <span className="flex items-center gap-2">
-        {icon}
-        {label}
-      </span>
-    </DropdownMenuRadioItem>
+    <div
+      className="relative"
+      onMouseEnter={onOpen}
+    >
+      <button
+        type="button"
+        className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-[4px] px-2 py-1.5 text-left outline-none hover:bg-surface"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={onOpen}
+      >
+        <span className="flex items-center gap-2">
+          <Sun className="h-4 w-4" aria-hidden="true" />
+          {t("theme")}
+        </span>
+        <ChevronRight className="h-4 w-4" aria-hidden="true" />
+      </button>
+      {open ? (
+        <div className="absolute top-0 right-full z-50 w-[240px] translate-x-3 pr-3">
+          <div
+            role="menu"
+            aria-label={t("theme")}
+            className="rounded-[6px] border border-border bg-bg p-1 shadow-[0_8px_24px_rgba(23,43,77,0.12)]"
+            onPointerEnter={() => {
+              holding.current = true;
+            }}
+            onPointerLeave={() => {
+              holding.current = false;
+            }}
+          >
+            {choices.map((choice) => (
+              <button
+                key={choice.value}
+                type="button"
+                role="menuitemradio"
+                data-theme-choice={choice.value}
+                aria-checked={current === choice.value}
+                className="flex w-full cursor-pointer items-center gap-2 rounded-[4px] px-2 py-1.5 text-left outline-none hover:bg-surface"
+                onPointerDown={() => {
+                  holding.current = true;
+                }}
+                onMouseDown={(event) => {
+                  // Stay mounted through mouseup. Safari otherwise treats the
+                  // press as outside the menu and removes the row before click.
+                  event.preventDefault();
+                  event.stopPropagation();
+                  holding.current = true;
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onChoose(choice.value);
+                }}
+              >
+                <ThemeThumb mode={choice.value} />
+                {choice.icon}
+                <span className="flex-1">{choice.label}</span>
+                {current === choice.value ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

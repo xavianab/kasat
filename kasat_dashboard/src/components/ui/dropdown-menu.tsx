@@ -85,11 +85,13 @@ export function DropdownMenuSubTrigger({
 
 export function DropdownMenuSubContent({
   className,
+  sideOffset = 0,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.SubContent
+        sideOffset={sideOffset}
         className={cn(
           "z-50 min-w-[220px] rounded-[6px] border border-border bg-bg p-1 text-sm text-text shadow-[0_8px_24px_rgba(23,43,77,0.12)]",
           className,

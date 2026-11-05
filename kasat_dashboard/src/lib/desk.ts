@@ -51,8 +51,49 @@ export function isUnclaimed(incident: Incident) {
   return incident.status === "RECEIVED" && !incident.assignedStation;
 }
 
+export const DESK_CATEGORIES = ["sexual", "domestic", "marriage", "child", "harassment", "other"] as const;
+export type DeskCategory = (typeof DESK_CATEGORIES)[number];
+
+/** Desk-only labels for the local sample queue. Not a database field. */
+const SAMPLE_DESK: Record<string, { category: DeskCategory; waiting?: boolean }> = {
+  "KST-8X9P2": { category: "sexual" },
+  "KST-4RT7Q": { category: "marriage" },
+  "KST-3HM6N": { category: "domestic" },
+  "KST-7CK2L": { category: "child" },
+  "KST-5WP8D": { category: "harassment", waiting: true },
+  "KST-9WM2K": { category: "other" },
+};
+
+const DESK_CATEGORY_KEY: Record<DeskCategory, keyof Messages> = {
+  sexual: "catSexual",
+  domestic: "catDomestic",
+  marriage: "catMarriage",
+  child: "catChild",
+  harassment: "catHarassment",
+  other: "catOther",
+};
+
+export function sampleCategory(incident: Incident): DeskCategory | null {
+  return SAMPLE_DESK[incident.trackingId]?.category ?? null;
+}
+
+export function isWaiting(incident: Incident) {
+  return Boolean(SAMPLE_DESK[incident.trackingId]?.waiting) && incident.status !== "RESOLVED";
+}
+
+export function categoryText(incident: Incident, t: (key: keyof Messages) => string) {
+  const sample = sampleCategory(incident);
+  if (sample) return t(DESK_CATEGORY_KEY[sample]);
+  return categoryLabel(incident.category, t);
+}
+
+export function deskCategoryLabel(category: DeskCategory, t: (key: keyof Messages) => string) {
+  return t(DESK_CATEGORY_KEY[category]);
+}
+
 export function deskStatus(incident: Incident): DeskStatus {
   if (incident.status === "RESOLVED") return "resolved";
+  if (isWaiting(incident)) return "waiting";
   if (incident.status === "UNDER_INVESTIGATION") return "progress";
   if (incident.assignedStation) return "claimed";
   return "new";
@@ -60,9 +101,9 @@ export function deskStatus(incident: Incident): DeskStatus {
 
 export function inQueue(incident: Incident, queue: QueueId) {
   if (queue === "unclaimed") return isUnclaimed(incident);
-  if (queue === "mine") return incident.assignedStation === OPERATOR.id && incident.status !== "RESOLVED";
+  if (queue === "mine") return incident.assignedStation === OPERATOR.id && incident.status !== "RESOLVED" && !isWaiting(incident);
   if (queue === "open") return incident.status !== "RESOLVED";
-  if (queue === "waiting") return false;
+  if (queue === "waiting") return isWaiting(incident);
   return incident.status === "RESOLVED";
 }
 
@@ -165,29 +206,37 @@ export function formatDuration(ms: number) {
 
 export type SlaTone = "ok" | "amber" | "red" | "met";
 
+function responseTarget(priority: Priority) {
+  if (priority === "P1") return 15 * 60_000;
+  if (priority === "P2") return 60 * 60_000;
+  if (priority === "P3") return 4 * 60 * 60_000;
+  return 8 * 60 * 60_000;
+}
+
 export function firstResponseSla(incident: Incident, now: number): { label: string; tone: SlaTone } {
   const submitted = Date.parse(incident.submittedAt);
-  const target = incident.category === "CRTCL" ? 15 * 60_000 : 3 * 60 * 60_000;
+  const target = responseTarget(incident.priority);
   const claim = incident.history.find((event) => event.status !== "RECEIVED");
-  if (claim) {
-    return { label: formatDuration(Date.parse(claim.at) - submitted), tone: "met" };
-  }
-  const elapsed = Math.max(0, now - submitted);
+  const elapsed = claim ? Date.parse(claim.at) - submitted : Math.max(0, now - submitted);
   const ratio = elapsed / target;
+  if (claim) {
+    return { label: formatDuration(elapsed), tone: ratio > 1 ? "red" : "met" };
+  }
   const tone: SlaTone = ratio >= 1 ? "red" : ratio >= 0.75 ? "amber" : "ok";
   return { label: formatDuration(elapsed), tone };
 }
 
 export function resolutionSla(incident: Incident, now: number): { label: string; tone: SlaTone; paused: boolean } {
   const submitted = Date.parse(incident.submittedAt);
-  const target = 24 * 60 * 60_000;
+  const target = incident.priority === "P1" ? 4 * 60 * 60_000 : incident.priority === "P2" ? 12 * 60 * 60_000 : 48 * 60 * 60_000;
+  const paused = isWaiting(incident);
   if (incident.status === "RESOLVED") {
     return { label: formatDuration(Date.parse(incident.updatedAt) - submitted), tone: "met", paused: false };
   }
   const elapsed = Math.max(0, now - submitted);
   const ratio = elapsed / target;
-  const tone: SlaTone = ratio >= 1 ? "red" : ratio >= 0.75 ? "amber" : "ok";
-  return { label: formatDuration(elapsed), tone, paused: false };
+  const tone: SlaTone = paused ? "amber" : ratio >= 1 ? "red" : ratio >= 0.75 ? "amber" : "ok";
+  return { label: formatDuration(elapsed), tone, paused };
 }
 
 export function nextStatus(status: IncidentStatus): IncidentStatus | null {
