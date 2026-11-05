@@ -177,12 +177,14 @@ export function DeskProvider({
     log: [],
     watches: [],
   });
-  const [space, setSpace] = useState<SpaceDetails>(DEFAULT_SPACE);
+  const live = isSupabaseConfigured() && process.env.NEXT_PUBLIC_DEMO_MODE !== "true";
+  const [space, setSpace] = useState<SpaceDetails>(() =>
+    live ? { ...DEFAULT_SPACE, name: "", description: "" } : DEFAULT_SPACE,
+  );
   const [soundAlerts, setSoundAlertsState] = useState(false);
   const [ready, setReady] = useState(false);
   const incidentsRef = useRef(state.incidents);
   incidentsRef.current = state.incidents;
-  const live = isSupabaseConfigured() && process.env.NEXT_PUBLIC_DEMO_MODE !== "true";
   const [officerId, setOfficerId] = useState(OPERATOR.id);
   const [stationId, setStationId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -199,6 +201,14 @@ export function DeskProvider({
           officerName.current = session.name;
           setOfficerId(session.id);
           setStationId(session.stationId);
+          setSpace((current) => ({
+            ...current,
+            name: session.stationName || session.stationCode,
+            region: session.stationRegion || current.region,
+            description: session.generalArea,
+            lead: session.name,
+            defaultAssignee: session.name,
+          }));
           const rows = await fetchStationReports();
           if (cancelled) return;
           const packed = mergeReports(rows, []);

@@ -17,7 +17,17 @@ export type OfficerSession = {
   email: string;
   stationId: string;
   stationName: string;
+  stationCode: string;
+  stationRegion: string;
+  generalArea: string;
 };
+
+/** Prefer the station's name. Use its code when the name is blank. */
+export function stationLabel(station: { name?: string | null; code?: string | null }) {
+  const name = station.name?.trim() ?? "";
+  if (name) return name;
+  return station.code?.trim() ?? "";
+}
 
 export type ServerReport = {
   id: string;
@@ -137,14 +147,23 @@ export async function fetchOfficerSession(): Promise<OfficerSession> {
     id: string;
     name: string;
     email: string;
-    station: { id: string; name: string };
+    station: {
+      id: string;
+      name: string | null;
+      code: string | null;
+      region: string | null;
+      generalArea: string | null;
+    };
   };
   return {
     id: row.id,
     name: row.name,
     email: row.email,
     stationId: row.station.id,
-    stationName: row.station.name,
+    stationName: stationLabel(row.station),
+    stationCode: row.station.code?.trim() ?? "",
+    stationRegion: row.station.region?.trim() ?? "",
+    generalArea: row.station.generalArea?.trim() ?? "",
   };
 }
 

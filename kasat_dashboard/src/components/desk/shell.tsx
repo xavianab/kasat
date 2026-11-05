@@ -530,10 +530,12 @@ function AccountMenu({ onLogOut }: { onLogOut: () => void }) {
       .rpc("current_officer_profile")
       .then(({ data, error }) => {
         if (cancelled || error || !data || typeof data !== "object") return;
-        const row = data as { name?: unknown; email?: unknown; station?: { name?: unknown } };
+        const row = data as { name?: unknown; email?: unknown; station?: { name?: unknown; code?: unknown } };
         const name = typeof row.name === "string" ? row.name : "";
         const email = typeof row.email === "string" ? row.email : "";
-        const station = typeof row.station?.name === "string" ? row.station.name : "";
+        const stationName = typeof row.station?.name === "string" ? row.station.name.trim() : "";
+        const stationCode = typeof row.station?.code === "string" ? row.station.code.trim() : "";
+        const station = stationName || stationCode;
         if (!name && !email) return;
         setProfile({ name: name || "…", email, station, initials: initialsFromName(name) });
       });
