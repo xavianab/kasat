@@ -67,7 +67,7 @@ class LocalIncidentRepository implements IncidentRepository {
       liveLatitude: draft.liveLatitude,
       liveLongitude: draft.liveLongitude,
       locationUpdatedAt: draft.liveLatitude != null ? now : null,
-      liveLocationActive: draft.isEmergency,
+      liveLocationActive: false,
       evidenceSha256: null,
       clientEvidenceSha256: clientSha,
       evidenceIntegrityStatus:
@@ -178,6 +178,12 @@ class LocalIncidentRepository implements IncidentRepository {
   /// server-verified UTC receipt timestamp).
   Future<Incident?> updateIncident(Incident updated) async {
     _cache[updated.trackingId] = updated;
+    if (!_localIds.contains(updated.trackingId)) {
+      _localIds = [
+        updated.trackingId,
+        ..._localIds.where((id) => id != updated.trackingId),
+      ];
+    }
     await _persist();
     _changes.add(updated.trackingId);
     return updated;
@@ -192,16 +198,21 @@ class LocalIncidentRepository implements IncidentRepository {
     double? accuracyMeters,
     bool silentMode = false,
     bool offline = false,
+    IncidentCategory? category,
   }) async {
     final now = DateTime.now();
     final initialStatus = offline ? IncidentStatus.queued : IncidentStatus.sent;
+    final picked = category;
+    final stored = picked != null && picked != IncidentCategory.criticalEmergency
+        ? picked
+        : IncidentCategory.other;
     final incident = Incident(
       trackingId: trackingId,
-      category: IncidentCategory.criticalEmergency,
+      category: stored,
       description:
           'URGENT: Survivor activated the I\'M IN DANGER emergency button. '
           'Immediate police response requested.',
-      priority: IncidentCategory.criticalEmergency.defaultPriority,
+      priority: stored.defaultPriority,
       status: initialStatus,
       countryCode: countryCode,
       submittedAt: now,

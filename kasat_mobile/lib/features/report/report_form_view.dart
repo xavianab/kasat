@@ -9,7 +9,6 @@ import '../../models/approx_location.dart';
 import '../../models/attachment.dart';
 import '../../models/incident.dart';
 import '../../models/incident_category.dart';
-import '../../models/incident_priority.dart';
 import '../../theme/kasat_theme.dart';
 import '../../widgets/k_field.dart';
 import '../../widgets/kasat_button.dart';
@@ -157,6 +156,7 @@ class _ReportFormViewState extends State<ReportFormView> {
     final offline = !await scope.network.isOnline();
     if (!mounted) return;
 
+    IncidentCategory.chosen = category;
     final draft = IncidentDraft(
       category: category,
       description: _description.text,
@@ -164,11 +164,20 @@ class _ReportFormViewState extends State<ReportFormView> {
       countryCode: countryCode,
       location: _location,
       attachments: _attachments,
+      isEmergency: urgent,
     );
 
     final incident = await runTransmit(
       context,
-      scope.repository.submit(draft, trackingId: trackingId, offline: offline),
+      () async {
+        final saved = await scope.repository.submit(
+          draft,
+          trackingId: trackingId,
+          offline: offline,
+        );
+        if (!urgent) return saved;
+        return await scope.repository.sendToPolice(saved.trackingId) ?? saved;
+      }(),
     );
 
     if (!mounted) return;
@@ -250,7 +259,10 @@ class _ReportFormViewState extends State<ReportFormView> {
                       onTap: () async {
                         final picked =
                             await showCategorySheet(context, current: category);
-                        if (picked != null) setState(() => _category = picked);
+                        if (picked != null) {
+                          IncidentCategory.chosen = picked;
+                          setState(() => _category = picked);
+                        }
                       },
                     ),
                     if (category != null) ...[
@@ -357,9 +369,9 @@ class _ReportFormViewState extends State<ReportFormView> {
           busy: _submitting,
           category: category,
           descriptionOk: _descriptionOk,
-          onSubmit: _submit,
           onSubmit: () => _submit(),
           onUrgent: () => _submit(urgent: true),
+        ),
       ],
     );
   }
@@ -389,7 +401,6 @@ class _SubmitBar extends StatelessWidget {
     required this.category,
     required this.descriptionOk,
     required this.onSubmit,
-  });
     required this.onUrgent,
   });
 
@@ -449,7 +460,6 @@ class _SubmitBar extends StatelessWidget {
             busy: busy,
             onPressed: enabled ? onSubmit : null,
           ),
-        ],
           const SizedBox(height: KSpace.sm),
           KButton(
             label: 'Send urgent',
@@ -458,6 +468,7 @@ class _SubmitBar extends StatelessWidget {
             busy: busy,
             onPressed: enabled ? onUrgent : null,
           ),
+        ],
       ),
     );
   }

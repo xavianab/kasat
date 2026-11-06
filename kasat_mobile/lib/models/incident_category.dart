@@ -1,6 +1,30 @@
 import 'incident_priority.dart';
 
 enum IncidentCategory {
+  sexualViolence(
+    code: 'sexual',
+    label: 'Sexual violence',
+    hint: 'Sexual contact or an assault that was sexual.',
+    defaultPriority: IncidentPriority.high,
+  ),
+  domesticViolence(
+    code: 'domestic',
+    label: 'Domestic violence',
+    hint: 'Harm from a partner or someone in the home.',
+    defaultPriority: IncidentPriority.high,
+  ),
+  forcedMarriage(
+    code: 'marriage',
+    label: 'Forced / child marriage',
+    hint: 'A marriage you did not choose, or one involving a child.',
+    defaultPriority: IncidentPriority.high,
+  ),
+  childAbuse(
+    code: 'child',
+    label: 'Child abuse',
+    hint: 'A child being hurt, threatened, or neglected.',
+    defaultPriority: IncidentPriority.high,
+  ),
   harassment(
     code: 'HRSMT',
     label: 'Harassment',
@@ -31,6 +55,12 @@ enum IncidentCategory {
     hint: 'Someone in authority using their position against you.',
     defaultPriority: IncidentPriority.medium,
   ),
+  other(
+    code: 'other',
+    label: 'Other',
+    hint: 'Something else that does not fit the choices above.',
+    defaultPriority: IncidentPriority.low,
+  ),
   criticalEmergency(
     code: 'CRTCL',
     label: 'Critical emergency',
@@ -49,6 +79,20 @@ enum IncidentCategory {
   final String label;
   final String hint;
   final IncidentPriority defaultPriority;
+
+  /// Categories offered on the report form. Critical is not a category.
+  /// Urgency is [Incident.isEmergency], not a type.
+  static const choices = <IncidentCategory>[
+    sexualViolence,
+    domesticViolence,
+    forcedMarriage,
+    childAbuse,
+    harassment,
+    other,
+  ];
+
+  /// The category selected on the open report, so an urgent alert can keep it.
+  static IncidentCategory? chosen;
 
   static IncidentCategory fromCode(String code) {
     return IncidentCategory.values.firstWhere(

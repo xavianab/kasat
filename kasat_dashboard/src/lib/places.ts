@@ -40,6 +40,7 @@ export function subCityOf(incident: Incident) {
 
 /** Tier 1. Sub-city only. Never a coordinate. */
 export function publicPlace(incident: Incident) {
+  if (!incident.location) return "Location not shared";
   const sub = subCityOf(incident);
   const city = cityName(incident);
   if (sub) return `${sub} sub-city, ${city}`;
@@ -48,6 +49,7 @@ export function publicPlace(incident: Incident) {
 
 /** Tier 2. Sub-city, woreda, and the survivor's landmark. */
 export function claimedPlace(incident: Incident) {
+  if (!incident.location) return "Location not shared";
   const sub = subCityOf(incident);
   const head = sub ? `${sub} sub-city` : cityName(incident);
   const woreda = incident.location?.woreda?.trim();

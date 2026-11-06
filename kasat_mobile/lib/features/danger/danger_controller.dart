@@ -11,6 +11,7 @@ import '../../core/tracking_id.dart';
 import '../../data/incident_repository.dart';
 import '../../data/settings_store.dart';
 import '../../models/incident.dart';
+import '../../models/incident_category.dart';
 
 /// Coordinates the "I'm in Danger" automatic escalation and its 30-minute
 /// live-location beacon.
@@ -131,9 +132,8 @@ class DangerController extends ChangeNotifier {
   /// 1. PHONE: Opens the system dialer pre-filled with the regional emergency
   ///    number (`KasatConfig.emergencyNumber`, configurable per region, never
   ///    hardcoded) unless [silent] is true.
-  /// 2. PORTAL: Writes an URGENT-priority (`CRTCL` / `P1`, `is_emergency=true`)
-  ///    row to Supabase with live GPS coordinates, timestamp, and emergency
-  ///    flag, and starts the 30-minute live location stream.
+  /// 2. PORTAL: Writes the survivor's chosen category with `is_emergency=true`
+  ///    and live GPS, and starts the 30-minute live location stream.
   Future<Incident> escalateNow({bool silent = false}) async {
     // Coalesce repeat activations on the same handset while a danger window is
     // already active so panic-tapping never spawns duplicate alerts.
@@ -222,6 +222,10 @@ class DangerController extends ChangeNotifier {
     _lastAccuracyMeters = pos?.accuracy;
 
     final offline = !await network.isOnline();
+    final picked = IncidentCategory.chosen;
+    final category = picked != null && picked != IncidentCategory.criticalEmergency
+        ? picked
+        : IncidentCategory.other;
     return repository.triggerEmergency(
       trackingId: trackingId,
       countryCode: countryCode,
@@ -230,6 +234,7 @@ class DangerController extends ChangeNotifier {
       accuracyMeters: _lastAccuracyMeters,
       silentMode: silentMode,
       offline: offline,
+      category: category,
     );
   }
 

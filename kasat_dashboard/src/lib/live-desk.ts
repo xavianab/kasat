@@ -1,6 +1,6 @@
 import { dispatchDeskStatus, type DeskStatus } from "@/lib/desk";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
-import type { Incident, IncidentStatus } from "@/lib/types";
+import { CATEGORIES, type CategoryCode, type Incident, type IncidentStatus } from "@/lib/types";
 
 export type LiveAccessEvent = {
   id: string;
@@ -63,6 +63,11 @@ export function deskToDispatch(status: DeskStatus): "claimed" | "en_route" | "on
   return null;
 }
 
+function categoryCode(raw: string | null): CategoryCode {
+  if (raw && (CATEGORIES as readonly string[]).includes(raw)) return raw as CategoryCode;
+  return "HRSMT";
+}
+
 function placeFromApprox(text: string | null) {
   const approx = text?.trim() ?? "";
   const subCity = approx.match(/^([^,]+?)\s+sub-city/i)?.[1]?.trim() ?? null;
@@ -96,7 +101,7 @@ export function reportToIncident(row: ServerReport, includeCoordinates: boolean)
   return {
     trackingId: row.tracking_code,
     reportId: row.id,
-    category: "HRSMT",
+    category: categoryCode(row.incident_type),
     incidentType: row.incident_type,
     description: row.description ?? "",
     priority: row.is_emergency ? "P1" : "P3",

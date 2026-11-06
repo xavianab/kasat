@@ -130,6 +130,8 @@ export function caseDeskCategory(incident: Incident): DeskCategory | null {
 export function categoryText(incident: Incident, t: (key: keyof Messages) => string) {
   const sample = caseDeskCategory(incident);
   if (sample) return t(DESK_CATEGORY_KEY[sample]);
+  const raw = incident.incidentType;
+  if (raw && raw in CATEGORY_KEY) return t(CATEGORY_KEY[raw as CategoryCode]);
   return categoryLabel(incident.category, t);
 }
 

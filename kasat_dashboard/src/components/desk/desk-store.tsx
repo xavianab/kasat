@@ -78,6 +78,7 @@ export type DeskAlert = {
   category: string;
   area: string;
   read: boolean;
+  urgent: boolean;
 };
 
 type CreateInput = {
@@ -105,6 +106,7 @@ type DeskValue = DeskState & {
   loadError: string | null;
   space: SpaceDetails;
   soundAlerts: boolean;
+  livePaused: boolean;
   setSoundAlerts: (on: boolean) => void;
   statusOf: (incident: Incident) => DeskStatus;
   claim: (trackingId: string) => void;
@@ -130,6 +132,18 @@ const DeskContext = createContext<DeskValue | null>(null);
 
 function eventId() {
   return crypto.randomUUID();
+}
+
+function toQueueAlert(incident: Incident): DeskAlert {
+  return {
+    id: eventId(),
+    trackingId: incident.trackingId,
+    at: incident.submittedAt,
+    category: incident.incidentType || incident.category,
+    area: publicPlace(incident),
+    read: false,
+    urgent: incident.priority === "P1",
+  };
 }
 
 function applyServerReport(current: DeskState, row: ServerReport): DeskState {
@@ -185,6 +199,7 @@ export function DeskProvider({
     live ? { ...DEFAULT_SPACE, name: "", description: "" } : DEFAULT_SPACE,
   );
   const [soundAlerts, setSoundAlertsState] = useState(false);
+  const [livePaused, setLivePaused] = useState(false);
   const [ready, setReady] = useState(false);
   const incidentsRef = useRef(state.incidents);
   incidentsRef.current = state.incidents;
@@ -248,7 +263,7 @@ export function DeskProvider({
             notes: parsed.notes ?? [],
             replies: parsed.replies ?? [],
             links: parsed.links ?? [],
-            alerts: parsed.alerts ?? [],
+            alerts: (parsed.alerts ?? []).map((alert) => ({ ...alert, urgent: alert.urgent ?? true })),
             phases: { ...INITIAL_PHASES, ...(parsed.phases ?? {}) },
             log: parsed.log ?? [],
             watches: parsed.watches ?? [],
@@ -570,6 +585,7 @@ export function DeskProvider({
           category: "Physical assault",
           area: publicPlace(incident),
           read: false,
+          urgent: true,
         },
         ...current.alerts,
       ],
@@ -735,6 +751,52 @@ export function DeskProvider({
   useEffect(() => {
     if (!ready || !live || !stationId) return;
     const supabase = getSupabaseBrowserClient();
+    const known = new Set(incidentsRef.current.map((item) => item.trackingId));
+    let stopped = false;
+    let timer: number | null = null;
+
+    const pull = async (markReadId: string | null) => {
+      try {
+        const rows = await fetchStationReports();
+        if (stopped) return;
+        const packed = mergeReports(rows, incidentsRef.current);
+        const incoming = packed.incidents.filter(
+          (item) => !known.has(item.trackingId) && packed.phases[item.trackingId] === "new",
+        );
+        for (const item of packed.incidents) known.add(item.trackingId);
+        const urgentIncoming = incoming.filter((item) => item.priority === "P1").map(toQueueAlert);
+        const plainIncoming = incoming.filter((item) => item.priority !== "P1").map(toQueueAlert);
+        setState((current) => {
+          const fresh = [...urgentIncoming, ...plainIncoming].filter(
+            (alert) => !current.alerts.some((existing) => existing.trackingId === alert.trackingId),
+          );
+          return {
+            ...current,
+            incidents: packed.incidents,
+            phases: packed.phases,
+            alerts: [...fresh, ...current.alerts].map((alert) =>
+              markReadId && alert.trackingId === markReadId ? { ...alert, read: true } : alert,
+            ),
+          };
+        });
+        setLoadError(null);
+      } catch (error: unknown) {
+        if (!stopped) setLoadError(error instanceof Error ? error.message : "unavailable");
+      }
+    };
+
+    const stopPoll = () => {
+      if (timer != null) window.clearInterval(timer);
+      timer = null;
+    };
+    const startPoll = () => {
+      if (timer != null) return;
+      void pull(null);
+      timer = window.setInterval(() => {
+        void pull(null);
+      }, 30000);
+    };
+
     const channel = supabase
       .channel(`desk-station-${stationId}`)
       .on(
@@ -744,46 +806,24 @@ export function DeskProvider({
           const row = (payload.new ?? {}) as Record<string, unknown>;
           const trackingId = String(row.tracking_code ?? "");
           const dispatchStatus = typeof row.dispatch_status === "string" ? row.dispatch_status : "";
-          if (trackingId.startsWith("KST-") && dispatchStatus && dispatchStatus !== "new") {
-            setState((current) => ({
-              ...current,
-              alerts: current.alerts.map((alert) =>
-                alert.trackingId === trackingId ? { ...alert, read: true } : alert,
-              ),
-            }));
-          } else if (row.is_emergency === true && dispatchStatus === "new" && trackingId.startsWith("KST-")) {
-            setState((current) => {
-              if (current.alerts.some((alert) => alert.trackingId === trackingId)) return current;
-              return {
-                ...current,
-                alerts: [
-                  {
-                    id: eventId(),
-                    trackingId,
-                    at: new Date().toISOString(),
-                    category: "Urgent",
-                    area: trackingId,
-                    read: false,
-                  },
-                  ...current.alerts,
-                ],
-              };
-            });
-          }
-          void fetchStationReports()
-            .then((rows) => {
-              setState((current) => {
-                const packed = mergeReports(rows, current.incidents);
-                return { ...current, incidents: packed.incidents, phases: packed.phases };
-              });
-            })
-            .catch((error: unknown) => {
-              setLoadError(error instanceof Error ? error.message : "unavailable");
-            });
+          const markRead =
+            trackingId.startsWith("KST-") && dispatchStatus !== "" && dispatchStatus !== "new" ? trackingId : null;
+          void pull(markRead);
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (stopped) return;
+        if (status === "SUBSCRIBED") {
+          setLivePaused(false);
+          stopPoll();
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          setLivePaused(true);
+          startPoll();
+        }
+      });
     return () => {
+      stopped = true;
+      stopPoll();
       void supabase.removeChannel(channel);
     };
   }, [ready, live, stationId]);
@@ -797,6 +837,7 @@ export function DeskProvider({
       loadError,
       space,
       soundAlerts,
+      livePaused,
       setSoundAlerts,
       statusOf,
       claim,
@@ -825,6 +866,7 @@ export function DeskProvider({
       loadError,
       space,
       soundAlerts,
+      livePaused,
       setSoundAlerts,
       statusOf,
       claim,

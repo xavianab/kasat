@@ -1,4 +1,5 @@
 import '../models/incident.dart';
+import '../models/incident_category.dart';
 
 /// The single seam between Kasat's UI and its backend.
 abstract interface class IncidentRepository {
@@ -35,6 +36,7 @@ abstract interface class IncidentRepository {
     double? accuracyMeters,
     bool silentMode = false,
     bool offline = false,
+    IncidentCategory? category,
   });
 
   /// Updates the live GPS coordinates on an active emergency report.

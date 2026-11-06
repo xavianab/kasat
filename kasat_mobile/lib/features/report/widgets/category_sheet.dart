@@ -59,7 +59,7 @@ class _CategorySheet extends StatelessWidget {
               shrinkWrap: true,
               padding: const EdgeInsets.fromLTRB(KSpace.lg, 0, KSpace.lg, KSpace.lg),
               children: [
-                for (final category in IncidentCategory.values)
+                for (final category in IncidentCategory.choices)
                   _CategoryTile(
                     category: category,
                     selected: category == current,

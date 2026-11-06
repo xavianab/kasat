@@ -9,23 +9,17 @@ import '../../core/time_format.dart';
 import '../../core/update_notifier.dart';
 import '../../core/tracking_id.dart';
 import '../../models/incident.dart';
+import '../../models/incident_status.dart';
 import '../../theme/kasat_theme.dart';
 import '../../widgets/k_field.dart';
 import '../../widgets/kasat_button.dart';
 import '../../widgets/panel.dart';
 import '../../widgets/soft_badge.dart';
 import '../../widgets/status_pill.dart';
+import '../../data/remote_reports_client.dart';
 import '../identity/reveal_identity_sheet.dart';
 import '../lock/pin_setup_sheet.dart';
 
-class LookupView extends StatefulWidget {
-  const LookupView({super.key});
-
-  @override
-  State<LookupView> createState() => LookupViewState();
-}
-
-class LookupViewState extends State<LookupView> {
 class _MessageRefresh {
   final List<Future<void> Function()> _runs = [];
 
@@ -45,6 +39,14 @@ class _MessageRefresh {
   }
 }
 
+class LookupView extends StatefulWidget {
+  const LookupView({super.key});
+
+  @override
+  State<LookupView> createState() => LookupViewState();
+}
+
+class LookupViewState extends State<LookupView> {
   final _controller = TextEditingController();
 
   final _messages = _MessageRefresh();
@@ -139,14 +141,13 @@ class _MessageRefresh {
     final scope = KasatScope.of(context);
     final unlocked = scope.settings.hasPin && scope.isPinSessionUnlocked;
 
-    return ListView(
     return RefreshIndicator(
       onRefresh: _messages.call,
       child: ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-          const EdgeInsets.fromLTRB(KSpace.lg, KSpace.xs, KSpace.lg, KSpace.xxl),
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      children: [
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(KSpace.lg, KSpace.xs, KSpace.lg, KSpace.xxl),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        children: [
         Row(
           children: [
             Expanded(
@@ -229,12 +230,12 @@ class _MessageRefresh {
         ),
         const SizedBox(height: KSpace.md),
         if (_notFound) const _NotFoundCard(),
-        if (_resolvedId != null) _LiveCase(trackingId: _resolvedId!),
         if (_resolvedId != null)
           _LiveCase(trackingId: _resolvedId!, messages: _messages),
         if (_resolvedId == null && !_notFound && !_searching) const _DemoHint(),
-      ],
+        ],
       ),
+    );
   }
 }
 
@@ -299,7 +300,6 @@ class UpperCaseFormatter extends TextInputFormatter {
 }
 
 class _LiveCase extends StatefulWidget {
-  const _LiveCase({required this.trackingId});
   const _LiveCase({required this.trackingId, required this.messages});
 
   final String trackingId;
@@ -310,6 +310,31 @@ class _LiveCase extends StatefulWidget {
 
 class _LiveCaseState extends State<_LiveCase> {
   Stream<Incident?>? _stream;
+  bool _sendingReport = false;
+  String? _sendError;
+
+  bool _isWithPolice(Incident incident) {
+    return incident.status == IncidentStatus.sent ||
+        incident.status == IncidentStatus.underReview ||
+        incident.status == IncidentStatus.resolved;
+  }
+
+  Future<void> _sendReport() async {
+    setState(() {
+      _sendingReport = true;
+      _sendError = null;
+    });
+    final updated =
+        await KasatScope.of(context).repository.sendToPolice(widget.trackingId);
+    if (!mounted) return;
+    setState(() {
+      _sendingReport = false;
+      _sendError = updated == null ? 'That did not send. Pull down to try again.' : null;
+      _stream = KasatScope.of(context)
+          .repository
+          .watch(updated?.trackingId ?? widget.trackingId);
+    });
+  }
 
   @override
   void didChangeDependencies() {
@@ -341,6 +366,8 @@ class _LiveCaseState extends State<_LiveCase> {
       builder: (context, snapshot) {
         final incident = snapshot.data;
         if (incident == null) return const SizedBox.shrink();
+        final withPolice = _isWithPolice(incident);
+        final secret = incident.accessSecret ?? '';
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -353,17 +380,35 @@ class _LiveCaseState extends State<_LiveCase> {
                 children: [
                   CodeChip(incident.trackingId, size: 15),
                   const SizedBox(height: KSpace.lg),
-                  StatusTrack(incident.status),
-                  if (incident.accessSecret != null &&
-                      incident.accessSecret!.isNotEmpty &&
-                      KasatConfig.supabaseUrl.isNotEmpty &&
-                      KasatConfig.supabaseAnonKey.isNotEmpty)
-                    _CaseProgress(
-                      accessSecret: incident.accessSecret!,
-                      messages: widget.messages,
-                    )
-                  else
+                  if (!withPolice) ...[
+                    Text(
+                      'Not sent yet — police can\'t see this until you send it',
+                      style: KType.sans(size: 15, height: 1.45),
+                    ),
+                    const SizedBox(height: KSpace.md),
+                    KButton(
+                      label: 'Send report',
+                      icon: Icons.send_rounded,
+                      busy: _sendingReport,
+                      onPressed: _sendingReport ? null : _sendReport,
+                    ),
+                    if (_sendError != null) ...[
+                      const SizedBox(height: KSpace.sm),
+                      Text(
+                        _sendError!,
+                        style: KType.sans(size: 13, color: KC.urgent, height: 1.4),
+                      ),
+                    ],
+                  ] else ...[
                     StatusTrack(incident.status),
+                    if (secret.isNotEmpty &&
+                        KasatConfig.supabaseUrl.isNotEmpty &&
+                        KasatConfig.supabaseAnonKey.isNotEmpty)
+                      _CaseProgress(
+                        accessSecret: secret,
+                        messages: widget.messages,
+                      ),
+                  ],
                   Text(
                     incident.status.blurb,
                     style: KType.sans(size: 13.5, color: KC.muted, height: 1.5),
@@ -445,14 +490,10 @@ class _LiveCaseState extends State<_LiveCase> {
                 ],
               ),
             ),
-            const SizedBox(height: KSpace.md),
-            if (incident.accessSecret != null &&
-                incident.accessSecret!.isNotEmpty &&
-                KasatConfig.supabaseUrl.isNotEmpty &&
-                KasatConfig.supabaseAnonKey.isNotEmpty) ...[
+            if (withPolice) ...[
               const SizedBox(height: KSpace.md),
               _CaseReplies(
-                accessSecret: incident.accessSecret!,
+                accessSecret: secret,
                 messages: widget.messages,
               ),
             ],
@@ -567,7 +608,6 @@ class _HistoryRow extends StatelessWidget {
   }
 }
 
-class _NotFoundCard extends StatelessWidget {
 class _CaseProgress extends StatefulWidget {
   const _CaseProgress({required this.accessSecret, required this.messages});
 
@@ -840,6 +880,14 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
       '${row.createdAt.toUtc().toIso8601String()}|${row.body}';
 
   Future<void> reload() async {
+    if (widget.accessSecret.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Couldn\'t load messages. Pull down to try again.';
+      });
+      return;
+    }
     try {
       final rows = await _remote.listSurvivorReplies(widget.accessSecret);
       if (!mounted) return;
@@ -860,7 +908,7 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Replies could not be loaded.';
+        _error = 'Couldn\'t load messages. Pull down to try again.';
       });
     }
   }
@@ -885,7 +933,7 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
         _sending = false;
         _error = tooMany
             ? 'That is enough messages for now. Try again in a little while.'
-            : 'That reply did not send.';
+            : 'Couldn\'t send your message. Pull down to try again.';
       });
     }
   }
@@ -898,8 +946,13 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_loading)
+          if (_loading && _rows.isEmpty)
             Text('Loading messages…', style: KType.sans(size: 13.5, color: KC.muted))
+          else if (_error != null && _rows.isEmpty)
+            Text(
+              _error!,
+              style: KType.sans(size: 13.5, color: KC.urgent, height: 1.45),
+            )
           else if (_rows.isEmpty)
             Text(
               'No messages yet.',
@@ -919,7 +972,7 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
               ),
               const SizedBox(height: KSpace.sm),
             ],
-          if (_error != null) ...[
+          if (_error != null && _rows.isNotEmpty) ...[
             const SizedBox(height: KSpace.sm),
             Text(_error!, style: KType.sans(size: 13, color: KC.urgent, height: 1.4)),
           ],
@@ -931,9 +984,8 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
           ),
           const SizedBox(height: KSpace.sm),
           KButton(
-            label: 'Send reply',
-            icon: Icons.reply_rounded,
-            kind: KButtonKind.secondary,
+            label: 'Send',
+            icon: Icons.send_rounded,
             busy: _sending,
             onPressed: _sending ? null : _send,
           ),
@@ -943,6 +995,7 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
   }
 }
 
+class _NotFoundCard extends StatelessWidget {
   const _NotFoundCard();
 
   @override

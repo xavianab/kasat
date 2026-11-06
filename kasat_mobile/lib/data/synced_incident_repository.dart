@@ -1,4 +1,5 @@
 import '../models/incident.dart';
+import '../models/incident_category.dart';
 import '../models/incident_status.dart';
 import 'incident_repository.dart';
 import 'local_incident_repository.dart';
@@ -24,7 +25,7 @@ class SyncedIncidentRepository implements IncidentRepository {
         await local.submit(draft, trackingId: trackingId, offline: offline);
     if (!offline && _remote.enabled && incident.status == IncidentStatus.draft) {
       try {
-        if (incident.isEmergency) {
+        if (incident.isEmergency && incident.liveLocationActive) {
           final sent = await _remote.insertEmergency(incident);
           await local.updateIncident(sent);
           if (sent.status == IncidentStatus.sent ||
@@ -53,14 +54,17 @@ class SyncedIncidentRepository implements IncidentRepository {
     if (current == null) return null;
     if (_remote.enabled) {
       try {
-        if (current.isEmergency) {
+        if (current.isEmergency && current.liveLocationActive) {
           final sentEmergency = await _remote.insertEmergency(current);
           await local.updateIncident(sentEmergency);
           return await local.sendToPolice(trackingId);
         }
         var working = current;
-        if (working.status == IncidentStatus.draft ||
-            working.status == IncidentStatus.queued) {
+        final hasSecret =
+            working.accessSecret != null && working.accessSecret!.isNotEmpty;
+        if (!hasSecret &&
+            (working.status == IncidentStatus.draft ||
+                working.status == IncidentStatus.queued)) {
           try {
             working = await _remote.insertDraft(working, strictPhoto: true);
             await local.updateIncident(working);
@@ -72,6 +76,7 @@ class SyncedIncidentRepository implements IncidentRepository {
         final remoteSent = await _remote.send(working, strictPhoto: true);
         if (remoteSent != null) {
           await local.updateIncident(remoteSent);
+          return remoteSent;
         }
       } catch (_) {
         // Send or photo upload timed out on a flaky connection: mark queued
@@ -137,6 +142,7 @@ class SyncedIncidentRepository implements IncidentRepository {
     double? accuracyMeters,
     bool silentMode = false,
     bool offline = false,
+    IncidentCategory? category,
   }) async {
     final incident = await local.triggerEmergency(
       trackingId: trackingId,
@@ -146,6 +152,7 @@ class SyncedIncidentRepository implements IncidentRepository {
       accuracyMeters: accuracyMeters,
       silentMode: silentMode,
       offline: offline,
+      category: category,
     );
     if (!offline && _remote.enabled) {
       try {

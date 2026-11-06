@@ -19,6 +19,7 @@ type EmergencyBody = {
   p_device_secret?: string;
   p_tracking_code?: string | null;
   p_access_secret?: string | null;
+  p_incident_type?: string | null;
 };
 
 function clientIp(req: Request): string {
@@ -95,6 +96,7 @@ Deno.serve(async (req) => {
       p_device_secret: body.p_device_secret,
       p_tracking_code: body.p_tracking_code ?? null,
       p_access_secret: body.p_access_secret ?? null,
+      p_incident_type: body.p_incident_type ?? null,
     }),
   });
 

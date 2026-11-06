@@ -68,8 +68,11 @@ class RemoteReportsClient {
   }) async {
     if (incident.attachments.isEmpty) return null;
     final Attachment first = incident.attachments.first;
-    if (first.remoteObjectKey != null && first.remoteObjectKey!.isNotEmpty) {
-      return first.remoteObjectKey;
+    final existingKey = first.remoteObjectKey;
+    if (existingKey != null &&
+        existingKey.isNotEmpty &&
+        existingKey.startsWith('${incident.trackingId}/')) {
+      return existingKey;
     }
     final path = first.storagePath;
     if (path.isEmpty) return null;
@@ -167,6 +170,7 @@ class RemoteReportsClient {
             'p_approx_location': incident.location?.displayLabel,
             'p_client_sha256': ?clientSha,
             'p_tracking_code': incident.trackingId,
+            if (incident.isEmergency) 'p_is_emergency': true,
           }),
         )
         .timeout(_timeout);
@@ -263,6 +267,7 @@ class RemoteReportsClient {
       'p_device_secret': await _deviceSecret(),
       'p_tracking_code': incident.trackingId,
       'p_access_secret': ?incident.accessSecret,
+      'p_incident_type': incident.category.code,
     };
 
     final res = await _http

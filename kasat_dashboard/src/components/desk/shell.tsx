@@ -36,18 +36,21 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   categoryLabel,
+  categoryText,
   OPERATOR,
   priorityLabel,
+  publicPlace,
   queueCounts,
   spaceTypeLabel,
   type QueueId,
 } from "@/lib/desk";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
-import { CATEGORIES, PRIORITIES, type CategoryCode, type Priority } from "@/lib/types";
+import { CATEGORIES, PRIORITIES, type CategoryCode, type Incident, type Priority } from "@/lib/types";
+import type { Messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
 import { SpaceGlyph } from "./bits";
-import { useDesk } from "./desk-store";
+import { useDesk, type DeskAlert } from "./desk-store";
 import { KasatMark } from "./kasat-mark";
 
 const QUEUE_LINKS: { id: QueueId; href: string; label: "queueUnclaimed" | "queueMine" | "queueOpen" | "queueWaiting" | "queueResolved" }[] = [
@@ -146,6 +149,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [shake, setShake] = useState(false);
+  const [toast, setToast] = useState<DeskAlert | null>(null);
   const seenAlerts = useRef<number | null>(null);
 
   useEffect(() => {
@@ -164,15 +168,29 @@ export function Shell({ children }: { children: React.ReactNode }) {
     }
     seenAlerts.current = alerts.length;
     const latest = alerts[0];
+    if (!latest?.urgent) {
+      if (latest) setToast(latest);
+      return;
+    }
+    setToast(null);
     setAlertsOpen(true);
     setShake(true);
     const timer = window.setTimeout(() => setShake(false), 500);
-    if (latest && typeof Notification !== "undefined" && Notification.permission === "granted") {
-      new Notification(t("urgentTitle"), { body: `${latest.category} · ${latest.area}` });
+    const incident = incidents.find((item) => item.trackingId === latest.trackingId);
+    const category = incident ? categoryText(incident, t) : latest.category;
+    const area = incident ? publicPlace(incident) : latest.area;
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification(t("urgentTitle"), { body: `${category} · ${area}` });
     }
     if (soundAlerts) playChime();
     return () => window.clearTimeout(timer);
-  }, [alerts, desk.ready, soundAlerts, t]);
+  }, [alerts, desk.ready, incidents, soundAlerts, t]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 8000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("kasat.desk.sidebar");
@@ -361,6 +379,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <AccountMenu onLogOut={logOut} />
         </div>
       </header>
+      {desk.livePaused ? (
+        <p className="border-b border-border bg-surface px-3 py-2 text-sm" role="status">
+          {t("liveUpdatesPaused")}
+        </p>
+      ) : null}
 
       <div className="flex min-h-[calc(100vh-48px)]">
         {narrow ? (
@@ -382,14 +405,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 z-50">
           <button className="absolute inset-0 bg-[#172B4D]/40" aria-label={t("close")} onClick={() => setAlertsOpen(false)} />
           <aside className="kasat-slide absolute inset-y-0 right-0 w-[min(100%,360px)] overflow-y-auto border-l border-border bg-bg p-4 shadow-xl">
-            <h2 className="text-base font-semibold">{alerts[0] && !alerts[0].read ? t("urgentTitle") : t("notifications")}</h2>
+            <h2 className="text-base font-semibold">
+              {alerts.some((alert) => alert.urgent && !alert.read) ? t("urgentTitle") : t("notifications")}
+            </h2>
             {alerts.length === 0 ? <p className="mt-3 text-sm text-muted">{t("notificationsEmpty")}</p> : null}
             <ul className="mt-3 grid gap-3">
-              {alerts.map((alert) => (
+              {[...alerts.filter((alert) => alert.urgent), ...alerts.filter((alert) => !alert.urgent)].map((alert) => {
+                const shown = shownAlert(alert, incidents, t);
+                return (
                 <li key={alert.id} className="rounded-[6px] border border-border p-3">
-                  <p className="text-sm font-semibold text-[#AE2E24]">{t("urgentTitle")}</p>
-                  <p className="mt-1 text-sm">{alert.category}</p>
-                  <p className="text-sm text-muted">{alert.area}</p>
+                  <p className={cn("text-sm font-semibold", alert.urgent && "text-[#AE2E24]")}>
+                    {alert.urgent ? t("urgentTitle") : t("newReportTitle")}
+                  </p>
+                  <p className="mt-1 text-sm">{shown.category}</p>
+                  <p className="text-sm text-muted">{shown.area}</p>
                   <p className="mt-1 text-xs text-muted">{alert.at}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button
@@ -415,7 +444,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
                     </Button>
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </aside>
         </div>
@@ -430,6 +460,28 @@ export function Shell({ children }: { children: React.ReactNode }) {
           router.push(`/cases/${id}`);
         }}
       />
+      {toast ? (
+        <div
+          className="fixed right-4 bottom-4 z-50 w-[min(100%-2rem,320px)] rounded-[6px] border border-border bg-bg p-3 shadow-[0_8px_24px_rgba(23,43,77,0.16)]"
+          role="status"
+        >
+          <p className="text-sm">
+            {t("newReportToast", shownAlert(toast, incidents, t))}
+          </p>
+          <div className="mt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                desk.markAlertRead(toast.id);
+                setToast(null);
+                router.push(`/cases/${toast.trackingId}`);
+              }}
+            >
+              {t("toastOpen")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
       <Dialog.Root open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent closeLabel={t("close")}>
           <DialogTitle className="pr-8 text-base font-semibold">{t("help")}</DialogTitle>
@@ -438,6 +490,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </Dialog.Root>
     </div>
   );
+}
+
+function shownAlert(
+  alert: DeskAlert,
+  incidents: Incident[],
+  t: (key: keyof Messages, vars?: Record<string, string | number>) => string,
+) {
+  const incident = incidents.find((item) => item.trackingId === alert.trackingId);
+  return {
+    category: incident ? categoryText(incident, t) : alert.category,
+    area: incident ? publicPlace(incident) : alert.area,
+  };
 }
 
 function NavGroup({ title, hidden, children }: { title: string; hidden: boolean; children: React.ReactNode }) {
