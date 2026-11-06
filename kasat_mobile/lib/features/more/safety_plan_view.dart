@@ -7,9 +7,7 @@ import '../../widgets/kasat_button.dart';
 import '../../widgets/panel.dart';
 import 'more_scaffold.dart';
 
-/// On-device checklist. Standard in tools like Bright Sky — and isolated
-/// from reports so a case file never carries a home address or a friend's
-/// name the person wrote for themselves.
+/// On-device checklist isolated from reports.
 class SafetyPlanView extends StatefulWidget {
   const SafetyPlanView({super.key, this.store});
 
@@ -67,7 +65,7 @@ class _SafetyPlanViewState extends State<SafetyPlanView> {
       builder: (context) => AlertDialog(
         backgroundColor: KC.surface,
         shape: const RoundedRectangleBorder(borderRadius: KRadius.rLg),
-        title: Text('Clear this plan?', style: KType.serif(size: 20)),
+        title: Text('Clear this plan?', style: KType.serif(size: 18)),
         content: Text(
           'Removes the ticks and the words you typed. It does not touch '
           'reports or your lock code.',
@@ -103,36 +101,28 @@ class _SafetyPlanViewState extends State<SafetyPlanView> {
         Text(
           'Optional. Only you can see this, and it never goes with a report. '
           'Skip any line that does not fit.',
-          style: KType.sans(size: 15, color: KC.muted, height: 1.55),
+          style: KType.sans(size: 14, color: KC.muted, height: 1.5),
         ),
-        const SizedBox(height: KSpace.xl),
+        const SizedBox(height: KSpace.lg),
         if (!_ready)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: KSpace.xxl),
             child: Center(child: CircularProgressIndicator(color: KC.primary)),
           )
         else ...[
-          KPanel(
-            title: 'Things I have thought about',
-            padding: const EdgeInsets.fromLTRB(
-              KSpace.lg,
-              0,
-              KSpace.lg,
-              KSpace.md,
-            ),
-            child: Column(
-              children: [
-                for (final prompt in SafetyPlanStore.prompts)
-                  _PromptRow(
-                    key: Key('safety-${prompt.id}'),
-                    label: prompt.label,
-                    checked: _plan.checked.contains(prompt.id),
-                    onTap: () => _toggle(prompt.id),
-                  ),
-              ],
-            ),
+          Text(
+            'Things I have thought about',
+            style: KType.sans(size: 16, weight: FontWeight.w600),
           ),
-          const SizedBox(height: KSpace.lg),
+          const SizedBox(height: KSpace.xs),
+          for (final prompt in SafetyPlanStore.prompts)
+            _PromptRow(
+              key: Key('safety-${prompt.id}'),
+              label: prompt.label,
+              checked: _plan.checked.contains(prompt.id),
+              onTap: () => _toggle(prompt.id),
+            ),
+          const KRule(height: KSpace.lg),
           const KFieldLabel('A place I can go', optional: true),
           KTextField(
             controller: _place,
@@ -152,7 +142,7 @@ class _SafetyPlanViewState extends State<SafetyPlanView> {
             onChanged: (value) =>
                 _persist(_plan.copyWith(trustedPerson: value)),
           ),
-          const SizedBox(height: KSpace.xl),
+          const SizedBox(height: KSpace.lg),
           const KNote(
             title: 'If this phone is not only yours',
             icon: Icons.info_outline_rounded,
@@ -192,7 +182,7 @@ class _PromptRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: KSpace.md),
+        padding: const EdgeInsets.symmetric(vertical: KSpace.sm),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -204,7 +194,6 @@ class _PromptRow extends StatelessWidget {
                 color: checked ? KC.primary : KC.surfaceAlt,
                 border: Border.all(
                   color: checked ? KC.primary : KC.borderStrong,
-                  width: 1.4,
                 ),
                 borderRadius: BorderRadius.circular(6),
               ),
@@ -212,11 +201,11 @@ class _PromptRow extends StatelessWidget {
                   ? const Icon(
                       Icons.check_rounded,
                       size: 16,
-                      color: Colors.white,
+                      color: KC.onPrimary,
                     )
                   : null,
             ),
-            const SizedBox(width: KSpace.md),
+            const SizedBox(width: KSpace.sm),
             Expanded(
               child: Text(label, style: KType.sans(size: 14, height: 1.4)),
             ),

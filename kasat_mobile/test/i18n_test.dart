@@ -15,6 +15,6 @@ void main() {
     expect(await i18n.trySet('om'), isFalse);
     expect(await i18n.trySet('am'), isTrue);
     expect(i18n.code, 'am');
-    expect(i18n.t('welcome.report'), isNot(equals('Tell us what happened')));
+    expect(i18n.t('welcome.report'), isNot(equals('Report what happened')));
   });
 }

@@ -51,8 +51,8 @@ class CrisisBanner extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      '${signal.reason ?? ''} You can reach someone directly — '
-                      'filing this report can wait.',
+                      '${signal.reason ?? ''} You can reach someone directly. '
+                      'Filing this report can wait.',
                       style: KType.sans(size: 13.5, color: KC.text, height: 1.5),
                     ),
                   ],

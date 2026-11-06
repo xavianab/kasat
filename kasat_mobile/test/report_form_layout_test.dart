@@ -1,17 +1,28 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kasat_mobile/app.dart';
+import 'package:kasat_mobile/core/network_status.dart';
+import 'package:kasat_mobile/data/attachment_store.dart';
+import 'package:kasat_mobile/data/local_alert_repository.dart';
+import 'package:kasat_mobile/data/local_incident_repository.dart';
+import 'package:kasat_mobile/data/settings_store.dart';
+import 'package:kasat_mobile/features/accounts/identity_store.dart';
+import 'package:kasat_mobile/features/duress/duress_store.dart';
 import 'package:kasat_mobile/features/lookup/lookup_view.dart';
 import 'package:kasat_mobile/features/report/report_form_view.dart';
 import 'package:kasat_mobile/features/report/widgets/location_picker.dart';
 import 'package:kasat_mobile/features/settings/settings_view.dart';
 import 'package:kasat_mobile/features/shell/shell_view.dart';
+import 'package:kasat_mobile/features/welcome/first_launch_intro.dart';
+import 'package:kasat_mobile/i18n/i18n.dart';
 import 'package:kasat_mobile/theme/kasat_theme.dart';
 import 'package:kasat_mobile/widgets/k_field.dart';
 import 'package:kasat_mobile/widgets/kasat_button.dart';
 import 'package:kasat_mobile/widgets/panel.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/test_welcome.dart';
 
@@ -75,6 +86,99 @@ Future<void> _scrollUntilFound(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('first-launch intro shows 3 cards once only and skips on danger shortcut', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final settings = SettingsStore();
+    await settings.init();
+    final repository = LocalIncidentRepository();
+    await repository.init();
+    final alerts = LocalAlertRepository();
+    await alerts.init();
+    final identity = IdentityStore();
+    await identity.init();
+    final duress = DuressStore();
+    await duress.init();
+    final i18n = I18n();
+    await i18n.init();
+
+    await tester.pumpWidget(
+      KasatApp(
+        repository: repository,
+        attachments: AttachmentStore(),
+        settings: settings,
+        alerts: alerts,
+        identity: identity,
+        duress: duress,
+        i18n: i18n,
+        network: NetworkStatus(fakeOnline: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FirstLaunchIntro), findsOneWidget);
+    expect(find.text('You stay anonymous'), findsOneWidget);
+    expect(find.byKey(FirstLaunchIntro.skipButtonKey), findsOneWidget);
+
+    await tester.tap(find.byKey(FirstLaunchIntro.nextButtonKey));
+    await tester.pumpAndSettle();
+    expect(find.text('You choose who sees it'), findsOneWidget);
+
+    await tester.tap(find.byKey(FirstLaunchIntro.nextButtonKey));
+    await tester.pumpAndSettle();
+    expect(find.text('Someone answers'), findsOneWidget);
+
+    await tester.tap(find.byKey(FirstLaunchIntro.nextButtonKey));
+    await tester.pumpAndSettle();
+    expect(find.byType(FirstLaunchIntro), findsNothing);
+    expect(settings.introSeen, isTrue);
+
+    // Relaunching never shows the intro again.
+    await tester.pumpWidget(
+      KasatApp(
+        repository: repository,
+        attachments: AttachmentStore(),
+        settings: settings,
+        alerts: alerts,
+        identity: identity,
+        duress: duress,
+        i18n: i18n,
+        network: NetworkStatus(fakeOnline: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(FirstLaunchIntro), findsNothing);
+
+    // Danger shortcut launch skips the intro even on a fresh install.
+    SharedPreferences.setMockInitialValues({});
+    final freshSettings = SettingsStore();
+    await freshSettings.init();
+    const channel = MethodChannel('app.kasat/privacy');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'launchIsDanger') return true;
+      return null;
+    });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    await tester.pumpWidget(
+      KasatApp(
+        repository: repository,
+        attachments: AttachmentStore(),
+        settings: freshSettings,
+        alerts: alerts,
+        identity: identity,
+        duress: duress,
+        i18n: i18n,
+        network: NetworkStatus(fakeOnline: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(FirstLaunchIntro), findsNothing);
+  });
 
   testWidgets('field labels wrap in Amharic at the largest font size', (tester) async {
     await tester.binding.setSurfaceSize(const Size(320, 800));
@@ -144,6 +248,22 @@ void main() {
 
   for (final brightness in Brightness.values) {
     final modeName = brightness == Brightness.dark ? 'dark' : 'light';
+
+    testWidgets(
+      'Home screen has no overflow ($modeName, 360x640, keyboard open, 2x font, Amharic)',
+      (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await _pumpScreen(
+          tester,
+          brightness: brightness,
+          child: const ShellView(initialTab: ShellTab.home),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Hotlines'), findsNothing);
+      },
+    );
 
     testWidgets(
       'Report screen has no overflow ($modeName, 360x640, keyboard open, 2x font, Amharic)',
@@ -224,6 +344,9 @@ void main() {
         await tester.pump(const Duration(milliseconds: 500));
         await tester.pump(const Duration(milliseconds: 100));
         expect(tester.takeException(), isNull);
+
+        // Fixed reply bar is visible at the bottom of the screen.
+        expect(find.text('Send'), findsOneWidget);
 
         final list = find.descendant(
           of: find.byType(LookupView),

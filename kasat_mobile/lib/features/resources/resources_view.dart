@@ -23,10 +23,15 @@ class ResourcesView extends StatelessWidget {
     final unverified = contactsForCountry(code).where((c) => !c.verified).length;
 
     return ListView(
-      padding:
-          const EdgeInsets.fromLTRB(KSpace.lg, KSpace.xs, KSpace.lg, KSpace.xxl),
+      padding: const EdgeInsets.fromLTRB(
+        KSpace.lg,
+        KSpace.sm,
+        KSpace.lg,
+        KSpace.xxl,
+      ),
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Text(
@@ -46,10 +51,8 @@ class ResourcesView extends StatelessWidget {
             title: 'Prefer to speak with a GBV hotline instead of police?',
             icon: Icons.favorite_outline_rounded,
             color: KC.primary,
-            body: 'For many women, a confidential gender-based violence hotline '
-                'is safer and more appropriate than calling police. EWLA’s '
-                '7711 toll-free GBV hotline offers confidential support and '
-                'legal guidance in Amharic, Afan Oromo, and Tigrigna without '
+            body: 'EWLA 7711 is a free, confidential GBV hotline. You can speak '
+                'with someone in Amharic, Afan Oromo, or Tigrigna without '
                 'opening a police report.',
           ),
           const SizedBox(height: KSpace.md),
@@ -60,7 +63,7 @@ class ResourcesView extends StatelessWidget {
             icon: Icons.info_outline_rounded,
             color: KC.secondary,
             body: '$unverified of the lines below are placeholders while they '
-                'are being verified for ${country?.name ?? 'your country'}. This '
+                'are verified for ${country?.name ?? 'your country'}. This '
                 'app will not dial an unconfirmed number. If you are in danger '
                 'now, use a number you know.',
           ),
@@ -77,7 +80,7 @@ class ResourcesView extends StatelessWidget {
         else
           for (final entry in grouped.entries) ...[
             _KindSection(kind: entry.key, contacts: entry.value),
-            const SizedBox(height: KSpace.md),
+            const SizedBox(height: KSpace.lg),
           ],
       ],
     );
@@ -92,29 +95,28 @@ class _KindSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return KPanel(
-      title: kind.label,
-      padding:
-          const EdgeInsets.symmetric(horizontal: KSpace.md, vertical: KSpace.md),
-      trailing: Container(
-        width: 30,
-        height: 30,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: kind.color.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(kind.icon, size: 16, color: kind.color),
-      ),
-      child: Column(
-        children: [
-          for (final contact in contacts)
-            _ContactRow(
-              contact: contact,
-              onTap: () => Dialer.call(context, contact),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(kind.icon, size: 18, color: kind.color),
+            const SizedBox(width: KSpace.sm),
+            Expanded(
+              child: Text(
+                kind.label,
+                style: KType.sans(size: 16, weight: FontWeight.w600),
+              ),
             ),
-        ],
-      ),
+          ],
+        ),
+        const SizedBox(height: KSpace.sm),
+        for (final contact in contacts)
+          _ContactRow(
+            contact: contact,
+            onTap: () => Dialer.call(context, contact),
+          ),
+      ],
     );
   }
 }
@@ -130,13 +132,17 @@ class _ContactRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: KSpace.sm),
       child: Material(
-        color: KC.surfaceAlt,
+        color: KC.surface,
         borderRadius: KRadius.rMd,
         child: InkWell(
           borderRadius: KRadius.rMd,
           onTap: onTap,
-          child: Padding(
+          child: Container(
             padding: const EdgeInsets.all(KSpace.md),
+            decoration: BoxDecoration(
+              borderRadius: KRadius.rMd,
+              border: Border.all(color: KC.border),
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -201,7 +207,7 @@ class _ContactRow extends StatelessWidget {
                         ? Icons.call_rounded
                         : Icons.info_outline_rounded,
                     size: 19,
-                    color: contact.verified ? Colors.white : KC.faint,
+                    color: contact.verified ? KC.onPrimary : KC.faint,
                   ),
                 ),
               ],

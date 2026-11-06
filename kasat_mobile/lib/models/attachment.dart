@@ -65,7 +65,7 @@ class Attachment {
     return '${(byteSize / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-  String get dimensionLabel => (width == null || height == null) ? '—' : '$width×$height';
+  String get dimensionLabel => (width == null || height == null) ? '' : '$width×$height';
 
   Map<String, dynamic> toJson() => {
         'id': id,

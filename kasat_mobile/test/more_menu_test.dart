@@ -9,14 +9,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'support/test_welcome.dart';
 
 void main() {
-  testWidgets('welcome keeps the four main actions and adds More and Vent', (tester) async {
+  testWidgets('home shows the three action buttons, safety tips, and More', (tester) async {
     await tester.pumpWidget(await testWelcome());
+    await tester.pump();
 
-    expect(find.text('Tell us what happened'), findsOneWidget);
+    expect(find.text('Report what happened'), findsOneWidget);
     expect(find.text('Check my case'), findsOneWidget);
-    expect(find.text('Hotlines & support'), findsOneWidget);
-    expect(find.text('Notices'), findsOneWidget);
-    expect(find.text('Vent here'), findsOneWidget);
+    expect(find.text('Get help now'), findsOneWidget);
+    expect(find.text('Safety tips'), findsOneWidget);
+    expect(
+      find.text('Free. Anonymous. You decide who sees your report.'),
+      findsOneWidget,
+    );
     expect(find.byKey(MoreMenu.buttonKey), findsOneWidget);
   });
 

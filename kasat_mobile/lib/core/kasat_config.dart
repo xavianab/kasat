@@ -74,9 +74,9 @@ abstract final class KasatConfig {
   static const descriptionMaxLength = 2000;
   static const descriptionMinLength = 40;
 
-  /// Anthropic is never called from the handset. Vent and alert review go
-  /// through the `ai-proxy` Edge Function so the API key never ships in the
-  /// binary and the survivor's IP is not sent to a third party.
+  /// Anthropic is never called from the handset. Alert review goes through
+  /// the `ai-proxy` Edge Function so the API key never ships in the binary
+  /// and the survivor's IP is not sent to a third party.
   static const anthropicApiKey = '';
   static const anthropicModel = 'claude-sonnet-4-6';
 
@@ -87,10 +87,6 @@ abstract final class KasatConfig {
   static const alertTtl = Duration(days: 14);
   static const alertTitleMax = 80;
   static const alertBodyMax = 600;
-
-  static const ventBodyMax = 1000;
-  static const ventTtl = Duration(days: 7);
-  static const ventCompanionDelay = Duration(seconds: 4);
 
   static const duressCountdown = Duration(seconds: 20);
 

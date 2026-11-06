@@ -246,7 +246,7 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
                                   child: Text(
                                     'Forgetting this PIN means losing access to the '
                                     'saved-reports list on this device. Your written '
-                                    'tracking code (KST-…) is the only recovery — you '
+                                    'tracking code (KST-…) is the only recovery. You '
                                     'can always type your tracking code directly to '
                                     'check your case without a PIN.',
                                     style: KType.sans(

@@ -6,14 +6,13 @@ import '../../theme/kasat_theme.dart';
 import '../duress/duress_setup_view.dart';
 import '../i18n/language_view.dart';
 import '../settings/settings_view.dart';
-import '../vent/vent_feed_view.dart';
 import 'help_someone_view.dart';
 import 'how_it_works_view.dart';
 import 'privacy_view.dart';
 import 'safety_plan_view.dart';
 
 /// Optional tools that sit beside the main actions. Opening this must
-/// never change report, tracking, help, or notices.
+/// never change report, tracking, or hotlines.
 class MoreMenu {
   static const buttonKey = Key('more-menu');
 
@@ -70,19 +69,13 @@ class MoreMenuSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: KSpace.lg),
-              Text(i18n.t('more.title'), style: KType.serif(size: 22)),
+              Text(i18n.t('more.title'), style: KType.serif(size: 20)),
               const SizedBox(height: 4),
               Text(
                 i18n.t('more.blurb'),
                 style: KType.sans(size: 13.5, color: KC.muted, height: 1.4),
               ),
               const SizedBox(height: KSpace.lg),
-              _MoreRow(
-                icon: Icons.chat_bubble_outline_rounded,
-                title: i18n.t('welcome.vent'),
-                detail: i18n.t('vent.blurb'),
-                onTap: () => _open(context, const VentFeedView()),
-              ),
               _MoreRow(
                 icon: Icons.route_outlined,
                 title: i18n.t('more.how'),

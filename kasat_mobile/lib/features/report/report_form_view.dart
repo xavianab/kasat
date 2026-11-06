@@ -460,8 +460,8 @@ class _SubmitBar extends StatelessWidget {
   String get _hint {
     if (category == null) return 'Choose what kind of thing happened to continue';
     if (!descriptionOk) {
-      return 'A little more detail — at least '
-          '${KasatConfig.descriptionMinLength} characters';
+      return 'A little more detail. Write at least '
+          '${KasatConfig.descriptionMinLength} characters.';
     }
     return 'Ready. Your private code is created when you save.';
   }

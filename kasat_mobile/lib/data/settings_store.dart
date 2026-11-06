@@ -83,6 +83,7 @@ class SettingsStore {
   static const _themeKey = 'kasat.theme.v1';
   static const _updateNotesKey = 'kasat.update_notifications.v1';
   static const _onboardedKey = 'kasat.onboarded.v1';
+  static const _introSeenKey = 'kasat.intro_seen.v1';
   static const _posterTokenKey = 'kasat.alert_poster.v1';
   static const _deviceRateLimitSecretKey = 'kasat.device_rl_secret.v1';
 
@@ -178,6 +179,10 @@ class SettingsStore {
   // ------------------------------------------------------------- onboarding
 
   bool get onboardingComplete => (_prefs.getBool(_onboardedKey) ?? false) && countryCode != null;
+
+  bool get introSeen => _prefs.getBool(_introSeenKey) ?? false;
+
+  Future<void> markIntroSeen() => _prefs.setBool(_introSeenKey, true);
 
   /// Opaque handle used only by Community Alerts so a poster can close their
   /// own post. Isolated from reports on purpose.

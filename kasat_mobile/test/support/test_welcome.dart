@@ -7,7 +7,6 @@ import 'package:kasat_mobile/data/local_incident_repository.dart';
 import 'package:kasat_mobile/data/settings_store.dart';
 import 'package:kasat_mobile/features/accounts/identity_store.dart';
 import 'package:kasat_mobile/features/duress/duress_store.dart';
-import 'package:kasat_mobile/features/vent/local_vent_repository.dart';
 import 'package:kasat_mobile/features/welcome/welcome_view.dart';
 import 'package:kasat_mobile/i18n/i18n.dart';
 import 'package:kasat_mobile/theme/kasat_theme.dart';
@@ -17,6 +16,7 @@ Future<Widget> testWelcome({bool onboard = true, Widget? home}) async {
   SharedPreferences.setMockInitialValues({});
   final settings = SettingsStore();
   await settings.init();
+  await settings.markIntroSeen();
   if (onboard) {
     await settings.setCountryCode('ET');
     await settings.setPin('482913');
@@ -27,8 +27,6 @@ Future<Widget> testWelcome({bool onboard = true, Widget? home}) async {
   await repository.init();
   final alerts = LocalAlertRepository();
   await alerts.init();
-  final vents = LocalVentRepository();
-  await vents.init();
   final identity = IdentityStore();
   await identity.init();
   final duress = DuressStore();
@@ -41,7 +39,6 @@ Future<Widget> testWelcome({bool onboard = true, Widget? home}) async {
     attachments: AttachmentStore(),
     settings: settings,
     alerts: alerts,
-    vents: vents,
     identity: identity,
     duress: duress,
     i18n: i18n,

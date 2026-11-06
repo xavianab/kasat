@@ -6,9 +6,7 @@ import '../../theme/kasat_theme.dart';
 import '../../widgets/panel.dart';
 import 'more_scaffold.dart';
 
-/// Process transparency. Survivor-centered guidance asks for this before
-/// someone is asked to describe what happened — so they know what they are
-/// walking into, and that they can stop.
+/// Process transparency before someone describes what happened.
 class HowItWorksView extends StatelessWidget {
   const HowItWorksView({super.key});
 
@@ -24,14 +22,14 @@ class HowItWorksView extends StatelessWidget {
           'somewhere only you can find. It is how you check on the case later.',
     ),
     (
-      'It goes to your country’s queue',
-      'The country you chose at setup tells us which operators see it. They '
-          'do not get your number or a way to call you back.',
+      'It goes to your country queue',
+      'The country in Settings tells us which station sees it. Officers '
+          'do not get your number or a way to call you unless you share it.',
     ),
     (
       'You can look it up later',
       'Use Check my case and type the code. Status may sit still for a while. '
-          'That does not mean nothing is happening — and it does not mean you '
+          'That does not mean nothing is happening, and it does not mean you '
           'did anything wrong.',
     ),
   ];
@@ -45,21 +43,53 @@ class HowItWorksView extends StatelessWidget {
       children: [
         Text(
           'You do not have to report anything to use this app. These four '
-          'steps are only here so the path is not a surprise.',
-          style: KType.sans(size: 15, color: KC.muted, height: 1.55),
+          'steps show what happens if you do.',
+          style: KType.sans(size: 14, color: KC.muted, height: 1.5),
         ),
-        const SizedBox(height: KSpace.xl),
+        const SizedBox(height: KSpace.lg),
         for (var i = 0; i < _steps.length; i++) ...[
-          KPanel(
-            step: i + 1,
-            title: _steps[i].$1,
-            child: Text(
-              _steps[i].$2,
-              style: KType.sans(size: 14, color: KC.muted, height: 1.5),
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: KC.primarySoft,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '${i + 1}',
+                  style: KType.sans(
+                    size: 12,
+                    weight: FontWeight.w700,
+                    color: KC.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: KSpace.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _steps[i].$1,
+                      style: KType.sans(size: 15, weight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _steps[i].$2,
+                      style: KType.sans(size: 13.5, color: KC.muted, height: 1.45),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: KSpace.md),
+          if (i < _steps.length - 1) const KRule(height: KSpace.lg),
         ],
+        const SizedBox(height: KSpace.lg),
         KNote(
           title: country == null
               ? 'Your country is how a report is routed'
@@ -68,10 +98,10 @@ class HowItWorksView extends StatelessWidget {
           body: country == null
               ? 'Choose a country in Settings if you have not already. Help '
                     'lines and the report queue both follow that choice.'
-              : 'A report from here is meant for people who handle the '
-                    '${country.name} queue. Hotlines & support connects to '
-                    'EWLA 7711 and other support lines, not police. If you '
-                    'are in danger right now, use a number you already trust.',
+              : 'A report from here goes to the ${country.name} queue. '
+                    'Hotlines & support connects to EWLA 7711 and other '
+                    'support lines, not police. If you are in danger right '
+                    'now, use a number you already trust.',
         ),
       ],
     );

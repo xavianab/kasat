@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/kasat_theme.dart';
 import '../../widgets/soft_backdrop.dart';
 
-/// Shared chrome for optional screens opened from More. Same back row as
-/// Settings so those pages feel like the rest of Kasat.
+/// Shared chrome for optional screens opened from More.
 class MoreScaffold extends StatelessWidget {
   const MoreScaffold({super.key, required this.title, required this.children});
 
@@ -19,12 +18,15 @@ class MoreScaffold extends StatelessWidget {
         child: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  KSpace.sm,
-                  KSpace.sm,
-                  KSpace.xl,
-                  0,
+              Container(
+                constraints: const BoxConstraints(minHeight: 52),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: KSpace.sm,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: KC.canvas,
+                  border: Border(bottom: BorderSide(color: KC.border)),
                 ),
                 child: Row(
                   children: [
@@ -33,13 +35,13 @@ class MoreScaffold extends StatelessWidget {
                       icon: Icon(Icons.arrow_back_rounded),
                       color: KC.muted,
                     ),
-                    Expanded(child: Text(title, style: KType.serif(size: 22))),
+                    Expanded(child: Text(title, style: KType.serif(size: 18))),
                   ],
                 ),
               ),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.all(KSpace.xl),
+                  padding: const EdgeInsets.all(KSpace.lg),
                   children: children,
                 ),
               ),

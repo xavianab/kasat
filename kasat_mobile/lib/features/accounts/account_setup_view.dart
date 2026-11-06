@@ -74,7 +74,7 @@ class _AccountSetupViewState extends State<AccountSetupView> {
       title: 'Save my details (optional)',
       children: [
         const KNote(
-          title: 'Optional — stays on your phone',
+          title: 'Optional. Stays on your phone.',
           icon: Icons.lock_outline_rounded,
           body: 'This is not an account or login. Your details are encrypted '
               'on this phone only so you can fill them in faster if you ever '

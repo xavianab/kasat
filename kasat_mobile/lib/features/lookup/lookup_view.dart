@@ -6,8 +6,9 @@ import 'package:flutter/services.dart';
 import '../../app.dart';
 import '../../core/kasat_config.dart';
 import '../../core/time_format.dart';
-import '../../core/update_notifier.dart';
 import '../../core/tracking_id.dart';
+import '../../core/update_notifier.dart';
+import '../../data/remote_reports_client.dart';
 import '../../models/incident.dart';
 import '../../models/incident_status.dart';
 import '../../theme/kasat_theme.dart';
@@ -16,7 +17,6 @@ import '../../widgets/kasat_button.dart';
 import '../../widgets/panel.dart';
 import '../../widgets/soft_badge.dart';
 import '../../widgets/status_pill.dart';
-import '../../data/remote_reports_client.dart';
 import '../identity/reveal_identity_sheet.dart';
 import '../lock/pin_setup_sheet.dart';
 
@@ -51,6 +51,8 @@ class LookupViewState extends State<LookupView> {
 
   final _messages = _MessageRefresh();
   String? _resolvedId;
+  Incident? _resolvedIncident;
+  Stream<Incident?>? _stream;
   bool _searching = false;
   bool _notFound = false;
   List<String> _localIds = const [];
@@ -85,6 +87,8 @@ class LookupViewState extends State<LookupView> {
     if (mounted) {
       setState(() {
         _resolvedId = null;
+        _resolvedIncident = null;
+        _stream = null;
         _notFound = false;
       });
     }
@@ -98,13 +102,22 @@ class LookupViewState extends State<LookupView> {
 
   /// Entry point used by the shell after a successful submission or when a
   /// tracking code chip is tapped.
-  /// Issue 3 safety rule: Do NOT gate tracking-code lookup behind the PIN.
-  /// A valid tracking code is itself the credential; the PIN protects only the
-  /// saved-history list on this device.
+  /// Do NOT gate tracking-code lookup behind the PIN. A valid tracking code is
+  /// itself the credential; the PIN protects only the saved-history list on
+  /// this device.
   Future<void> loadTrackingId(String trackingId) async {
     _controller.text = trackingId;
     await _loadLocalIds();
     await _resolve();
+  }
+
+  void _watchIncident(Incident incident) {
+    final scope = KasatScope.of(context);
+    setState(() {
+      _resolvedId = incident.trackingId;
+      _resolvedIncident = incident;
+      _stream = scope.repository.watch(incident.trackingId);
+    });
   }
 
   Future<void> _resolve() async {
@@ -114,6 +127,8 @@ class LookupViewState extends State<LookupView> {
     if (normalized == null) {
       setState(() {
         _resolvedId = null;
+        _resolvedIncident = null;
+        _stream = null;
         _notFound = true;
       });
       return;
@@ -123,17 +138,27 @@ class LookupViewState extends State<LookupView> {
       _searching = true;
       _notFound = false;
       _resolvedId = null;
+      _resolvedIncident = null;
+      _stream = null;
     });
 
-    final incident =
-        await KasatScope.of(context).repository.lookup(normalized);
+    final scope = KasatScope.of(context);
+    final incident = await scope.repository.lookup(normalized);
     if (!mounted) return;
 
     setState(() {
       _searching = false;
       _resolvedId = incident == null ? null : normalized;
+      _resolvedIncident = incident;
+      _stream = incident == null ? null : scope.repository.watch(normalized);
       _notFound = incident == null;
     });
+  }
+
+  static bool _isWithPolice(Incident incident) {
+    return incident.status == IncidentStatus.sent ||
+        incident.status == IncidentStatus.underReview ||
+        incident.status == IncidentStatus.resolved;
   }
 
   @override
@@ -141,109 +166,150 @@ class LookupViewState extends State<LookupView> {
     final scope = KasatScope.of(context);
     final unlocked = scope.settings.hasPin && scope.isPinSessionUnlocked;
 
-    return RefreshIndicator(
-      onRefresh: _messages.call,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(KSpace.lg, KSpace.xs, KSpace.lg, KSpace.xxl),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return StreamBuilder<Incident?>(
+      stream: _stream,
+      builder: (context, snapshot) {
+        final incident = _resolvedId == null
+            ? null
+            : (snapshot.data ?? _resolvedIncident);
+        final showReplyBar = incident != null && _isWithPolice(incident);
+
+        return Column(
           children: [
             Expanded(
-              child: Text(
-                'Enter the code you were given when you sent your report. '
-                'Your tracking code works anytime without a PIN.',
-                style: KType.sans(size: 14, color: KC.muted, height: 1.5),
-              ),
-            ),
-            if (unlocked) ...[
-              const SizedBox(width: KSpace.sm),
-              Flexible(
-                child: GestureDetector(
-                  onTap: () => scope.lockPinSession(),
-                  child: SoftBadge(
-                    'Lock history',
-                    icon: Icons.lock_outline_rounded,
-                    color: KC.muted,
-                    dense: true,
+              child: RefreshIndicator(
+                onRefresh: _messages.call,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    KSpace.lg,
+                    KSpace.sm,
+                    KSpace.lg,
+                    KSpace.xxl,
                   ),
-                ),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: KSpace.lg),
-        KPanel(
-          title: 'Your code',
-          subtitle: 'Type your KST-XXXXX code directly — no PIN required.',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              KTextField(
-                controller: _controller,
-                hint: 'KST-8X9P2',
-                code: true,
-                textAlign: TextAlign.center,
-                textCapitalization: TextCapitalization.characters,
-                inputFormatters: [
-                  UpperCaseFormatter(),
-                  LengthLimitingTextInputFormatter(12),
-                ],
-                onChanged: (_) => setState(() => _notFound = false),
-              ),
-              const SizedBox(height: KSpace.md),
-              KButton(
-                label: 'Look it up',
-                icon: Icons.search_rounded,
-                busy: _searching,
-                onPressed: _controller.text.trim().isEmpty ? null : _resolve,
-              ),
-              if (_localIds.isNotEmpty) ...[
-                const KRule(),
-                const KFieldLabel('Saved on this phone'),
-                if (unlocked)
-                  Wrap(
-                    spacing: KSpace.sm,
-                    runSpacing: KSpace.sm,
-                    children: [
-                      for (final id in _localIds.take(6))
-                        GestureDetector(
-                          onTap: () => loadTrackingId(id),
-                          child: CodeChip(id),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Enter the code from your report. Your code works anytime without a PIN.',
+                            style: KType.sans(
+                              size: 14,
+                              color: KC.muted,
+                              height: 1.45,
+                            ),
+                          ),
+                        ),
+                        if (unlocked) ...[
+                          const SizedBox(width: KSpace.sm),
+                          Flexible(
+                            child: GestureDetector(
+                              onTap: () => scope.lockPinSession(),
+                              child: SoftBadge(
+                                'Lock history',
+                                icon: Icons.lock_outline_rounded,
+                                color: KC.muted,
+                                dense: true,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: KSpace.lg),
+                    Text(
+                      'Your code',
+                      style: KType.sans(size: 16, weight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Type your KST-XXXXX code directly. No PIN is required.',
+                      style: KType.sans(
+                        size: 13,
+                        color: KC.muted,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: KSpace.sm),
+                    KTextField(
+                      controller: _controller,
+                      hint: 'KST-8X9P2',
+                      code: true,
+                      textAlign: TextAlign.center,
+                      textCapitalization: TextCapitalization.characters,
+                      inputFormatters: [
+                        UpperCaseFormatter(),
+                        LengthLimitingTextInputFormatter(12),
+                      ],
+                      onChanged: (_) => setState(() => _notFound = false),
+                    ),
+                    const SizedBox(height: KSpace.sm),
+                    KButton(
+                      label: 'Look it up',
+                      icon: Icons.search_rounded,
+                      busy: _searching,
+                      onPressed:
+                          _controller.text.trim().isEmpty ? null : _resolve,
+                    ),
+                    if (_localIds.isNotEmpty) ...[
+                      const KRule(height: KSpace.lg),
+                      const KFieldLabel('Saved on this phone'),
+                      if (unlocked)
+                        Wrap(
+                          spacing: KSpace.sm,
+                          runSpacing: KSpace.sm,
+                          children: [
+                            for (final id in _localIds.take(6))
+                              GestureDetector(
+                                onTap: () => loadTrackingId(id),
+                                child: CodeChip(id),
+                              ),
+                          ],
+                        )
+                      else
+                        _PinGateSection(
+                          hasPin: scope.settings.hasPin,
+                          savedCount: _localIds.length,
+                          onUnlockPressed: () async {
+                            final ok = await PinGuard.ensureUnlocked(context);
+                            if (mounted && ok) {
+                              await _loadLocalIds();
+                              setState(() {});
+                            }
+                          },
                         ),
                     ],
-                  )
-                else
-                  _PinGateCard(
-                    hasPin: scope.settings.hasPin,
-                    savedCount: _localIds.length,
-                    onUnlockPressed: () async {
-                      final ok = await PinGuard.ensureUnlocked(context);
-                      if (mounted && ok) {
-                        await _loadLocalIds();
-                        setState(() {});
-                      }
-                    },
-                  ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: KSpace.md),
-        if (_notFound) const _NotFoundCard(),
-        if (_resolvedId != null)
-          _LiveCase(trackingId: _resolvedId!, messages: _messages),
-        if (_resolvedId == null && !_notFound && !_searching) const _DemoHint(),
-        ],
-      ),
+                    const SizedBox(height: KSpace.lg),
+                    if (_notFound) const _NotFoundCard(),
+                    if (incident != null)
+                      _LiveCase(
+                        incident: incident,
+                        messages: _messages,
+                        onUpdatedIncident: _watchIncident,
+                      ),
+                    if (_resolvedId == null && !_notFound && !_searching)
+                      const _DemoHint(),
+                  ],
+                ),
+              ),
+            ),
+            if (showReplyBar)
+              _CaseReplyBar(
+                accessSecret: incident.accessSecret ?? '',
+                messages: _messages,
+              ),
+          ],
+        );
+      },
     );
   }
 }
 
-class _PinGateCard extends StatelessWidget {
-  const _PinGateCard({
+class _PinGateSection extends StatelessWidget {
+  const _PinGateSection({
     required this.hasPin,
     required this.savedCount,
     required this.onUnlockPressed,
@@ -257,41 +323,32 @@ class _PinGateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(KSpace.md),
-      decoration: BoxDecoration(
-        color: KC.surfaceAlt,
-        borderRadius: KRadius.rMd,
-        border: Border.all(color: KC.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            hasPin
-                ? 'Saved history ($savedCount on this phone) is locked behind your 6-digit PIN. Or type your written tracking code above without a PIN.'
-                : 'Protect your saved history list ($savedCount on this phone) with a 6-digit PIN so nobody else who picks up this phone can see it.',
-            style: KType.sans(size: 13, color: KC.muted, height: 1.45),
-          ),
-          const SizedBox(height: KSpace.md),
-          KButton(
-            key: unlockButtonKey,
-            label: hasPin
-                ? 'Unlock saved history on this phone'
-                : 'Set 6-digit PIN to view saved history',
-            kind: KButtonKind.secondary,
-            compact: true,
-            icon: Icons.lock_open_rounded,
-            onPressed: onUnlockPressed,
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          hasPin
+              ? 'Saved history ($savedCount on this phone) is locked with your 6-digit PIN. You can also type your written tracking code above without a PIN.'
+              : 'Protect your saved history ($savedCount on this phone) with a 6-digit PIN so nobody else who picks up this phone can see it.',
+          style: KType.sans(size: 13, color: KC.muted, height: 1.45),
+        ),
+        const SizedBox(height: KSpace.sm),
+        KButton(
+          key: unlockButtonKey,
+          label: hasPin
+              ? 'Unlock saved history on this phone'
+              : 'Set 6-digit PIN to view saved history',
+          kind: KButtonKind.secondary,
+          compact: true,
+          icon: Icons.lock_open_rounded,
+          onPressed: onUnlockPressed,
+        ),
+      ],
     );
   }
 }
 
-/// Keeps the tracking field uppercase as it is typed, so a code copied from a
-/// note app matches without the survivor thinking about case.
+/// Keeps the tracking field uppercase as it is typed.
 class UpperCaseFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -303,228 +360,216 @@ class UpperCaseFormatter extends TextInputFormatter {
 }
 
 class _LiveCase extends StatefulWidget {
-  const _LiveCase({required this.trackingId, required this.messages});
+  const _LiveCase({
+    required this.incident,
+    required this.messages,
+    required this.onUpdatedIncident,
+  });
 
-  final String trackingId;
+  final Incident incident;
   final _MessageRefresh messages;
+  final ValueChanged<Incident> onUpdatedIncident;
+
   @override
   State<_LiveCase> createState() => _LiveCaseState();
 }
 
 class _LiveCaseState extends State<_LiveCase> {
-  Stream<Incident?>? _stream;
   bool _sendingReport = false;
   String? _sendError;
-
-  bool _isWithPolice(Incident incident) {
-    return incident.status == IncidentStatus.sent ||
-        incident.status == IncidentStatus.underReview ||
-        incident.status == IncidentStatus.resolved;
-  }
 
   Future<void> _sendReport() async {
     setState(() {
       _sendingReport = true;
       _sendError = null;
     });
-    final updated =
-        await KasatScope.of(context).repository.sendToPolice(widget.trackingId);
+    final updated = await KasatScope.of(context)
+        .repository
+        .sendToPolice(widget.incident.trackingId);
     if (!mounted) return;
     setState(() {
       _sendingReport = false;
-      _sendError = updated == null ? 'That did not send. Pull down to try again.' : null;
-      _stream = KasatScope.of(context)
-          .repository
-          .watch(updated?.trackingId ?? widget.trackingId);
+      _sendError = updated == null
+          ? 'That did not send. Pull down to try again.'
+          : null;
     });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _stream ??= KasatScope.of(context).repository.watch(widget.trackingId);
-  }
-
-  @override
-  void didUpdateWidget(_LiveCase oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.trackingId != widget.trackingId) {
-      _stream = KasatScope.of(context).repository.watch(widget.trackingId);
+    if (updated != null) {
+      widget.onUpdatedIncident(updated);
     }
   }
 
   Future<void> _openReveal(Incident incident) async {
     final updated = await RevealIdentityScreen.open(context, incident);
     if (updated != null && mounted) {
-      setState(() {
-        _stream = KasatScope.of(context).repository.watch(widget.trackingId);
-      });
+      widget.onUpdatedIncident(updated);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<Incident?>(
-      stream: _stream,
-      builder: (context, snapshot) {
-        final incident = snapshot.data;
-        if (incident == null) return const SizedBox.shrink();
-        final withPolice = _isWithPolice(incident);
-        final secret = incident.accessSecret ?? '';
+    final incident = widget.incident;
+    final withPolice = LookupViewState._isWithPolice(incident);
+    final secret = incident.accessSecret ?? '';
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const KRule(height: KSpace.lg),
+        Wrap(
+          spacing: KSpace.sm,
+          runSpacing: KSpace.xs,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            KPanel(
-              title: 'Your case',
-              trailing: StatusPill(incident.status, live: true),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  CodeChip(incident.trackingId, size: 15),
-                  const SizedBox(height: KSpace.lg),
-                  if (!withPolice) ...[
-                    Text(
-                      'Not sent yet — police can\'t see this until you send it',
-                      style: KType.sans(size: 15, height: 1.45),
-                    ),
-                    const SizedBox(height: KSpace.md),
-                    KButton(
-                      label: 'Send report',
-                      icon: Icons.send_rounded,
-                      busy: _sendingReport,
-                      onPressed: _sendingReport ? null : _sendReport,
-                    ),
-                    if (_sendError != null) ...[
-                      const SizedBox(height: KSpace.sm),
-                      Text(
-                        _sendError!,
-                        style: KType.sans(size: 13, color: KC.urgent, height: 1.4),
-                      ),
-                    ],
-                  ] else ...[
-                    StatusTrack(incident.status),
-                    if (secret.isNotEmpty &&
-                        KasatConfig.supabaseUrl.isNotEmpty &&
-                        KasatConfig.supabaseAnonKey.isNotEmpty)
-                      _CaseProgress(
-                        accessSecret: secret,
-                        messages: widget.messages,
-                      ),
-                  ],
-                  Text(
-                    incident.status.blurb,
-                    style: KType.sans(size: 13.5, color: KC.muted, height: 1.5),
-                  ),
-                  const KRule(height: KSpace.lg),
-                  KMetaRow('Kind', incident.category.label),
-                  KMetaRow(
-                    'Priority',
-                    incident.priority.label,
-                    valueColor: incident.priority.color,
-                  ),
-                  KMetaRow('Sent', TimeFormat.stamp(incident.submittedAt)),
-                  KMetaRow(
-                    'Last change',
-                    TimeFormat.elapsed(incident.updatedAt),
-                  ),
-                  KMetaRow(
-                    'With',
-                    incident.assignedStation ?? 'Not yet assigned',
-                  ),
-                  if (incident.location != null)
-                    KMetaRow('Location', incident.location!.displayLabel),
-                  if (incident.evidenceSha256 != null)
-                    KMetaRow(
-                      'Server SHA-256',
-                      '${incident.evidenceSha256!.substring(0, 16)}… (authoritative)',
-                      valueColor: KC.calm,
-                    )
-                  else if (incident.clientEvidenceSha256 != null)
-                    KMetaRow(
-                      'Transport SHA-256',
-                      '${incident.clientEvidenceSha256!.substring(0, 16)}… (pending server verify)',
-                    ),
-                ],
-              ),
+            Text(
+              'Your case',
+              style: KType.sans(size: 16, weight: FontWeight.w600),
             ),
-            const SizedBox(height: KSpace.md),
-            KPanel(
-              title: 'Identity on this report',
-              subtitle: incident.identityRevealed
-                  ? 'Named (shared with police — permanent)'
-                  : 'Anonymous (no name or phone attached)',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (incident.identityRevealed) ...[
-                    Text(
-                      'You chose to share your identity with police for this '
-                      'report${incident.revealedName != null ? ' (${incident.revealedName})' : ''}. '
-                      'This is one-way and cannot be undone.',
-                      style: KType.sans(
-                        size: 13.5,
-                        color: KC.muted,
-                        height: 1.5,
-                      ),
-                    ),
-                  ] else ...[
-                    Text(
-                      'This report is completely anonymous. If you want police '
-                      'to know who you are and how to contact you on this '
-                      'specific case, you can reveal your identity. This is '
-                      'one-way and cannot be undone.',
-                      style: KType.sans(
-                        size: 13.5,
-                        color: KC.muted,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: KSpace.md),
-                    KButton(
-                      key: RevealIdentityScreen.revealButtonKey,
-                      label: 'Reveal my identity to police',
-                      kind: KButtonKind.secondary,
-                      icon: Icons.badge_outlined,
-                      compact: true,
-                      onPressed: () => _openReveal(incident),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (withPolice) ...[
-              const SizedBox(height: KSpace.md),
-              _CaseReplies(
-                accessSecret: secret,
-                messages: widget.messages,
-              ),
-            ],
-            KPanel(
-              title: 'What has happened so far',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = incident.history.length - 1; i >= 0; i--)
-                    _HistoryRow(
-                      event: incident.history[i],
-                      latest: i == incident.history.length - 1,
-                      last: i == 0,
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: KSpace.md),
-            KPanel(
-              title: 'What you wrote',
-              child: Text(
-                incident.description,
-                style: KType.sans(size: 13.5, color: KC.muted, height: 1.6),
-              ),
+            StatusPill(incident.status, live: true),
+          ],
+        ),
+        const SizedBox(height: KSpace.sm),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: CodeChip(incident.trackingId, size: 15),
+        ),
+        const SizedBox(height: KSpace.md),
+        if (!withPolice) ...[
+          Text(
+            'Not sent yet. Police cannot see this until you send it.',
+            style: KType.sans(size: 15, height: 1.45),
+          ),
+          const SizedBox(height: KSpace.md),
+          KButton(
+            label: 'Send report',
+            icon: Icons.send_rounded,
+            busy: _sendingReport,
+            onPressed: _sendingReport ? null : _sendReport,
+          ),
+          if (_sendError != null) ...[
+            const SizedBox(height: KSpace.sm),
+            Text(
+              _sendError!,
+              style: KType.sans(size: 13, color: KC.urgent, height: 1.4),
             ),
           ],
-        );
-      },
+          const SizedBox(height: KSpace.sm),
+          Text(
+            incident.status.blurb,
+            style: KType.sans(size: 13.5, color: KC.muted, height: 1.5),
+          ),
+        ] else ...[
+          StatusTrack(incident.status),
+          const SizedBox(height: KSpace.sm),
+          if (secret.isNotEmpty &&
+              KasatConfig.supabaseUrl.isNotEmpty &&
+              KasatConfig.supabaseAnonKey.isNotEmpty)
+            _CaseProgress(
+              accessSecret: secret,
+              messages: widget.messages,
+            ),
+          Text(
+            incident.status.blurb,
+            style: KType.sans(size: 13.5, color: KC.muted, height: 1.5),
+          ),
+        ],
+        const KRule(height: KSpace.lg),
+        Text(
+          'What has happened so far',
+          style: KType.sans(size: 16, weight: FontWeight.w600),
+        ),
+        const SizedBox(height: KSpace.sm),
+        for (var i = incident.history.length - 1; i >= 0; i--)
+          _HistoryRow(
+            event: incident.history[i],
+            latest: i == incident.history.length - 1,
+            last: i == 0,
+          ),
+        if (withPolice) ...[
+          const KRule(height: KSpace.lg),
+          _CaseRepliesThread(
+            accessSecret: secret,
+            messages: widget.messages,
+          ),
+        ],
+        const KRule(height: KSpace.lg),
+        Text(
+          'Details',
+          style: KType.sans(size: 16, weight: FontWeight.w600),
+        ),
+        const SizedBox(height: KSpace.xs),
+        KMetaRow('Kind', incident.category.label),
+        KMetaRow(
+          'Priority',
+          incident.priority.label,
+          valueColor: incident.priority.color,
+        ),
+        KMetaRow('Sent', TimeFormat.stamp(incident.submittedAt)),
+        KMetaRow(
+          'Last change',
+          TimeFormat.elapsed(incident.updatedAt),
+        ),
+        KMetaRow(
+          'With',
+          incident.assignedStation ?? 'Not yet assigned',
+        ),
+        if (incident.location != null)
+          KMetaRow('Location', incident.location!.displayLabel),
+        if (incident.evidenceSha256 != null)
+          KMetaRow(
+            'Server SHA-256',
+            '${incident.evidenceSha256!.substring(0, 16)}… (authoritative)',
+            valueColor: KC.calm,
+          )
+        else if (incident.clientEvidenceSha256 != null)
+          KMetaRow(
+            'Transport SHA-256',
+            '${incident.clientEvidenceSha256!.substring(0, 16)}… (pending server verify)',
+          ),
+        const KRule(height: KSpace.lg),
+        Text(
+          'What you wrote',
+          style: KType.sans(size: 16, weight: FontWeight.w600),
+        ),
+        const SizedBox(height: KSpace.xs),
+        Text(
+          incident.description,
+          style: KType.sans(size: 13.5, color: KC.muted, height: 1.55),
+        ),
+        const KRule(height: KSpace.lg),
+        Text(
+          'Identity on this report',
+          style: KType.sans(size: 16, weight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          incident.identityRevealed
+              ? 'Named. Shared with police.'
+              : 'Anonymous. No name or phone attached.',
+          style: KType.sans(size: 13, color: KC.muted, height: 1.4),
+        ),
+        const SizedBox(height: KSpace.xs),
+        if (incident.identityRevealed)
+          Text(
+            'You shared your identity with police for this report${incident.revealedName != null ? ' (${incident.revealedName})' : ''}. This is permanent and cannot be undone.',
+            style: KType.sans(size: 13.5, color: KC.muted, height: 1.5),
+          )
+        else ...[
+          Text(
+            'This report is anonymous. You can share your name and contact details on this case if you want police to reach you. This is permanent.',
+            style: KType.sans(size: 13.5, color: KC.muted, height: 1.5),
+          ),
+          const SizedBox(height: KSpace.sm),
+          KButton(
+            key: RevealIdentityScreen.revealButtonKey,
+            label: 'Reveal my identity to police',
+            kind: KButtonKind.secondary,
+            icon: Icons.badge_outlined,
+            compact: true,
+            onPressed: () => _openReveal(incident),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -622,7 +667,8 @@ class _CaseProgress extends StatefulWidget {
   State<_CaseProgress> createState() => _CaseProgressState();
 }
 
-class _CaseProgressState extends State<_CaseProgress> with WidgetsBindingObserver {
+class _CaseProgressState extends State<_CaseProgress>
+    with WidgetsBindingObserver {
   final _remote = RemoteReportsClient();
   CaseProgress? _progress;
   bool _loading = true;
@@ -682,7 +728,10 @@ class _CaseProgressState extends State<_CaseProgress> with WidgetsBindingObserve
   Widget build(BuildContext context) {
     final progress = _progress;
     if (_loading && progress == null) {
-      return Text('Checking progress…', style: KType.sans(size: 13.5, color: KC.muted));
+      return Text(
+        'Checking progress…',
+        style: KType.sans(size: 13.5, color: KC.muted),
+      );
     }
     if (progress == null) {
       return Text(
@@ -698,7 +747,10 @@ class _CaseProgressState extends State<_CaseProgress> with WidgetsBindingObserve
           _ProgressRow(step: steps[i], last: i == steps.length - 1),
         if (_error != null) ...[
           const SizedBox(height: KSpace.sm),
-          Text(_error!, style: KType.sans(size: 13, color: KC.urgent, height: 1.4)),
+          Text(
+            _error!,
+            style: KType.sans(size: 13, color: KC.urgent, height: 1.4),
+          ),
         ],
       ],
     );
@@ -778,7 +830,10 @@ class _ProgressRow extends StatelessWidget {
                   margin: EdgeInsets.only(top: step.current ? 3 : 4),
                   decoration: BoxDecoration(
                     color: step.reached ? color : KC.surface,
-                    border: Border.all(color: step.reached ? color : KC.borderStrong, width: 2),
+                    border: Border.all(
+                      color: step.reached ? color : KC.borderStrong,
+                      width: 2,
+                    ),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -824,25 +879,27 @@ class _ProgressRow extends StatelessWidget {
   }
 }
 
-class _CaseReplies extends StatefulWidget {
-  const _CaseReplies({required this.accessSecret, required this.messages});
+class _CaseRepliesThread extends StatefulWidget {
+  const _CaseRepliesThread({
+    required this.accessSecret,
+    required this.messages,
+  });
 
   final String accessSecret;
   final _MessageRefresh messages;
 
   @override
-  State<_CaseReplies> createState() => _CaseRepliesState();
+  State<_CaseRepliesThread> createState() => _CaseRepliesThreadState();
 }
 
-class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver {
-  final _reply = TextEditingController();
+class _CaseRepliesThreadState extends State<_CaseRepliesThread>
+    with WidgetsBindingObserver {
   final _remote = RemoteReportsClient();
   List<SurvivorReply> _rows = const [];
   Set<String> _seenOfficer = const {};
   bool _hasBaseline = false;
   bool _foreground = true;
   bool _loading = true;
-  bool _sending = false;
   String? _error;
   Timer? _timer;
   late final Future<void> Function() _reload;
@@ -858,7 +915,7 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
   }
 
   @override
-  void didUpdateWidget(_CaseReplies oldWidget) {
+  void didUpdateWidget(_CaseRepliesThread oldWidget) {
     super.didUpdateWidget(oldWidget);
     widget.messages.bind(_reload);
     if (oldWidget.accessSecret != widget.accessSecret) reload();
@@ -869,7 +926,6 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
     widget.messages.unbind(_reload);
     _timer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    _reply.dispose();
     super.dispose();
   }
 
@@ -895,7 +951,10 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
     try {
       final rows = await _remote.listSurvivorReplies(widget.accessSecret);
       if (!mounted) return;
-      final officer = rows.where((row) => row.sender == 'officer').map(_officerKey).toSet();
+      final officer = rows
+          .where((row) => row.sender == 'officer')
+          .map(_officerKey)
+          .toSet();
       final fresh = officer.difference(_seenOfficer);
       final notify = _hasBaseline && fresh.isNotEmpty && !_foreground;
       _seenOfficer = officer;
@@ -917,6 +976,87 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
     }
   }
 
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Messages',
+          style: KType.sans(size: 16, weight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Replies from the station, and your answers.',
+          style: KType.sans(size: 13, color: KC.muted, height: 1.4),
+        ),
+        const SizedBox(height: KSpace.sm),
+        if (_loading && _rows.isEmpty)
+          Text(
+            'Loading messages…',
+            style: KType.sans(size: 13.5, color: KC.muted),
+          )
+        else if (_error != null && _rows.isEmpty)
+          Text(
+            _error!,
+            style: KType.sans(size: 13.5, color: KC.urgent, height: 1.45),
+          )
+        else if (_rows.isEmpty)
+          Text(
+            'No messages yet.',
+            style: KType.sans(size: 13.5, color: KC.muted, height: 1.45),
+          )
+        else
+          for (final row in _rows) ...[
+            Text(
+              row.sender == 'survivor' ? 'You' : 'Officer',
+              style: KType.sans(size: 12.5, weight: FontWeight.w600),
+            ),
+            const SizedBox(height: 2),
+            Text(row.body, style: KType.sans(size: 13.5, height: 1.45)),
+            Text(
+              TimeFormat.stamp(row.createdAt.toLocal()),
+              style: KType.sans(size: 11.5, color: KC.faint),
+            ),
+            const SizedBox(height: KSpace.sm),
+          ],
+        if (_error != null && _rows.isNotEmpty) ...[
+          const SizedBox(height: KSpace.xs),
+          Text(
+            _error!,
+            style: KType.sans(size: 13, color: KC.urgent, height: 1.4),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _CaseReplyBar extends StatefulWidget {
+  const _CaseReplyBar({
+    required this.accessSecret,
+    required this.messages,
+  });
+
+  final String accessSecret;
+  final _MessageRefresh messages;
+
+  @override
+  State<_CaseReplyBar> createState() => _CaseReplyBarState();
+}
+
+class _CaseReplyBarState extends State<_CaseReplyBar> {
+  final _reply = TextEditingController();
+  final _remote = RemoteReportsClient();
+  bool _sending = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _reply.dispose();
+    super.dispose();
+  }
+
   Future<void> _send() async {
     final text = _reply.text.trim();
     if (text.isEmpty || _sending) return;
@@ -927,7 +1067,7 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
     try {
       await _remote.sendSurvivorReply(widget.accessSecret, text);
       _reply.clear();
-      await reload();
+      await widget.messages.call();
       if (!mounted) return;
       setState(() => _sending = false);
     } catch (error) {
@@ -944,54 +1084,47 @@ class _CaseRepliesState extends State<_CaseReplies> with WidgetsBindingObserver 
 
   @override
   Widget build(BuildContext context) {
-    return KPanel(
-      title: 'Messages',
-      subtitle: 'Replies from the station, and your answers.',
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        KSpace.lg,
+        KSpace.sm,
+        KSpace.lg,
+        KSpace.sm,
+      ),
+      decoration: BoxDecoration(
+        color: KC.surface,
+        border: Border(top: BorderSide(color: KC.border)),
+      ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_loading && _rows.isEmpty)
-            Text('Loading messages…', style: KType.sans(size: 13.5, color: KC.muted))
-          else if (_error != null && _rows.isEmpty)
+          if (_error != null) ...[
             Text(
               _error!,
-              style: KType.sans(size: 13.5, color: KC.urgent, height: 1.45),
-            )
-          else if (_rows.isEmpty)
-            Text(
-              'No messages yet.',
-              style: KType.sans(size: 13.5, color: KC.muted, height: 1.45),
-            )
-          else
-            for (final row in _rows) ...[
-              Text(
-                row.sender == 'survivor' ? 'You' : 'Officer',
-                style: KType.sans(size: 12.5, weight: FontWeight.w600),
-              ),
-              const SizedBox(height: 2),
-              Text(row.body, style: KType.sans(size: 13.5, height: 1.45)),
-              Text(
-                TimeFormat.stamp(row.createdAt.toLocal()),
-                style: KType.sans(size: 11.5, color: KC.faint),
-              ),
-              const SizedBox(height: KSpace.sm),
-            ],
-          if (_error != null && _rows.isNotEmpty) ...[
-            const SizedBox(height: KSpace.sm),
-            Text(_error!, style: KType.sans(size: 13, color: KC.urgent, height: 1.4)),
+              style: KType.sans(size: 12.5, color: KC.urgent, height: 1.35),
+            ),
+            const SizedBox(height: KSpace.xs),
           ],
-          const SizedBox(height: KSpace.md),
-          KTextField(
-            controller: _reply,
-            hint: 'Write a reply',
-            maxLines: 3,
-          ),
-          const SizedBox(height: KSpace.sm),
-          KButton(
-            label: 'Send',
-            icon: Icons.send_rounded,
-            busy: _sending,
-            onPressed: _sending ? null : _send,
+          Row(
+            children: [
+              Expanded(
+                child: KTextField(
+                  controller: _reply,
+                  hint: 'Write a reply',
+                  maxLines: 2,
+                ),
+              ),
+              const SizedBox(width: KSpace.sm),
+              KButton(
+                label: 'Send',
+                icon: Icons.send_rounded,
+                expand: false,
+                compact: true,
+                busy: _sending,
+                onPressed: _sending ? null : _send,
+              ),
+            ],
           ),
         ],
       ),
@@ -1008,9 +1141,8 @@ class _NotFoundCard extends StatelessWidget {
       title: 'No case with that code',
       icon: Icons.help_outline_rounded,
       color: KC.secondary,
-      body: 'Codes are five characters after KST, and they never contain the '
-          'letters O, I, L or U, or the digits 0 and 1 — those are too easy to '
-          'mistake for each other. Check the code and try again.',
+      body: 'Codes have five characters after KST. Letters O, I, L, and U, and '
+          'digits 0 and 1 are not used. Check the code and try again.',
     );
   }
 }
@@ -1020,17 +1152,28 @@ class _DemoHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return KPanel(
-      title: 'Example cases',
-      subtitle: 'Included with this build so you can see how tracking looks.',
-      child: const Wrap(
-        spacing: KSpace.sm,
-        runSpacing: KSpace.sm,
-        children: [
-          CodeChip('KST-4RT7Q'),
-          CodeChip('KST-9WM2K'),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Example cases',
+          style: KType.sans(size: 16, weight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Included with this build so you can see how tracking looks.',
+          style: KType.sans(size: 13, color: KC.muted, height: 1.4),
+        ),
+        const SizedBox(height: KSpace.sm),
+        const Wrap(
+          spacing: KSpace.sm,
+          runSpacing: KSpace.sm,
+          children: [
+            CodeChip('KST-4RT7Q'),
+            CodeChip('KST-9WM2K'),
+          ],
+        ),
+      ],
     );
   }
 }

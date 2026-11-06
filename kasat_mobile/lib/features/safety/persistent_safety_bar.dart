@@ -274,8 +274,8 @@ class PersistentSafetyBar extends StatelessWidget {
                                     ? 'Sent to officer: You can come out'
                                     : currentResponse ==
                                             'abuser_present_do_not_knock'
-                                        ? 'Sent to officer: He is here — do not knock'
-                                        : 'Officer has arrived nearby — tap silently:',
+                                        ? 'Sent to officer: He is here. Do not knock'
+                                        : 'Officer has arrived nearby. Tap silently:',
                                 style: KType.sans(
                                   size: 13,
                                   weight: FontWeight.w700,
@@ -357,7 +357,7 @@ class PersistentSafetyBar extends StatelessWidget {
                                     ),
                                   ),
                                   child: Text(
-                                    'He is here — do not knock',
+                                    'He is here. Do not knock',
                                     textAlign: TextAlign.center,
                                     style: KType.sans(
                                       size: 14,

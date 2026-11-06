@@ -136,7 +136,7 @@ class _ComposeAlertViewState extends State<ComposeAlertView> {
                     const KFieldLabel('What people need to know'),
                     KTextField(
                       controller: _body,
-                      hint: 'Place, time, and what to do — not rumours.',
+                      hint: 'Place, time, and what to do. No rumours.',
                       minLines: 5,
                       maxLines: 8,
                       maxLength: KasatConfig.alertBodyMax,

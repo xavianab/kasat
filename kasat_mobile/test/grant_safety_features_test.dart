@@ -29,7 +29,7 @@ import 'package:kasat_mobile/features/report/receipt_view.dart';
 import 'package:kasat_mobile/features/resources/emergency_contacts.dart';
 import 'package:kasat_mobile/features/safety/persistent_safety_bar.dart';
 import 'package:kasat_mobile/features/settings/settings_view.dart';
-import 'package:kasat_mobile/features/vent/local_vent_repository.dart';
+import 'package:kasat_mobile/features/welcome/first_launch_intro.dart';
 import 'package:kasat_mobile/features/welcome/welcome_view.dart';
 import 'package:kasat_mobile/i18n/i18n.dart';
 import 'package:kasat_mobile/models/approx_location.dart';
@@ -256,8 +256,6 @@ void main() {
     await repository.init();
     final alerts = LocalAlertRepository();
     await alerts.init();
-    final vents = LocalVentRepository();
-    await vents.init();
     final identity = IdentityStore();
     await identity.init();
     final duress = DuressStore();
@@ -271,7 +269,6 @@ void main() {
         attachments: AttachmentStore(),
         settings: settings,
         alerts: alerts,
-        vents: vents,
         identity: identity,
         duress: duress,
         i18n: i18n,
@@ -280,12 +277,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Opens directly to WelcomeView with zero setup or PIN prompt on launch
+    // PersistentSafetyBar is present even during the first-launch intro
     expect(find.byKey(PersistentSafetyBar.dangerButtonKey), findsOneWidget);
     expect(find.byKey(PersistentSafetyBar.quickExitButtonKey), findsOneWidget);
     expect(find.text("I'M IN DANGER"), findsOneWidget);
     expect(find.text('Quick exit'), findsOneWidget);
-    expect(find.text('Tell us what happened'), findsOneWidget);
+    expect(find.text('You stay anonymous'), findsOneWidget);
+
+    await tester.tap(find.byKey(FirstLaunchIntro.skipButtonKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Report what happened'), findsOneWidget);
   });
 
   test('Issue 1 & 6: Foreground notification text is neutral & Quick Exit does not open browser', () {
@@ -388,12 +390,11 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final settings = SettingsStore();
     await settings.init();
+    await settings.markIntroSeen();
     final repository = LocalIncidentRepository();
     await repository.init();
     final alerts = LocalAlertRepository();
     await alerts.init();
-    final vents = LocalVentRepository();
-    await vents.init();
     final identity = IdentityStore();
     await identity.init();
     final duress = DuressStore();
@@ -418,7 +419,6 @@ void main() {
         attachments: AttachmentStore(),
         settings: settings,
         alerts: alerts,
-        vents: vents,
         identity: identity,
         duress: duress,
         i18n: i18n,
@@ -469,7 +469,6 @@ void main() {
         attachments: AttachmentStore(),
         settings: settings,
         alerts: alerts,
-        vents: vents,
         identity: identity,
         duress: duress,
         i18n: i18n,
@@ -508,12 +507,11 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final settings = SettingsStore();
     await settings.init();
+    await settings.markIntroSeen();
     final repository = LocalIncidentRepository();
     await repository.init();
     final alerts = LocalAlertRepository();
     await alerts.init();
-    final vents = LocalVentRepository();
-    await vents.init();
     final identity = IdentityStore();
     await identity.init();
     final duress = DuressStore();
@@ -527,7 +525,6 @@ void main() {
         attachments: AttachmentStore(),
         settings: settings,
         alerts: alerts,
-        vents: vents,
         identity: identity,
         duress: duress,
         i18n: i18n,
@@ -549,7 +546,6 @@ void main() {
         attachments: AttachmentStore(),
         settings: settings,
         alerts: alerts,
-        vents: vents,
         identity: identity,
         duress: duress,
         i18n: i18n,
@@ -579,12 +575,11 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final settings = SettingsStore();
       await settings.init();
+      await settings.markIntroSeen();
       final repository = LocalIncidentRepository();
       await repository.init();
       final alerts = LocalAlertRepository();
       await alerts.init();
-      final vents = LocalVentRepository();
-      await vents.init();
       final identity = IdentityStore();
       await identity.init();
       final duress = DuressStore();
@@ -611,7 +606,6 @@ void main() {
           attachments: AttachmentStore(),
           settings: settings,
           alerts: alerts,
-          vents: vents,
           identity: identity,
           duress: duress,
           i18n: i18n,
@@ -667,9 +661,9 @@ void main() {
       // 3. When she opens the app, she sees the two large approach buttons
       expect(find.byKey(PersistentSafetyBar.approachPromptCardKey), findsOneWidget);
       expect(find.text('I can come out'), findsOneWidget);
-      expect(find.text('He is here — do not knock'), findsOneWidget);
+      expect(find.text('He is here. Do not knock'), findsOneWidget);
 
-      // 4. She taps "He is here — do not knock"
+      // 4. She taps "He is here. Do not knock"
       await tester.tap(find.byKey(PersistentSafetyBar.doNotKnockButtonKey));
       await tester.pump(const Duration(milliseconds: 200));
 
@@ -687,7 +681,7 @@ void main() {
   );
 
   testWidgets(
-    'Welcome screen fixes: top-bar Amharic/English toggle, Notices & Hotlines & support labels, EWLA 7711 note, and zero overflow at largest text scale in both languages',
+    'Welcome screen fixes: top-bar Amharic/English toggle, action buttons, Safety tips, and zero overflow at largest text scale in both languages',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(393, 852));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -695,12 +689,11 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final settings = SettingsStore();
       await settings.init();
+      await settings.markIntroSeen();
       final repository = LocalIncidentRepository();
       await repository.init();
       final alerts = LocalAlertRepository();
       await alerts.init();
-      final vents = LocalVentRepository();
-      await vents.init();
       final identity = IdentityStore();
       await identity.init();
       final duress = DuressStore();
@@ -720,7 +713,6 @@ void main() {
             attachments: AttachmentStore(),
             settings: settings,
             alerts: alerts,
-            vents: vents,
             identity: identity,
             duress: duress,
             i18n: i18n,
@@ -730,30 +722,29 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 1. Language toggle visible on Welcome screen without opening More menu
+      // 1. Language toggle visible in the top bar without opening More menu
       expect(find.byKey(WelcomeView.languageToggleKey), findsOneWidget);
       expect(find.text('አማርኛ / English'), findsOneWidget);
 
-      // 2. Shortened "Notices" and renamed "Hotlines & support" + EWLA 7711 note
-      expect(find.text('Notices'), findsOneWidget);
-      expect(find.text('Hotlines & support'), findsOneWidget);
+      // 2. Three main action buttons, Safety tips, and bottom assurance line
+      expect(find.text('Report what happened'), findsOneWidget);
+      expect(find.text('Check my case'), findsOneWidget);
+      expect(find.text('Get help now'), findsOneWidget);
+      expect(find.text('Safety tips'), findsOneWidget);
       expect(
-        find.textContaining('EWLA 7711 and other support lines, not police'),
+        find.text('Free. Anonymous. You decide who sees your report.'),
         findsOneWidget,
       );
 
-      // 3. Tapping language toggle switches every string on Welcome to Amharic
+      // 3. Tapping language toggle switches every string on Home to Amharic
       await tester.tap(find.byKey(WelcomeView.languageToggleKey));
       await tester.pumpAndSettle();
 
       expect(i18n.code, 'am');
-      expect(find.text('ያለ ፍርሃት\nተናገሪ።'), findsOneWidget);
-      expect(find.text('የምንገባው ቃል'), findsOneWidget);
-      expect(find.text('ምንም ነገር ወደ አንቺ አይመራም'), findsOneWidget);
-      expect(find.text('ፎቶዎች መጀመሪያ ይጸዳሉ'), findsOneWidget);
+      expect(find.text('የሆነውን ንገሪን'), findsOneWidget);
+      expect(find.text('ጉዳዬን እይ'), findsOneWidget);
       expect(find.text('የእርዳታ መስመሮች'), findsOneWidget);
       expect(find.text('ማስታወቂያዎች'), findsOneWidget);
-      expect(find.textContaining('EWLA 7711'), findsOneWidget);
     },
   );
 

@@ -71,8 +71,8 @@ class _AlertsViewState extends State<AlertsView> {
       padding: const EdgeInsets.fromLTRB(KSpace.lg, KSpace.xs, KSpace.lg, KSpace.xxl),
       children: [
         Text(
-          'Notices from people who have been checked. There is no chat here — '
-          'only a short post, and a private note if you have something to add.',
+          'Notices from verified sources. There is no chat here, '
+          'only a short post and a private note if you have something to add.',
           style: KType.sans(size: 14, color: KC.muted, height: 1.5),
         ),
         if (verified) ...[

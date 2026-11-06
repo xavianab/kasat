@@ -182,7 +182,7 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
                 _firing
                     ? 'Sending urgent alert & live location…'
                     : _silent
-                        ? 'Silent alert in $_secondsRemaining s — screen dimmed, no phone call'
+                        ? 'Silent alert in $_secondsRemaining s. Screen dimmed, no phone call.'
                         : 'Alerting police & opening dialer in $_secondsRemaining s',
                 textAlign: TextAlign.center,
                 style: KType.serif(
@@ -235,7 +235,7 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Abuser is nearby — silent mode',
+                              'Abuser is nearby (silent mode)',
                               style: KType.sans(
                                 size: 14,
                                 weight: FontWeight.w600,
@@ -278,7 +278,7 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
                   ),
                   icon: const Icon(Icons.close_rounded, size: 24),
                   label: Text(
-                    'CANCEL — I AM SAFE',
+                    'CANCEL. I AM SAFE',
                     style: KType.sans(
                       size: 16,
                       weight: FontWeight.w700,

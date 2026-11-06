@@ -16,9 +16,9 @@ import '../lock/pin_setup_sheet.dart';
 
 /// Post-save confirmation. The tracking code is the payload of this screen.
 ///
-/// Issue 3 safety rule:
+/// Safety rule:
 /// 1. Shows the tracking code immediately after submission BEFORE any PIN is set.
-/// 2. Insists she write the tracking code down (`wroteDownCheckboxKey`) before
+/// 2. Insists she write the tracking code down (`wroteDownConfirmKey`) before
 ///    setting a PIN or leaving the screen.
 class ReceiptView extends StatefulWidget {
   const ReceiptView({super.key, required this.incident, required this.onTrack});
@@ -124,17 +124,17 @@ class _ReceiptViewState extends State<ReceiptView> {
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(
-                    KSpace.xl,
-                    KSpace.xl,
-                    KSpace.xl,
+                    KSpace.lg,
+                    KSpace.lg,
+                    KSpace.lg,
                     KSpace.lg,
                   ),
                   children: [
                     Row(
                       children: [
                         Container(
-                          width: 34,
-                          height: 34,
+                          width: 32,
+                          height: 32,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: _isDraft ? KC.primarySoft : KC.calmSoft,
@@ -144,11 +144,11 @@ class _ReceiptViewState extends State<ReceiptView> {
                             _isDraft
                                 ? Icons.edit_outlined
                                 : Icons.check_rounded,
-                            size: 19,
+                            size: 18,
                             color: _isDraft ? KC.primary : KC.calm,
                           ),
                         ),
-                        const SizedBox(width: KSpace.md),
+                        const SizedBox(width: KSpace.sm),
                         Expanded(
                           child: Text(
                             queued
@@ -156,12 +156,12 @@ class _ReceiptViewState extends State<ReceiptView> {
                                 : draft
                                     ? 'Saved as a draft'
                                     : 'It has been sent',
-                            style: KType.serif(size: 24),
+                            style: KType.serif(size: 20),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: KSpace.md),
+                    const SizedBox(height: KSpace.sm),
                     Text(
                       queued
                           ? 'There was no connection, so nothing left yet. It will send on its own when this phone is back online.'
@@ -171,16 +171,16 @@ class _ReceiptViewState extends State<ReceiptView> {
                                   ? 'Thank you. Your report and the contact details you chose to reveal are with the station.'
                                   : 'Thank you. Nothing about who you are went with it.',
                       style: KType.sans(
-                        size: 14.5,
+                        size: 14,
                         color: KC.muted,
-                        height: 1.55,
+                        height: 1.5,
                       ),
                     ),
-                    const SizedBox(height: KSpace.xl),
+                    const SizedBox(height: KSpace.lg),
                     _TrackingCard(trackingId: _incident.trackingId),
                     const SizedBox(height: KSpace.md),
                     KNote(
-                      title: 'Step 1 — Write this tracking code down now',
+                      title: 'Step 1. Write this tracking code down now',
                       icon: Icons.edit_note_rounded,
                       color: KC.secondary,
                       body: 'Your tracking code is your credential. You can always '
@@ -194,16 +194,12 @@ class _ReceiptViewState extends State<ReceiptView> {
                       onTap: () =>
                           setState(() => _wroteCodeDown = !_wroteCodeDown),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: KSpace.md,
-                          vertical: KSpace.md,
-                        ),
+                        padding: const EdgeInsets.all(KSpace.md),
                         decoration: BoxDecoration(
                           color: _wroteCodeDown ? KC.calmSoft : KC.surface,
                           borderRadius: KRadius.rMd,
                           border: Border.all(
                             color: _wroteCodeDown ? KC.calm : KC.primary,
-                            width: 1.4,
                           ),
                         ),
                         child: Row(
@@ -234,65 +230,71 @@ class _ReceiptViewState extends State<ReceiptView> {
                       const SizedBox(height: KSpace.md),
                       KButton(
                         key: ReceiptView.setPinAfterCodeKey,
-                        label: 'Step 2 — Set 6-digit PIN for saved history',
+                        label: 'Step 2. Set 6-digit PIN for saved history',
                         kind: KButtonKind.secondary,
                         icon: Icons.lock_outline_rounded,
                         compact: true,
                         onPressed: _promptPinAfterWritingCode,
                       ),
                     ],
-                    const SizedBox(height: KSpace.md),
-                    KPanel(
-                      title: draft ? 'What was saved' : 'What was sent',
-                      trailing: StatusPill(_incident.status),
-                      child: Column(
-                        children: [
-                          KMetaRow('Kind', _incident.category.label),
-                          KMetaRow(
-                            'Priority',
-                            _incident.priority.label,
-                            valueColor: _incident.priority.color,
-                          ),
-                          KMetaRow(
-                            'Country',
-                            country?.name ?? _incident.countryCode,
-                          ),
-                          KMetaRow(
-                            'Saved',
-                            TimeFormat.stamp(_incident.submittedAt),
-                          ),
-                          KMetaRow(
-                            'Photos',
-                            _incident.attachments.isEmpty
-                                ? 'None'
-                                : '${_incident.attachments.length}, EXIF stripped + SHA-256 verified',
-                          ),
-                          if (serverSha != null)
-                            KMetaRow(
-                              'Server SHA-256',
-                              '${serverSha.substring(0, 16)}… (authoritative)',
-                              valueColor: KC.calm,
-                            )
-                          else if (clientSha != null)
-                            KMetaRow(
-                              'Transport SHA-256',
-                              '${clientSha.substring(0, 16)}… (pending server verify)',
-                            ),
-                          KMetaRow(
-                            'Place',
-                            _incident.location?.displayLabel ?? 'Not given',
-                          ),
-                          KMetaRow(
-                            'Your name',
-                            _incident.identityRevealed
-                                ? (_incident.revealedName ?? 'Shared with police')
-                                : 'Never asked',
-                            valueColor: _incident.identityRevealed
-                                ? KC.primary
-                                : KC.calm,
-                          ),
-                        ],
+                    const KRule(height: KSpace.lg),
+                    Wrap(
+                      spacing: KSpace.sm,
+                      runSpacing: KSpace.xs,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          draft ? 'What was saved' : 'What was sent',
+                          style: KType.sans(size: 16, weight: FontWeight.w600),
+                        ),
+                        StatusPill(_incident.status),
+                      ],
+                    ),
+                    const SizedBox(height: KSpace.xs),
+                    KMetaRow('Kind', _incident.category.label),
+                    KMetaRow(
+                      'Priority',
+                      _incident.priority.label,
+                      valueColor: _incident.priority.color,
+                    ),
+                    KMetaRow(
+                      'Country',
+                      country?.name ?? _incident.countryCode,
+                    ),
+                    KMetaRow(
+                      'Saved',
+                      TimeFormat.stamp(_incident.submittedAt),
+                    ),
+                    KMetaRow(
+                      'Photos',
+                      _incident.attachments.isEmpty
+                          ? 'None'
+                          : '${_incident.attachments.length}, EXIF stripped + SHA-256 verified',
+                    ),
+                    if (serverSha != null)
+                      KMetaRow(
+                        'Server SHA-256',
+                        '${serverSha.substring(0, 16)}… (authoritative)',
+                        valueColor: KC.calm,
+                      )
+                    else if (clientSha != null)
+                      KMetaRow(
+                        'Transport SHA-256',
+                        '${clientSha.substring(0, 16)}… (pending server verify)',
                       ),
+                    KMetaRow(
+                      'Place',
+                      _incident.location?.displayLabel ?? 'Not given',
+                    ),
+                    KMetaRow(
+                      'Your name',
+                      _incident.identityRevealed
+                          ? (_incident.revealedName ?? 'Shared with police')
+                          : 'Never asked',
+                      valueColor: _incident.identityRevealed
+                          ? KC.primary
+                          : KC.calm,
                     ),
                     if (draft) ...[
                       const SizedBox(height: KSpace.lg),
@@ -363,12 +365,11 @@ class _TrackingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(KSpace.xl),
+      padding: const EdgeInsets.all(KSpace.lg),
       decoration: BoxDecoration(
         color: KC.surface,
-        border: Border.all(color: KC.primary, width: 1.6),
-        borderRadius: KRadius.rXl,
-        boxShadow: KShadow.card,
+        border: Border.all(color: KC.primary),
+        borderRadius: KRadius.rMd,
       ),
       child: Column(
         children: [
@@ -377,18 +378,18 @@ class _TrackingCard extends StatelessWidget {
             style:
                 KType.sans(size: 13, weight: FontWeight.w600, color: KC.muted),
           ),
-          const SizedBox(height: KSpace.md),
+          const SizedBox(height: KSpace.sm),
           FittedBox(
             child: Text(
               trackingId,
               style: KType.code(
-                size: 36,
+                size: 32,
                 weight: FontWeight.w700,
                 color: KC.primary,
               ),
             ),
           ),
-          const SizedBox(height: KSpace.lg),
+          const SizedBox(height: KSpace.md),
           KButton(
             label: 'Copy',
             kind: KButtonKind.secondary,

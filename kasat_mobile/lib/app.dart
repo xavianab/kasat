@@ -18,7 +18,7 @@ import 'features/duress/duress_confirm_sheet.dart';
 import 'features/duress/duress_store.dart';
 import 'features/duress/shake_listener.dart';
 import 'features/safety/persistent_safety_bar.dart';
-import 'features/vent/vent_repository.dart';
+import 'features/welcome/first_launch_intro.dart';
 import 'features/welcome/welcome_view.dart';
 import 'i18n/i18n.dart';
 import 'platform/app_disguise_channel.dart';
@@ -33,7 +33,6 @@ class KasatScope extends InheritedWidget {
     required this.attachments,
     required this.settings,
     required this.alerts,
-    required this.vents,
     required this.identity,
     required this.duress,
     required this.i18n,
@@ -69,7 +68,6 @@ class KasatScope extends InheritedWidget {
   final AttachmentStore attachments;
   final SettingsStore settings;
   final AlertRepository alerts;
-  final VentRepository vents;
   final IdentityStore identity;
   final DuressStore duress;
   final I18n i18n;
@@ -102,7 +100,6 @@ class KasatScope extends InheritedWidget {
       attachments != oldWidget.attachments ||
       settings != oldWidget.settings ||
       alerts != oldWidget.alerts ||
-      vents != oldWidget.vents ||
       identity != oldWidget.identity ||
       duress != oldWidget.duress ||
       i18n != oldWidget.i18n ||
@@ -118,7 +115,6 @@ class KasatApp extends StatefulWidget {
     required this.attachments,
     required this.settings,
     required this.alerts,
-    required this.vents,
     required this.identity,
     required this.duress,
     required this.i18n,
@@ -130,7 +126,6 @@ class KasatApp extends StatefulWidget {
   final AttachmentStore attachments;
   final SettingsStore settings;
   final AlertRepository alerts;
-  final VentRepository vents;
   final IdentityStore identity;
   final DuressStore duress;
   final I18n i18n;
@@ -258,7 +253,6 @@ class _KasatAppState extends State<KasatApp> with WidgetsBindingObserver {
       attachments: widget.attachments,
       settings: widget.settings,
       alerts: widget.alerts,
-      vents: widget.vents,
       identity: widget.identity,
       duress: widget.duress,
       i18n: widget.i18n,
@@ -345,8 +339,11 @@ class RootGate extends StatefulWidget {
 }
 
 class _RootGateState extends State<RootGate> with WidgetsBindingObserver {
+  static const _privacyChannel = MethodChannel('app.kasat/privacy');
+
   bool _obscured = false;
   bool _online = true;
+  late bool _showIntro = !widget.settings.introSeen;
   StreamSubscription<bool>? _netSub;
 
   @override
@@ -354,6 +351,20 @@ class _RootGateState extends State<RootGate> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     const BackgroundConnectivityReminder().register();
+    if (_showIntro) {
+      widget.settings.markIntroSeen();
+      _checkDangerLaunch();
+    }
+  }
+
+  Future<void> _checkDangerLaunch() async {
+    try {
+      final danger =
+          await _privacyChannel.invokeMethod<bool>('launchIsDanger') ?? false;
+      if (danger && mounted) {
+        setState(() => _showIntro = false);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -393,7 +404,6 @@ class _RootGateState extends State<RootGate> with WidgetsBindingObserver {
           setState(() => _online = online);
           if (online) scope.repository.flushQueued();
         });
-        scope.vents.purgeExpired();
     }
   }
 
@@ -401,8 +411,17 @@ class _RootGateState extends State<RootGate> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     if (_obscured) return const _PrivacyCover();
 
-    // Zero-setup launch: opens directly with no login or onboarding wall.
-    // PIN protection is enforced when saving or viewing saved history/codes.
+    if (_showIntro) {
+      return OpeningBloom(
+        child: FirstLaunchIntro(
+          onComplete: () {
+            widget.settings.markIntroSeen();
+            setState(() => _showIntro = false);
+          },
+        ),
+      );
+    }
+
     return OpeningBloom(child: WelcomeView(offline: !_online));
   }
 }

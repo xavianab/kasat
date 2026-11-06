@@ -12,13 +12,6 @@ import '../accounts/identity_store.dart';
 
 /// Explicit confirmation screen for one-way self-identification on an existing
 /// report ("Reveal my identity to police").
-///
-/// - Pre-fills from the encrypted on-device [IdentityStore] if she chose to save
-///   her details in Settings.
-/// - Clearly explains that revealing her identity is ONE-WAY (anonymous -> named)
-///   and cannot be undone.
-/// - Writes to the separate `report_identities` table linked by `report_id` so
-///   `public.reports` stays structurally anonymous.
 class RevealIdentityScreen extends StatefulWidget {
   const RevealIdentityScreen({
     super.key,
@@ -118,12 +111,15 @@ class _RevealIdentityScreenState extends State<RevealIdentityScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  KSpace.sm,
-                  KSpace.xs,
-                  KSpace.lg,
-                  0,
+              Container(
+                constraints: const BoxConstraints(minHeight: 52),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: KSpace.sm,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: KC.canvas,
+                  border: Border(bottom: BorderSide(color: KC.border)),
                 ),
                 child: Row(
                   children: [
@@ -131,16 +127,18 @@ class _RevealIdentityScreenState extends State<RevealIdentityScreen> {
                       onPressed: () => Navigator.of(context).pop(),
                       icon: Icon(Icons.close_rounded, color: KC.muted),
                     ),
-                    Text(
-                      'Reveal my identity to police',
-                      style: KType.serif(size: 20),
+                    Expanded(
+                      child: Text(
+                        'Reveal my identity to police',
+                        style: KType.serif(size: 18),
+                      ),
                     ),
                   ],
                 ),
               ),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.all(KSpace.xl),
+                  padding: const EdgeInsets.all(KSpace.lg),
                   children: [
                     KNote(
                       title: 'Please confirm',
@@ -151,64 +149,65 @@ class _RevealIdentityScreenState extends State<RevealIdentityScreen> {
                           'reports you file stay anonymous.',
                     ),
                     const SizedBox(height: KSpace.lg),
-                    KPanel(
-                      title: 'Details to share on ${widget.incident.trackingId}',
-                      subtitle:
-                          'Stored in a separate identity record linked only to this report.',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const KFieldLabel('Your name'),
-                          KTextField(
-                            controller: _name,
-                            hint: 'e.g., Selamawit Tadesse',
-                            onChanged: (_) => setState(() {}),
-                          ),
-                          const SizedBox(height: KSpace.lg),
-                          const KFieldLabel('How police may contact you'),
-                          Row(
-                            children: [
-                              ChoiceChip(
-                                label: const Text('Phone number'),
-                                selected: _channel == IdentityChannel.phone,
-                                onSelected: (_) => setState(
-                                  () => _channel = IdentityChannel.phone,
-                                ),
-                              ),
-                              const SizedBox(width: KSpace.sm),
-                              ChoiceChip(
-                                label: const Text('Email'),
-                                selected: _channel == IdentityChannel.email,
-                                onSelected: (_) => setState(
-                                  () => _channel = IdentityChannel.email,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: KSpace.md),
-                          KTextField(
-                            controller: _handle,
-                            hint: _channel == IdentityChannel.phone
-                                ? 'e.g., +251 911 000 000'
-                                : 'e.g., name@example.com',
-                            keyboardType: _channel == IdentityChannel.phone
-                                ? TextInputType.phone
-                                : TextInputType.emailAddress,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                          const SizedBox(height: KSpace.lg),
-                          const KFieldLabel(
-                            'When is it safe to call or message you?',
-                            optional: true,
-                          ),
-                          KTextField(
-                            controller: _safeNote,
-                            hint: 'e.g., Only call between 9am and 4pm on weekdays',
-                          ),
-                        ],
-                      ),
+                    Text(
+                      'Details to share on ${widget.incident.trackingId}',
+                      style: KType.sans(size: 16, weight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Stored in a separate identity record linked only to this report.',
+                      style: KType.sans(size: 13, color: KC.muted, height: 1.4),
                     ),
                     const SizedBox(height: KSpace.md),
+                    const KFieldLabel('Your name'),
+                    KTextField(
+                      controller: _name,
+                      hint: 'e.g., Selamawit Tadesse',
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: KSpace.lg),
+                    const KFieldLabel('How police may contact you'),
+                    Wrap(
+                      spacing: KSpace.sm,
+                      runSpacing: KSpace.xs,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Phone number'),
+                          selected: _channel == IdentityChannel.phone,
+                          onSelected: (_) => setState(
+                            () => _channel = IdentityChannel.phone,
+                          ),
+                        ),
+                        ChoiceChip(
+                          label: const Text('Email'),
+                          selected: _channel == IdentityChannel.email,
+                          onSelected: (_) => setState(
+                            () => _channel = IdentityChannel.email,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: KSpace.md),
+                    KTextField(
+                      controller: _handle,
+                      hint: _channel == IdentityChannel.phone
+                          ? 'e.g., +251 911 000 000'
+                          : 'e.g., name@example.com',
+                      keyboardType: _channel == IdentityChannel.phone
+                          ? TextInputType.phone
+                          : TextInputType.emailAddress,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: KSpace.lg),
+                    const KFieldLabel(
+                      'When is it safe to call or message you?',
+                      optional: true,
+                    ),
+                    KTextField(
+                      controller: _safeNote,
+                      hint: 'e.g., Only call between 9am and 4pm on weekdays',
+                    ),
+                    const SizedBox(height: KSpace.lg),
                     GestureDetector(
                       onTap: () => setState(
                         () => _confirmedIrreversible = !_confirmedIrreversible,

@@ -88,9 +88,9 @@ const emergencyContactsByCountry = <String, List<EmergencyContact>>{
       name: 'Ethiopian Federal Police',
       number: KasatConfig.emergencyNumber,
       kind: ContactKind.federalPolice,
-      hours: '24/7 — Verify 991 placeholder',
+      hours: '24/7. Verify 991 placeholder',
       blurb:
-          'Addis Ababa Police Commission / Federal Police emergency dispatch (991).',
+          'Addis Ababa Police Commission and Federal Police emergency dispatch (991).',
     ),
     EmergencyContact(
       name: 'EWLA Toll-Free GBV Hotline (7711)',
@@ -98,7 +98,7 @@ const emergencyContactsByCountry = <String, List<EmergencyContact>>{
       kind: ContactKind.womensAffairs,
       hours: 'Toll-free GBV hotline (Amharic, Afan Oromo, Tigrigna)',
       blurb:
-          'Ethiopian Women Lawyers Association (EWLA) confidential GBV support, crisis counselling, and legal guidance — separate from police.',
+          'Ethiopian Women Lawyers Association (EWLA) confidential GBV support, crisis counselling, and legal guidance. Separate from police.',
     ),
     EmergencyContact(
       name: 'Ministry of Women and Social Affairs hotline',
@@ -115,14 +115,14 @@ const emergencyContactsByCountry = <String, List<EmergencyContact>>{
       blurb: 'Regional caseworkers and referral to shelter services.',
     ),
     EmergencyContact(
-      name: 'Survivor support NGO \u2014 counselling',
+      name: 'Survivor support NGO (counselling)',
       number: '+251-000-000-004',
       kind: ContactKind.ngo,
       hours: 'Placeholder',
       blurb: 'Confidential counselling and safety planning.',
     ),
     EmergencyContact(
-      name: 'Survivor support NGO \u2014 shelter placement',
+      name: 'Survivor support NGO (shelter placement)',
       number: '+251-000-000-005',
       kind: ContactKind.ngo,
       hours: 'Placeholder',

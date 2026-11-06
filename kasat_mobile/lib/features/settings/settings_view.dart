@@ -12,11 +12,12 @@ import '../lock/pin_setup_sheet.dart';
 import '../onboarding/country_picker.dart';
 
 /// Settings screen:
-/// 1. Danger button visibility toggle (Full visible bar vs Discreet mode).
-/// 2. Optional "Save my details" encrypted on-device profile (NOT a login,
-///    never synced to Supabase).
-/// 3. 6-digit PIN setup / change for protecting saved reports list on this device.
-/// 4. Country selection.
+/// 1. Appearance (Match phone / Light / Dark).
+/// 2. Danger button visibility toggle (Full visible bar vs Discreet mode).
+/// 3. Update notifications.
+/// 4. Optional "Save my details" encrypted on-device profile (never synced).
+/// 5. 6-digit PIN setup / change for protecting saved reports list on this device.
+/// 6. Country selection.
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
 
@@ -86,12 +87,15 @@ class _SettingsViewState extends State<SettingsView> {
         child: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  KSpace.sm,
-                  KSpace.sm,
-                  KSpace.xl,
-                  0,
+              Container(
+                constraints: const BoxConstraints(minHeight: 52),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: KSpace.sm,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: KC.canvas,
+                  border: Border(bottom: BorderSide(color: KC.border)),
                 ),
                 child: Row(
                   children: [
@@ -101,16 +105,16 @@ class _SettingsViewState extends State<SettingsView> {
                       color: KC.muted,
                     ),
                     Expanded(
-                      child: Text('Settings', style: KType.serif(size: 22)),
+                      child: Text('Settings', style: KType.serif(size: 18)),
                     ),
                   ],
                 ),
               ),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.all(KSpace.xl),
+                  padding: const EdgeInsets.all(KSpace.lg),
                   children: [
-                    KPanel(
+                    _SettingsSection(
                       title: 'Appearance',
                       subtitle: settings.themeMode.label,
                       child: Column(
@@ -133,21 +137,21 @@ class _SettingsViewState extends State<SettingsView> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: KSpace.md),
-                    KPanel(
+                    const KRule(height: KSpace.xl),
+                    _SettingsSection(
                       title: 'Danger button appearance',
                       subtitle: settings.dangerBarMode == DangerBarMode.discreet
-                          ? 'Discreet mode: unlabeled dot (press & hold to trigger).'
+                          ? 'Discreet mode: unlabeled dot (press and hold to trigger).'
                           : 'Full visible bar (default): red "I\'M IN DANGER" button.',
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Choose how the emergency control appears at the top '
-                            'of the screen. Discreet mode hides the red "I\'M IN '
-                            'DANGER" bar so someone glancing at your phone cannot '
-                            'tell what the app is — press and hold the small '
-                            'top-left dot to trigger an emergency alert.',
+                            'Choose how the emergency control looks at the top '
+                            'of the screen. Discreet mode hides the red button '
+                            'so someone glancing at your phone cannot tell what '
+                            'the app is. Press and hold the small top-left dot '
+                            'to send an emergency alert.',
                             style: KType.sans(
                               size: 13.5,
                               color: KC.muted,
@@ -173,7 +177,8 @@ class _SettingsViewState extends State<SettingsView> {
                             optionKey: SettingsView.dangerModeDiscreetKey,
                             mode: DangerBarMode.discreet,
                             selected:
-                                settings.dangerBarMode == DangerBarMode.discreet,
+                                settings.dangerBarMode ==
+                                DangerBarMode.discreet,
                             onTap: () async {
                               await settings.setDangerBarMode(
                                 DangerBarMode.discreet,
@@ -185,8 +190,8 @@ class _SettingsViewState extends State<SettingsView> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: KSpace.md),
-                    KPanel(
+                    const KRule(height: KSpace.xl),
+                    _SettingsSection(
                       title: 'Update notifications',
                       subtitle: settings.updateNotificationsEnabled
                           ? 'On. A short note when you are not in the app.'
@@ -199,7 +204,11 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                         subtitle: Text(
                           'The note never includes the message.',
-                          style: KType.sans(size: 13, color: KC.muted, height: 1.4),
+                          style: KType.sans(
+                            size: 13,
+                            color: KC.muted,
+                            height: 1.4,
+                          ),
                         ),
                         value: settings.updateNotificationsEnabled,
                         onChanged: (on) async {
@@ -208,20 +217,19 @@ class _SettingsViewState extends State<SettingsView> {
                         },
                       ),
                     ),
-                    const SizedBox(height: KSpace.md),
-                    KPanel(
+                    const KRule(height: KSpace.xl),
+                    _SettingsSection(
                       title: 'Save my details (optional)',
                       subtitle:
-                          'Optional. Stays encrypted on this phone only — never synced to a server.',
+                          'Optional. Stays encrypted on this phone only. Never synced to a server.',
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
                             'Kasat never requires an account or login. If you '
-                            'choose to save your name and phone or email here, '
-                            'it is stored encrypted on your phone for faster '
-                            'future reports if you ever decide to reveal your '
-                            'identity to police on a case.',
+                            'save your name and phone or email here, it stays '
+                            'encrypted on your phone for faster future reports '
+                            'when you choose to share your identity.',
                             style: KType.sans(
                               size: 13.5,
                               color: KC.muted,
@@ -242,8 +250,8 @@ class _SettingsViewState extends State<SettingsView> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: KSpace.md),
-                    KPanel(
+                    const KRule(height: KSpace.xl),
+                    _SettingsSection(
                       title: 'History & tracking code lock (PIN)',
                       subtitle: settings.hasPin
                           ? '6-digit code active for saved cases and tracking codes.'
@@ -275,8 +283,8 @@ class _SettingsViewState extends State<SettingsView> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: KSpace.md),
-                    KPanel(
+                    const KRule(height: KSpace.xl),
+                    _SettingsSection(
                       title: 'Your country',
                       subtitle: current == null
                           ? 'Used for help lines and where a report is sent.'
@@ -296,6 +304,40 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({
+    required this.title,
+    required this.child,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: KType.sans(size: 16, weight: FontWeight.w600),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle!,
+            style: KType.sans(size: 13, color: KC.muted, height: 1.4),
+          ),
+        ],
+        const SizedBox(height: KSpace.sm),
+        child,
+      ],
     );
   }
 }
@@ -383,7 +425,6 @@ class _DangerModeOption extends StatelessWidget {
           borderRadius: KRadius.rMd,
           border: Border.all(
             color: selected ? KC.primary : KC.border,
-            width: selected ? 1.5 : 1,
           ),
         ),
         child: Row(

@@ -12,7 +12,6 @@ import 'package:kasat_mobile/data/local_incident_repository.dart';
 import 'package:kasat_mobile/data/settings_store.dart';
 import 'package:kasat_mobile/features/accounts/identity_store.dart';
 import 'package:kasat_mobile/features/duress/duress_store.dart';
-import 'package:kasat_mobile/features/vent/local_vent_repository.dart';
 import 'package:kasat_mobile/i18n/i18n.dart';
 
 /// Walks the survivor path on a real simulator: first-launch setup (country,
@@ -90,8 +89,6 @@ void main() {
 
     final alerts = LocalAlertRepository();
     await alerts.init();
-    final vents = LocalVentRepository();
-    await vents.init();
     final identity = IdentityStore();
     await identity.init();
     final duress = DuressStore();
@@ -105,7 +102,6 @@ void main() {
         attachments: AttachmentStore(),
         settings: settings,
         alerts: alerts,
-        vents: vents,
         identity: identity,
         duress: duress,
         i18n: i18n,
@@ -162,16 +158,16 @@ void main() {
     );
     await shoot(tester, '04-welcome');
 
-    await tapText(tester, 'Tell us what happened');
+    await tapText(tester, 'Report what happened');
 
     // ------------------------------------------------------------- intake
 
     await tapText(tester, 'Choose one');
     await shoot(tester, '05-categories');
-    await tapText(tester, 'Physical assault');
+    await tapText(tester, 'Harassment');
 
     expect(
-      find.text('A little more detail — at least 40 characters'),
+      find.text('A little more detail. Write at least 40 characters.'),
       findsOneWidget,
       reason: 'choosing a category alone should not enable sending',
     );
