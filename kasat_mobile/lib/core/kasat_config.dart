@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 abstract final class KasatConfig {
   static const appName = 'KASAT';
   static const tagline = 'Speak without fear.';
+  static const appVersion = '1.0.1+2';
   static const buildChannel = 'MVP-0.1.0';
+  static const testBuild = bool.fromEnvironment('KASAT_TEST_BUILD');
 
   /// The mobile client currently persists to an on-device store so the
   /// submission flow can be exercised without a backend. Flip this once

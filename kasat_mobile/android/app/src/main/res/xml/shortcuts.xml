@@ -8,7 +8,7 @@
         android:icon="@mipmap/ic_launcher">
         <intent
             android:action="app.kasat.DANGER"
-            android:targetPackage="app.kasat.kasat_mobile"
+            android:targetPackage="com.kasatapp.kasat"
             android:targetClass="app.kasat.kasat_mobile.MainActivity" />
     </shortcut>
 </shortcuts>

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app.dart';
 import '../../core/kasat_config.dart';
@@ -15,6 +16,15 @@ import 'safety_plan_view.dart';
 /// never change report, tracking, or hotlines.
 class MoreMenu {
   static const buttonKey = Key('more-menu');
+  static const sendFeedbackKey = Key('more-send-feedback');
+
+  static Uri feedbackEmailUri({String version = KasatConfig.appVersion}) {
+    final subject = Uri.encodeComponent('Kasat test feedback');
+    final body = Uri.encodeComponent('Kasat version: $version\n\n');
+    return Uri.parse(
+      'mailto:hello@kasatapp.com?subject=$subject&body=$body',
+    );
+  }
 
   static Future<void> open(BuildContext context) {
     return showModalBottomSheet<void>(
@@ -31,12 +41,31 @@ class MoreMenu {
 }
 
 class MoreMenuSheet extends StatelessWidget {
-  const MoreMenuSheet({super.key});
+  const MoreMenuSheet({
+    super.key,
+    this.testBuild = KasatConfig.testBuild,
+    this.onLaunchUri,
+  });
+
+  final bool testBuild;
+  final Future<void> Function(Uri uri)? onLaunchUri;
 
   void _open(BuildContext context, Widget page) {
     final navigator = Navigator.of(context);
     navigator.pop();
     navigator.push(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
+  Future<void> _sendFeedback(BuildContext context) async {
+    final uri = MoreMenu.feedbackEmailUri();
+    Navigator.of(context).pop();
+    if (onLaunchUri != null) {
+      await onLaunchUri!(uri);
+      return;
+    }
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 
   @override
@@ -119,6 +148,14 @@ class MoreMenuSheet extends StatelessWidget {
                 detail: i18n.t('more.settingsDetail'),
                 onTap: () => _open(context, const SettingsView()),
               ),
+              if (testBuild)
+                _MoreRow(
+                  key: MoreMenu.sendFeedbackKey,
+                  icon: Icons.mail_outline_rounded,
+                  title: 'Send feedback',
+                  detail: 'Email hello@kasatapp.com about this test build.',
+                  onTap: () => _sendFeedback(context),
+                ),
             ],
           ),
         ),
@@ -129,6 +166,7 @@ class MoreMenuSheet extends StatelessWidget {
 
 class _MoreRow extends StatelessWidget {
   const _MoreRow({
+    super.key,
     required this.icon,
     required this.title,
     required this.detail,

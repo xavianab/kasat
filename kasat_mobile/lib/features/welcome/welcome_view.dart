@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../../core/kasat_config.dart';
 import '../../models/community_alert.dart';
 import '../../theme/kasat_theme.dart';
 import '../../widgets/kasat_button.dart';
@@ -28,10 +29,14 @@ class HomeTabContent extends StatefulWidget {
     super.key,
     required this.offline,
     required this.onSelectTab,
+    this.testBuild = KasatConfig.testBuild,
   });
+
+  static const testBannerKey = Key('test-build-banner');
 
   final bool offline;
   final ValueChanged<ShellTab> onSelectTab;
+  final bool testBuild;
 
   @override
   State<HomeTabContent> createState() => _HomeTabContentState();
@@ -86,6 +91,42 @@ class _HomeTabContentState extends State<HomeTabContent> {
             KSpace.xxl,
           ),
           children: [
+            if (widget.testBuild) ...[
+              Container(
+                key: HomeTabContent.testBannerKey,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: KSpace.md,
+                  vertical: KSpace.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: KC.surface,
+                  borderRadius: KRadius.rMd,
+                  border: Border.all(color: KC.border),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.science_outlined,
+                      size: 16,
+                      color: KC.muted,
+                    ),
+                    const SizedBox(width: KSpace.sm),
+                    Expanded(
+                      child: Text(
+                        "Test version. Don't report real incidents.",
+                        style: KType.sans(
+                          size: 12.5,
+                          weight: FontWeight.w600,
+                          color: KC.text,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: KSpace.md),
+            ],
             FutureBuilder<int>(
               future: scope.repository.queuedCount(),
               builder: (context, snap) => OfflineBanner(
