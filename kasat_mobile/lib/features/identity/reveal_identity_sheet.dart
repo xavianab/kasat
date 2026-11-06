@@ -129,7 +129,7 @@ class _RevealIdentityScreenState extends State<RevealIdentityScreen> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded, color: KC.muted),
+                      icon: Icon(Icons.close_rounded, color: KC.muted),
                     ),
                     Text(
                       'Reveal my identity to police',
@@ -142,7 +142,7 @@ class _RevealIdentityScreenState extends State<RevealIdentityScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(KSpace.xl),
                   children: [
-                    const KNote(
+                    KNote(
                       title: 'Please confirm',
                       icon: Icons.warning_amber_rounded,
                       color: KC.urgent,
@@ -273,7 +273,7 @@ class _RevealIdentityScreenState extends State<RevealIdentityScreen> {
                   KSpace.lg,
                   KSpace.sm,
                 ),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: KC.surface,
                   border: Border(top: BorderSide(color: KC.border)),
                 ),

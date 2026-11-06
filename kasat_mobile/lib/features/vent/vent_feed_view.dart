@@ -121,7 +121,7 @@ class _VentFeedViewState extends State<VentFeedView> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_rounded),
+                      icon: Icon(Icons.arrow_back_rounded),
                       color: KC.muted,
                     ),
                     Expanded(child: Text(i18n.t('vent.title'), style: KType.serif(size: 22))),
@@ -261,7 +261,7 @@ class _ComposeVentState extends State<_ComposeVent> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back_rounded),
+                    icon: Icon(Icons.arrow_back_rounded),
                     color: KC.muted,
                   ),
                   Text(i18n.t('vent.compose'), style: KType.serif(size: 22)),
@@ -364,7 +364,7 @@ class _VentDetailState extends State<_VentDetail> {
                       children: [
                         IconButton(
                           onPressed: () => Navigator.of(context).maybePop(),
-                          icon: const Icon(Icons.arrow_back_rounded),
+                          icon: Icon(Icons.arrow_back_rounded),
                           color: KC.muted,
                         ),
                         Text(post.displayIdentity, style: KType.serif(size: 22)),

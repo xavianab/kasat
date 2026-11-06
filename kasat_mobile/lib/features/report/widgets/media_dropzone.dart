@@ -46,7 +46,7 @@ class MediaDropzone extends StatelessWidget {
                       width: 44,
                       height: 44,
                       alignment: Alignment.center,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: KC.primarySoft,
                         shape: BoxShape.circle,
                       ),
@@ -57,7 +57,7 @@ class MediaDropzone extends StatelessWidget {
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: KC.primary),
                             )
-                          : const Icon(Icons.add_photo_alternate_outlined,
+                          : Icon(Icons.add_photo_alternate_outlined,
                               size: 22, color: KC.primary),
                     ),
                     const SizedBox(height: KSpace.md),
@@ -143,10 +143,10 @@ class _AttachmentRow extends StatelessWidget {
             ),
           ),
           if (attachment.strippedMetadata)
-            const SoftBadge('Cleaned', color: KC.calm, dense: true, size: 11.5),
+            SoftBadge('Cleaned', color: KC.calm, dense: true, size: 11.5),
           IconButton(
             onPressed: onRemove,
-            icon: const Icon(Icons.close_rounded, size: 18),
+            icon: Icon(Icons.close_rounded, size: 18),
             color: KC.faint,
           ),
         ],

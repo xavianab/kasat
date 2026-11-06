@@ -160,7 +160,7 @@ class _MoreRow extends StatelessWidget {
               width: 38,
               height: 38,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: KC.primarySoft,
                 borderRadius: KRadius.rSm,
               ),
@@ -189,7 +189,7 @@ class _MoreRow extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: KC.faint),
+            Icon(Icons.chevron_right_rounded, color: KC.faint),
           ],
         ),
       ),

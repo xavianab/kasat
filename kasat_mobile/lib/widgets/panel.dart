@@ -12,8 +12,8 @@ class KPanel extends StatelessWidget {
     this.step,
     this.trailing,
     this.subtitle,
-    this.background = KC.surface,
-    this.border = KC.border,
+    this.background,
+    this.border,
     this.padding = const EdgeInsets.all(KSpace.lg),
     this.shadow = true,
   });
@@ -25,8 +25,8 @@ class KPanel extends StatelessWidget {
   final int? step;
   final Widget? trailing;
   final String? subtitle;
-  final Color background;
-  final Color border;
+  final Color? background;
+  final Color? border;
   final EdgeInsets padding;
   final bool shadow;
 
@@ -34,8 +34,8 @@ class KPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: background,
-        border: Border.all(color: border),
+        color: background ?? KC.surface,
+        border: Border.all(color: border ?? KC.border),
         borderRadius: KRadius.rLg,
         boxShadow: shadow ? KShadow.card : null,
       ),
@@ -59,7 +59,7 @@ class KPanel extends StatelessWidget {
                       width: 26,
                       height: 26,
                       alignment: Alignment.center,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: KC.primarySoft,
                         shape: BoxShape.circle,
                       ),
@@ -92,7 +92,10 @@ class KPanel extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (trailing != null) ...[const SizedBox(width: KSpace.sm), trailing!],
+                  if (trailing != null) ...[
+                    const SizedBox(width: KSpace.sm),
+                    Flexible(child: trailing!),
+                  ],
                 ],
               ),
             ),
@@ -121,7 +124,7 @@ class KRule extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: height / 2),
-      child: const Divider(height: 1, thickness: 1, color: KC.border),
+      child: Divider(height: 1, thickness: 1, color: KC.border),
     );
   }
 }
@@ -132,13 +135,13 @@ class KMetaRow extends StatelessWidget {
     this.label,
     this.value, {
     super.key,
-    this.valueColor = KC.text,
+    this.valueColor,
     this.valueWidget,
   });
 
   final String label;
   final String value;
-  final Color valueColor;
+  final Color? valueColor;
   final Widget? valueWidget;
 
   @override
@@ -160,7 +163,7 @@ class KMetaRow extends StatelessWidget {
                   style: KType.sans(
                     size: 13.5,
                     weight: FontWeight.w600,
-                    color: valueColor,
+                    color: valueColor ?? KC.text,
                     height: 1.4,
                   ),
                 ),
@@ -179,24 +182,25 @@ class KNote extends StatelessWidget {
     required this.title,
     required this.body,
     this.icon = Icons.favorite_outline_rounded,
-    this.color = KC.secondary,
+    this.color,
     this.action,
   });
 
   final String title;
   final String body;
   final IconData icon;
-  final Color color;
+  final Color? color;
   final Widget? action;
 
   @override
   Widget build(BuildContext context) {
+    final tone = color ?? KC.secondary;
     return Container(
       padding: const EdgeInsets.all(KSpace.lg),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
+        color: tone.withValues(alpha: 0.07),
         borderRadius: KRadius.rLg,
-        border: Border.all(color: color.withValues(alpha: 0.22)),
+        border: Border.all(color: tone.withValues(alpha: 0.22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,13 +208,13 @@ class KNote extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 18, color: color),
+              Icon(icon, size: 18, color: tone),
               const SizedBox(width: KSpace.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: KType.serif(size: 15, color: color)),
+                    Text(title, style: KType.serif(size: 15, color: tone)),
                     const SizedBox(height: 5),
                     Text(
                       body,

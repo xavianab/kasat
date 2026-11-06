@@ -103,7 +103,7 @@ class _AlertsViewState extends State<AlertsView> {
         Text('Open notices', style: KType.serif(size: 20)),
         const SizedBox(height: KSpace.md),
         if (_live.isEmpty)
-          const KNote(
+          KNote(
             title: 'Nothing posted for your country right now',
             body: 'When a verified source shares a notice, it will appear here.',
             icon: Icons.nightlight_outlined,

@@ -49,7 +49,7 @@ class PersistentSafetyBar extends StatelessWidget {
         final currentResponse = scope.danger.approachResponse;
 
         return Material(
-          color: showRedActive ? const Color(0xFF281113) : KC.surface,
+          color: showRedActive ? Color(0xFF281113) : KC.surface,
           child: SafeArea(
             bottom: false,
             child: Column(
@@ -104,7 +104,7 @@ class PersistentSafetyBar extends StatelessWidget {
                                         horizontal: KSpace.md,
                                         vertical: 7,
                                       ),
-                                      decoration: const BoxDecoration(
+                                      decoration: BoxDecoration(
                                         color: KC.urgent,
                                         borderRadius: KRadius.rPill,
                                       ),
@@ -251,7 +251,7 @@ class PersistentSafetyBar extends StatelessWidget {
                       KSpace.md,
                       KSpace.md,
                     ),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: Color(0xFF1A1416),
                       border: Border(
                         bottom: BorderSide(color: KC.urgent, width: 1.5),

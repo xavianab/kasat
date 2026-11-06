@@ -88,7 +88,7 @@ class PinPad extends StatelessWidget {
                     HapticFeedback.selectionClick();
                     onBackspace();
                   },
-                  icon: const Icon(Icons.backspace_outlined, size: 22, color: KC.muted),
+                  icon: Icon(Icons.backspace_outlined, size: 22, color: KC.muted),
                 ),
               ),
             ),

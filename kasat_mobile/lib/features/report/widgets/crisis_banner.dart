@@ -39,7 +39,7 @@ class CrisisBanner extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.favorite_outline_rounded, size: 20, color: KC.urgent),
+              Icon(Icons.favorite_outline_rounded, size: 20, color: KC.urgent),
               const SizedBox(width: KSpace.sm),
               Expanded(
                 child: Column(
@@ -110,7 +110,7 @@ class _CrisisLine extends StatelessWidget {
                 width: 36,
                 height: 36,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: KC.urgentSoft,
                   shape: BoxShape.circle,
                 ),

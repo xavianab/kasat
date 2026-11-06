@@ -13,14 +13,7 @@ class SoftBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [Color(0xFFFDEFF3), KC.canvas, Color(0xFFFBF1EA)],
-          stops: [0, 0.55, 1],
-        ),
-      ),
+      decoration: BoxDecoration(color: KC.canvas),
       child: child,
     );
   }
@@ -31,14 +24,14 @@ class DashedBorder extends StatelessWidget {
   const DashedBorder({
     super.key,
     required this.child,
-    this.color = KC.borderStrong,
+    this.color,
     this.radius = KRadius.md,
     this.dash = 7,
     this.gap = 5,
   });
 
   final Widget child;
-  final Color color;
+  final Color? color;
   final double radius;
   final double dash;
   final double gap;
@@ -46,7 +39,12 @@ class DashedBorder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _DashedPainter(color: color, radius: radius, dash: dash, gap: gap),
+      painter: _DashedPainter(
+        color: color ?? KC.border,
+        radius: radius,
+        dash: dash,
+        gap: gap,
+      ),
       child: child,
     );
   }
@@ -69,7 +67,7 @@ class _DashedPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 1.6
+      ..strokeWidth = 1
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 

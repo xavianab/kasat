@@ -9,33 +9,34 @@ enum ContactKind {
   federalPolice(
     label: 'Federal Police',
     icon: Icons.local_police_outlined,
-    color: KC.urgent,
   ),
   womensAffairs(
     label: "Women's Affairs & GBV Hotlines",
     icon: Icons.diversity_1_outlined,
-    color: KC.primary,
   ),
   ngo(
     label: 'Support organisations',
     icon: Icons.volunteer_activism_outlined,
-    color: KC.secondary,
   ),
   legalAid(
     label: 'Legal aid',
     icon: Icons.balance_outlined,
-    color: KC.calm,
   );
 
   const ContactKind({
     required this.label,
     required this.icon,
-    required this.color,
   });
 
   final String label;
   final IconData icon;
-  final Color color;
+
+  Color get color => switch (this) {
+        ContactKind.federalPolice => KC.urgent,
+        ContactKind.womensAffairs => KC.primary,
+        ContactKind.ngo => KC.secondary,
+        ContactKind.legalAid => KC.calm,
+      };
 }
 
 class EmergencyContact {

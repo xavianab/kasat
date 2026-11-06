@@ -115,7 +115,7 @@ class _CountryTile extends StatelessWidget {
                   ),
                 ),
                 if (selected)
-                  const Icon(Icons.check_circle_rounded, color: KC.primary, size: 22)
+                  Icon(Icons.check_circle_rounded, color: KC.primary, size: 22)
                 else if (!country.active)
                   Text(
                     'Soon',

@@ -3,13 +3,13 @@ import 'package:flutter/services.dart';
 import '../../core/biometrics.dart';
 import '../../data/settings_store.dart';
 import '../../theme/kasat_theme.dart';
+import '../../widgets/kasat_mark.dart';
 import '../../widgets/soft_backdrop.dart';
 import 'pin_pad.dart';
 
 /// The gate in front of everything.
 ///
-/// Shows no app name, no logo, and no hint about what it protects — someone who
-/// picks up the handset and opens the app learns only that there is a code.
+/// Asks for the code before saved history can be opened.
 class LockScreen extends StatefulWidget {
   const LockScreen({
     super.key,
@@ -93,9 +93,8 @@ class _LockScreenState extends State<LockScreen> {
                   color: KC.surface,
                   shape: BoxShape.circle,
                   border: Border.all(color: KC.border),
-                  boxShadow: KShadow.card,
                 ),
-                child: const Icon(Icons.spa_outlined, size: 28, color: KC.primary),
+                child: const KasatMark(size: 28),
               ),
               const SizedBox(height: KSpace.xl),
               Text(widget.headline, style: KType.serif(size: 26)),
@@ -137,7 +136,7 @@ class _LockScreenState extends State<LockScreen> {
                 trailing: _biometricAvailable
                     ? IconButton(
                         onPressed: _tryBiometric,
-                        icon: const Icon(Icons.face_retouching_natural_outlined,
+                        icon: Icon(Icons.face_retouching_natural_outlined,
                             size: 26, color: KC.primary),
                       )
                     : null,

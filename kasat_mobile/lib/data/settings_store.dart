@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/country.dart';
+import '../theme/kasat_theme.dart';
 
 /// Which home screen identity the app presents itself under.
 enum AppDisguise {
@@ -79,6 +80,7 @@ class SettingsStore {
   static const _biometricKey = 'kasat.biometric.v1';
   static const _disguiseKey = 'kasat.disguise.v1';
   static const _dangerBarModeKey = 'kasat.danger_bar_mode.v1';
+  static const _themeKey = 'kasat.theme.v1';
   static const _updateNotesKey = 'kasat.update_notifications.v1';
   static const _onboardedKey = 'kasat.onboarded.v1';
   static const _posterTokenKey = 'kasat.alert_poster.v1';
@@ -150,6 +152,13 @@ class SettingsStore {
 
   Future<void> setDangerBarMode(DangerBarMode mode) =>
       _prefs.setString(_dangerBarModeKey, mode.id);
+
+  /// Light, dark, or match the phone. Missing value is match phone.
+  KasatThemeMode get themeMode =>
+      KasatThemeMode.fromId(_prefs.getString(_themeKey));
+
+  Future<void> setThemeMode(KasatThemeMode mode) =>
+      _prefs.setString(_themeKey, mode.id);
 
   /// Discreet "you have an update" notification. On until she turns it off.
   bool get updateNotificationsEnabled =>

@@ -8,7 +8,7 @@ class SoftBadge extends StatelessWidget {
   const SoftBadge(
     this.text, {
     super.key,
-    this.color = KC.muted,
+    this.color,
     this.background,
     this.icon,
     this.size = 12,
@@ -16,7 +16,7 @@ class SoftBadge extends StatelessWidget {
   });
 
   final String text;
-  final Color color;
+  final Color? color;
   final Color? background;
   final IconData? icon;
   final double size;
@@ -24,25 +24,30 @@ class SoftBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = color ?? KC.muted;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: dense ? 8 : 10,
         vertical: dense ? 4 : 6,
       ),
       decoration: BoxDecoration(
-        color: background ?? color.withValues(alpha: 0.10),
+        color: background ?? tone.withValues(alpha: 0.10),
         borderRadius: KRadius.rPill,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: size + 2, color: color),
+            Icon(icon, size: size + 2, color: tone),
             const SizedBox(width: 5),
           ],
-          Text(
-            text,
-            style: KType.sans(size: size, weight: FontWeight.w600, color: color),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: KType.sans(size: size, weight: FontWeight.w600, color: tone),
+            ),
           ),
         ],
       ),
@@ -53,9 +58,9 @@ class SoftBadge extends StatelessWidget {
 /// Slow, soft pulse. Used to mark a live view without the blinking-terminal
 /// feel of the previous indicator.
 class PulseDot extends StatefulWidget {
-  const PulseDot({super.key, this.color = KC.primary, this.size = 8});
+  const PulseDot({super.key, this.color, this.size = 8});
 
-  final Color color;
+  final Color? color;
   final double size;
 
   @override
@@ -83,7 +88,10 @@ class _PulseDotState extends State<PulseDot> with SingleTickerProviderStateMixin
       child: Container(
         width: widget.size,
         height: widget.size,
-        decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+        decoration: BoxDecoration(
+          color: widget.color ?? KC.primary,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }
@@ -91,21 +99,22 @@ class _PulseDotState extends State<PulseDot> with SingleTickerProviderStateMixin
 
 /// The tracking code, wherever it appears at small size.
 class CodeChip extends StatelessWidget {
-  const CodeChip(this.code, {super.key, this.color = KC.secondary, this.size = 13});
+  const CodeChip(this.code, {super.key, this.color, this.size = 13});
 
   final String code;
-  final Color color;
+  final Color? color;
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    final tone = color ?? KC.secondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.09),
+        color: tone.withValues(alpha: 0.09),
         borderRadius: KRadius.rSm,
       ),
-      child: Text(code, style: KType.code(size: size, color: color, tracking: 1.2)),
+      child: Text(code, style: KType.code(size: size, color: tone, tracking: 1.2)),
     );
   }
 }

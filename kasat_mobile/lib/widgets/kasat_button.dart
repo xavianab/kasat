@@ -4,10 +4,13 @@ import 'package:flutter/services.dart';
 import '../theme/kasat_theme.dart';
 
 enum KButtonKind {
-  /// Blush fill. One per screen.
+  /// Primary fill. One per screen.
   primary,
 
-  /// Terracotta outline for the secondary path.
+  /// Danger fill, white text.
+  danger,
+
+  /// Outline for the secondary path.
   secondary,
 
   /// Quiet bordered button.
@@ -48,12 +51,13 @@ class KButton extends StatelessWidget {
     // its life disabled, and a washed-out blush fill still reads as "go".
     final (bg, fg, border) = _enabled
         ? switch (kind) {
-            KButtonKind.primary => (KC.primary, Colors.white, KC.primary),
-            KButtonKind.secondary => (Colors.white, KC.secondary, KC.secondary),
-            KButtonKind.soft => (KC.surface, KC.text, KC.borderStrong),
+            KButtonKind.primary => (KC.primary, KC.onPrimary, KC.primary),
+            KButtonKind.danger => (KC.urgent, Colors.white, KC.urgent),
+            KButtonKind.secondary => (KC.canvas, KC.text, KC.border),
+            KButtonKind.soft => (KC.surface, KC.text, KC.border),
             KButtonKind.ghost => (Colors.transparent, KC.muted, Colors.transparent),
           }
-        : (KC.surfaceAlt, KC.faint, KC.border);
+        : (KC.surface, KC.muted, KC.border);
 
     return Material(
       color: bg,

@@ -97,10 +97,12 @@ class _SettingsViewState extends State<SettingsView> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_rounded),
+                      icon: Icon(Icons.arrow_back_rounded),
                       color: KC.muted,
                     ),
-                    Text('Settings', style: KType.serif(size: 22)),
+                    Expanded(
+                      child: Text('Settings', style: KType.serif(size: 22)),
+                    ),
                   ],
                 ),
               ),
@@ -108,6 +110,30 @@ class _SettingsViewState extends State<SettingsView> {
                 child: ListView(
                   padding: const EdgeInsets.all(KSpace.xl),
                   children: [
+                    KPanel(
+                      title: 'Appearance',
+                      subtitle: settings.themeMode.label,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final mode in KasatThemeMode.values) ...[
+                            _ThemeOption(
+                              optionKey: Key('theme-mode-${mode.id}'),
+                              mode: mode,
+                              selected: settings.themeMode == mode,
+                              onTap: () async {
+                                await settings.setThemeMode(mode);
+                                scope.notifySettingsChanged();
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            if (mode != KasatThemeMode.dark)
+                              const SizedBox(height: KSpace.sm),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: KSpace.md),
                     KPanel(
                       title: 'Danger button appearance',
                       subtitle: settings.dangerBarMode == DangerBarMode.discreet
@@ -268,6 +294,64 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeOption extends StatelessWidget {
+  const _ThemeOption({
+    required this.optionKey,
+    required this.mode,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Key optionKey;
+  final KasatThemeMode mode;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: optionKey,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(KSpace.md),
+        decoration: BoxDecoration(
+          color: selected ? KC.primarySoft : KC.surface,
+          borderRadius: KRadius.rMd,
+          border: Border.all(color: selected ? KC.primary : KC.border),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              selected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_off_rounded,
+              size: 20,
+              color: selected ? KC.primary : KC.muted,
+            ),
+            const SizedBox(width: KSpace.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    mode.label,
+                    style: KType.sans(size: 13.5, weight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    mode.blurb,
+                    style: KType.sans(size: 12.5, color: KC.muted, height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

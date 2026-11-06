@@ -207,7 +207,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.text('Save report'));
+    await tester.tap(find.text('Save for later'));
     await tester.pump(const Duration(milliseconds: 400));
     await shoot(tester, '08-sending');
 

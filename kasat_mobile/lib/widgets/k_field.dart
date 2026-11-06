@@ -13,17 +13,32 @@ class KFieldLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final label = KType.label();
     return Padding(
       padding: const EdgeInsets.only(bottom: KSpace.sm),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(text, style: KType.label()),
-          if (optional) ...[
-            const SizedBox(width: 6),
-            Text('optional', style: KType.sans(size: 11.5, color: KC.faint)),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                text: text,
+                style: label,
+                children: [
+                  if (optional)
+                    TextSpan(
+                      text: '  optional',
+                      style: KType.sans(size: 11.5, color: KC.faint),
+                    ),
+                ],
+              ),
+              softWrap: true,
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: KSpace.sm),
+            trailing!,
           ],
-          const Spacer(),
-          ?trailing,
         ],
       ),
     );
@@ -172,7 +187,7 @@ class KSelectField extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(Icons.expand_more_rounded, size: 22, color: KC.muted),
+            Icon(Icons.expand_more_rounded, size: 22, color: KC.muted),
           ],
         ),
       ),

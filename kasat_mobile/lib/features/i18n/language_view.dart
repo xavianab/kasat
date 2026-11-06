@@ -60,7 +60,7 @@ class LanguageView extends StatelessWidget {
                         if (!lang.ready)
                           SoftBadge(i18n.t('i18n.comingSoon'), color: KC.secondary, dense: true)
                         else if (lang.code == i18n.code)
-                          const Icon(Icons.check_rounded, color: KC.primary),
+                          Icon(Icons.check_rounded, color: KC.primary),
                       ],
                     ),
                   ),

@@ -11,9 +11,13 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     companion object {
         private const val PRIVACY_CHANNEL = "app.kasat/privacy"
+        private const val DANGER_ACTION = "app.kasat.DANGER"
     }
 
+    private var openedFromDanger = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        openedFromDanger = isDangerLaunch(intent)
         super.onCreate(savedInstanceState)
         // Blank out the app switcher (Recents) task snapshot and block screenshots
         // of sensitive survivor report forms.
@@ -46,6 +50,7 @@ class MainActivity : FlutterActivity() {
                     }
                     result.success(true)
                 }
+                "launchIsDanger" -> result.success(openedFromDanger)
                 "setSecureScreen" -> {
                     val enabled = call.argument<Boolean>("enabled") ?: true
                     if (enabled) {
@@ -58,5 +63,16 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (isDangerLaunch(intent)) openedFromDanger = true
+    }
+
+    private fun isDangerLaunch(intent: Intent?): Boolean {
+        if (intent == null) return false
+        if (intent.action == DANGER_ACTION) return true
+        return intent.getBooleanExtra("kasat_danger", false)
     }
 }

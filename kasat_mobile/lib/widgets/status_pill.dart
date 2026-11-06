@@ -30,9 +30,13 @@ class StatusPill extends StatelessWidget {
               decoration: BoxDecoration(color: status.color, shape: BoxShape.circle),
             ),
           const SizedBox(width: 7),
-          Text(
-            status.label,
-            style: KType.sans(size: 12.5, weight: FontWeight.w600, color: status.color),
+          Flexible(
+            child: Text(
+              status.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: KType.sans(size: 12.5, weight: FontWeight.w600, color: status.color),
+            ),
           ),
         ],
       ),
@@ -66,10 +70,12 @@ class StatusTrack extends StatelessWidget {
                 ),
               ),
             ),
-          _Node(
-            step: steps[i],
-            reached: steps[i].step <= status.step,
-            current: steps[i] == status,
+          Expanded(
+            child: _Node(
+              step: steps[i],
+              reached: steps[i].step <= status.step,
+              current: steps[i] == status,
+            ),
           ),
         ],
       ],
@@ -87,37 +93,33 @@ class _Node extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = reached ? step.color : KC.faint;
-    return SizedBox(
-      width: 82,
-      child: Column(
-        children: [
-          Container
-            (
-            width: current ? 17 : 13,
-            height: current ? 17 : 13,
-            margin: EdgeInsets.only(top: current ? 0 : 2),
-            decoration: BoxDecoration(
-              color: reached ? color : KC.surface,
-              border: Border.all(color: reached ? color : KC.borderStrong, width: 2),
-              shape: BoxShape.circle,
-            ),
-            child: current
-                ? const Icon(Icons.circle, size: 5, color: Colors.white)
-                : null,
+    return Column(
+      children: [
+        Container(
+          width: current ? 17 : 13,
+          height: current ? 17 : 13,
+          margin: EdgeInsets.only(top: current ? 0 : 2),
+          decoration: BoxDecoration(
+            color: reached ? color : KC.surface,
+            border: Border.all(color: reached ? color : KC.borderStrong, width: 2),
+            shape: BoxShape.circle,
           ),
-          const SizedBox(height: KSpace.sm),
-          Text(
-            step.label,
-            textAlign: TextAlign.center,
-            style: KType.sans(
-              size: 11,
-              weight: current ? FontWeight.w700 : FontWeight.w500,
-              color: reached ? color : KC.faint,
-              height: 1.3,
-            ),
+          child: current
+              ? const Icon(Icons.circle, size: 5, color: Colors.white)
+              : null,
+        ),
+        const SizedBox(height: KSpace.sm),
+        Text(
+          step.label,
+          textAlign: TextAlign.center,
+          style: KType.sans(
+            size: 11,
+            weight: current ? FontWeight.w700 : FontWeight.w500,
+            color: reached ? color : KC.faint,
+            height: 1.3,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

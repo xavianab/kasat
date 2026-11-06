@@ -73,7 +73,7 @@ class HelpSomeoneView extends StatelessWidget {
                         width: 34,
                         height: 34,
                         alignment: Alignment.center,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: KC.secondarySoft,
                           shape: BoxShape.circle,
                         ),

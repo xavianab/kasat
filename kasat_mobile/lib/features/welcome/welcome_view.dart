@@ -5,6 +5,7 @@ import '../../app.dart';
 import '../../models/country.dart';
 import '../../theme/kasat_theme.dart';
 import '../../widgets/kasat_button.dart';
+import '../../widgets/kasat_mark.dart';
 import '../../widgets/panel.dart';
 import '../../widgets/soft_backdrop.dart';
 import '../../widgets/soft_badge.dart';
@@ -87,21 +88,17 @@ class WelcomeView extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Container(
-                          width: 28,
-                          height: 28,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: KC.primarySoft,
-                            borderRadius: KRadius.rSm,
-                          ),
-                          child: const Icon(
-                            Icons.spa_outlined,
+                        const KasatMark(size: 24),
+                        const SizedBox(width: KSpace.sm),
+                        Text(
+                          'Kasat',
+                          style: KType.sans(
                             size: 16,
-                            color: KC.primary,
+                            weight: FontWeight.w600,
+                            color: KC.text,
                           ),
                         ),
-                        const SizedBox(width: KSpace.xs),
+                        const SizedBox(width: KSpace.sm),
                         Expanded(
                           child: Wrap(
                             alignment: WrapAlignment.end,
@@ -218,7 +215,7 @@ class WelcomeView extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: KC.canvas.withValues(alpha: 0.98),
-                      border: const Border(
+                      border: Border(
                         top: BorderSide(color: KC.border, width: 1),
                       ),
                     ),
@@ -330,7 +327,7 @@ class _PromiseRow extends StatelessWidget {
             width: 24,
             height: 24,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: KC.secondarySoft,
               shape: BoxShape.circle,
             ),

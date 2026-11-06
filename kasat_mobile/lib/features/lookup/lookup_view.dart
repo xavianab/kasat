@@ -149,6 +149,7 @@ class LookupViewState extends State<LookupView> {
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Text(
@@ -159,13 +160,15 @@ class LookupViewState extends State<LookupView> {
             ),
             if (unlocked) ...[
               const SizedBox(width: KSpace.sm),
-              GestureDetector(
-                onTap: () => scope.lockPinSession(),
-                child: const SoftBadge(
-                  'Lock history',
-                  icon: Icons.lock_outline_rounded,
-                  color: KC.muted,
-                  dense: true,
+              Flexible(
+                child: GestureDetector(
+                  onTap: () => scope.lockPinSession(),
+                  child: SoftBadge(
+                    'Lock history',
+                    icon: Icons.lock_outline_rounded,
+                    color: KC.muted,
+                    dense: true,
+                  ),
                 ),
               ),
             ],
@@ -570,16 +573,17 @@ class _HistoryRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: KSpace.sm,
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Expanded(
-                      child: Text(
-                        event.status.label,
-                        style: KType.sans(
-                          size: 13.5,
-                          weight: FontWeight.w600,
-                          color: event.status.color,
-                        ),
+                    Text(
+                      event.status.label,
+                      style: KType.sans(
+                        size: 13.5,
+                        weight: FontWeight.w600,
+                        color: event.status.color,
                       ),
                     ),
                     Text(
@@ -1000,7 +1004,7 @@ class _NotFoundCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const KNote(
+    return KNote(
       title: 'No case with that code',
       icon: Icons.help_outline_rounded,
       color: KC.secondary,
@@ -1019,10 +1023,11 @@ class _DemoHint extends StatelessWidget {
     return KPanel(
       title: 'Example cases',
       subtitle: 'Included with this build so you can see how tracking looks.',
-      child: const Row(
+      child: const Wrap(
+        spacing: KSpace.sm,
+        runSpacing: KSpace.sm,
         children: [
           CodeChip('KST-4RT7Q'),
-          SizedBox(width: KSpace.sm),
           CodeChip('KST-9WM2K'),
         ],
       ),

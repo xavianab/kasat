@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/kasat_theme.dart';
+import '../../widgets/kasat_mark.dart';
 import '../alerts/alerts_view.dart';
 import '../lookup/lookup_view.dart';
 import '../more/more_menu.dart';
@@ -46,6 +47,7 @@ class _ShellViewState extends State<ShellView> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Scaffold(
       backgroundColor: KC.canvas,
       body: SafeArea(
@@ -65,13 +67,14 @@ class _ShellViewState extends State<ShellView> {
                 ],
               ),
             ),
-            _TabBar(
-              current: _tab,
-              onChanged: (t) {
-                HapticFeedback.selectionClick();
-                setState(() => _tab = t);
-              },
-            ),
+            if (!keyboardOpen)
+              _TabBar(
+                current: _tab,
+                onChanged: (t) {
+                  HapticFeedback.selectionClick();
+                  setState(() => _tab = t);
+                },
+              ),
           ],
         ),
       ),
@@ -93,16 +96,28 @@ class _TopBar extends StatelessWidget {
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded, size: 22),
+            icon: Icon(Icons.arrow_back_rounded, size: 22),
             color: KC.muted,
           ),
-          const SizedBox(width: KSpace.xs),
-          Text(title, style: KType.serif(size: 19)),
-          const Spacer(),
+          const KasatMark(size: 24),
+          const SizedBox(width: KSpace.sm),
+          Text(
+            'Kasat',
+            style: KType.sans(size: 16, weight: FontWeight.w600),
+          ),
+          const SizedBox(width: KSpace.sm),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: KType.sans(size: 14, color: KC.muted),
+            ),
+          ),
           IconButton(
             key: MoreMenu.buttonKey,
             onPressed: () => MoreMenu.open(context),
-            icon: const Icon(Icons.menu_rounded, size: 22),
+            icon: Icon(Icons.menu_rounded, size: 22),
             color: KC.muted,
             tooltip: 'More',
           ),
@@ -121,7 +136,7 @@ class _TabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: KC.surface,
         border: Border(top: BorderSide(color: KC.border)),
       ),

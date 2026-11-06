@@ -3,20 +3,25 @@ import 'package:flutter/material.dart';
 import '../theme/kasat_theme.dart';
 
 enum IncidentPriority {
-  low(code: 'P4', label: 'Low', color: KC.muted),
-  medium(code: 'P3', label: 'Medium', color: KC.primary),
-  high(code: 'P2', label: 'High', color: KC.secondary),
-  critical(code: 'P1', label: 'Critical', color: KC.urgent);
+  low(code: 'P4', label: 'Low'),
+  medium(code: 'P3', label: 'Medium'),
+  high(code: 'P2', label: 'High'),
+  critical(code: 'P1', label: 'Critical');
 
   const IncidentPriority({
     required this.code,
     required this.label,
-    required this.color,
   });
 
   final String code;
   final String label;
-  final Color color;
+
+  Color get color => switch (this) {
+        IncidentPriority.low => KC.muted,
+        IncidentPriority.medium => KC.primary,
+        IncidentPriority.high => KC.secondary,
+        IncidentPriority.critical => KC.urgent,
+      };
 
   static IncidentPriority fromCode(String code) {
     return IncidentPriority.values.firstWhere(

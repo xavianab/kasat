@@ -37,7 +37,7 @@ class QuietSupportBanner extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.favorite_outline_rounded, size: 20, color: KC.calm),
+                Icon(Icons.favorite_outline_rounded, size: 20, color: KC.calm),
                 const SizedBox(width: KSpace.sm),
                 Expanded(
                   child: Column(

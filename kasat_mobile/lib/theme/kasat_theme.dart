@@ -1,55 +1,99 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Kasat palette.
-///
-/// Warm, low-contrast, and deliberately unremarkable. Someone glancing over a
-/// survivor's shoulder should see a soft personal app, not a reporting tool —
-/// the discretion features elsewhere in the app only work if the surface they
-/// sit on is also unremarkable.
-abstract final class KC {
-  /// Warm cream canvas.
-  static const canvas = Color(0xFFFFFAF8);
+/// Kasat Desk tokens. Light and dark share one file.
+/// Widgets read [KC] after [KC.bind] so a theme change repaints them.
+enum KasatThemeMode {
+  system,
+  light,
+  dark;
 
-  /// Cards sit slightly lighter than the canvas.
-  static const surface = Color(0xFFFFFFFF);
+  String get id => name;
 
-  /// Panel headers and inset wells.
-  static const surfaceAlt = Color(0xFFFDF3EF);
+  String get label => switch (this) {
+        KasatThemeMode.system => 'Match phone',
+        KasatThemeMode.light => 'Light',
+        KasatThemeMode.dark => 'Dark',
+      };
 
-  static const border = Color(0xFFF0E2DC);
-  static const borderStrong = Color(0xFFE3CFC7);
+  String get blurb => switch (this) {
+        KasatThemeMode.system => 'Follows the phone’s light or dark setting.',
+        KasatThemeMode.light => 'White background.',
+        KasatThemeMode.dark => 'Dark background.',
+      };
 
-  /// Blush pink — primary actions and the app's own voice.
-  static const primary = Color(0xFFE07A9A);
-  static const primarySoft = Color(0xFFFDEFF3);
-
-  /// Terracotta — secondary emphasis, in-progress states, warm warnings.
-  static const secondary = Color(0xFFC96A3A);
-  static const secondarySoft = Color(0xFFFBEFE7);
-
-  /// Soft brown, never black.
-  static const text = Color(0xFF3D2A2A);
-  static const muted = Color(0xFF8A7472);
-  static const faint = Color(0xFFB7A3A0);
-
-  /// Muted sage for completed states. Warm-leaning so it sits with the rest.
-  static const calm = Color(0xFF7F9B72);
-  static const calmSoft = Color(0xFFF1F5EE);
-
-  /// Deep rust stands in for "urgent" — a saturated red would reintroduce the
-  /// alarm-panel feel the palette is meant to avoid.
-  static const urgent = Color(0xFFC0563F);
-  static const urgentSoft = Color(0xFFFBEDE9);
+  static KasatThemeMode fromId(String? id) => switch (id) {
+        'light' => KasatThemeMode.light,
+        'dark' => KasatThemeMode.dark,
+        _ => KasatThemeMode.system,
+      };
 }
 
-/// Nothing in Kasat has a sharp corner.
+abstract final class KC {
+  static Brightness _brightness = Brightness.light;
+
+  static void bind(Brightness brightness) => _brightness = brightness;
+
+  static bool get _dark => _brightness == Brightness.dark;
+
+  static const onPrimary = Color(0xFF1D2125);
+
+  static Color get canvas =>
+      _dark ? const Color(0xFF1D2125) : const Color(0xFFFFFFFF);
+
+  static Color get surface =>
+      _dark ? const Color(0xFF22272B) : const Color(0xFFF7F8F9);
+
+  static Color get surfaceAlt => surface;
+
+  static Color get border =>
+      _dark ? const Color(0xFF384047) : const Color(0xFFDCDFE4);
+
+  static Color get borderStrong => border;
+
+  static Color get text =>
+      _dark ? const Color(0xFFDEE4EA) : const Color(0xFF172B4D);
+
+  static Color get muted =>
+      _dark ? const Color(0xFF9FADBC) : const Color(0xFF626F86);
+
+  static Color get faint => muted;
+
+  static const primary = Color(0xFF579DFF);
+
+  /// Flat tint of the primary fill. No pink wash.
+  static Color get primarySoft => Color.alphaBlend(
+        primary.withValues(alpha: _dark ? 0.18 : 0.14),
+        surface,
+      );
+
+  static Color get secondary => text;
+
+  static Color get secondarySoft => surface;
+
+  static Color get urgent =>
+      _dark ? const Color(0xFFF87168) : const Color(0xFFC9372C);
+
+  static Color get urgentSoft => Color.alphaBlend(
+        urgent.withValues(alpha: _dark ? 0.18 : 0.12),
+        surface,
+      );
+
+  static Color get calm =>
+      _dark ? const Color(0xFF4BCE97) : const Color(0xFF216E4E);
+
+  static Color get calmSoft => Color.alphaBlend(
+        calm.withValues(alpha: _dark ? 0.18 : 0.12),
+        surface,
+      );
+}
+
 abstract final class KRadius {
-  static const sm = 12.0;
-  static const md = 16.0;
-  static const lg = 20.0;
-  static const xl = 28.0;
-  static const pill = 999.0;
+  static const sm = 6.0;
+  static const md = 8.0;
+  static const lg = 8.0;
+  static const xl = 8.0;
+  static const pill = 8.0;
 
   static const rSm = BorderRadius.all(Radius.circular(sm));
   static const rMd = BorderRadius.all(Radius.circular(md));
@@ -58,6 +102,7 @@ abstract final class KRadius {
   static const rPill = BorderRadius.all(Radius.circular(pill));
 }
 
+/// 8px spacing scale.
 abstract final class KSpace {
   static const xs = 4.0;
   static const sm = 8.0;
@@ -68,61 +113,60 @@ abstract final class KSpace {
 }
 
 abstract final class KType {
-  static const _serif = 'Georgia';
-  static const _serifFallback = <String>['Georgia', 'Palatino', 'Times New Roman', 'serif'];
-
-  /// Reserved for tracking codes. Character shapes have to be unambiguous when
-  /// a code is copied onto paper, which is the one place a proportional face
-  /// actively hurts.
+  static const _sans = 'Inter';
+  static const _sansFallback = <String>['NotoSansEthiopic', 'sans-serif'];
   static const _code = 'Menlo';
   static const _codeFallback = <String>['Menlo', 'Courier New', 'monospace'];
 
-  /// Headings. Serif carries most of the warmth in the interface.
   static TextStyle serif({
     double size = 22,
     FontWeight weight = FontWeight.w600,
-    Color color = KC.text,
+    Color? color,
     double? height,
     double tracking = -0.2,
   }) {
     return TextStyle(
-      fontFamily: _serif,
-      fontFamilyFallback: _serifFallback,
+      fontFamily: _sans,
+      fontFamilyFallback: _sansFallback,
       fontSize: size,
       fontWeight: weight,
-      color: color,
+      color: color ?? KC.text,
       height: height,
       letterSpacing: tracking,
     );
   }
 
-  /// Body copy, labels, and every piece of metadata that used to be a
-  /// monospace badge.
   static TextStyle sans({
     double size = 14,
     FontWeight weight = FontWeight.w400,
-    Color color = KC.text,
+    Color? color,
     double? height,
     double tracking = 0,
   }) {
     return TextStyle(
+      fontFamily: _sans,
+      fontFamilyFallback: _sansFallback,
       fontSize: size,
       fontWeight: weight,
-      color: color,
+      color: color ?? KC.text,
       height: height,
       letterSpacing: tracking,
     );
   }
 
-  /// Small sentence-case caption above an input or beside a value.
-  static TextStyle label({Color color = KC.muted, double size = 12}) {
-    return sans(size: size, weight: FontWeight.w600, color: color, tracking: 0.1);
+  static TextStyle label({Color? color, double size = 12}) {
+    return sans(
+      size: size,
+      weight: FontWeight.w600,
+      color: color ?? KC.muted,
+      tracking: 0.1,
+    );
   }
 
   static TextStyle code({
     double size = 14,
     FontWeight weight = FontWeight.w600,
-    Color color = KC.text,
+    Color? color,
     double tracking = 1.5,
   }) {
     return TextStyle(
@@ -130,53 +174,138 @@ abstract final class KType {
       fontFamilyFallback: _codeFallback,
       fontSize: size,
       fontWeight: weight,
-      color: color,
+      color: color ?? KC.text,
       letterSpacing: tracking,
     );
   }
 }
 
-/// Soft shadow used sparingly, on raised cards only.
+/// No decorative shadows.
 abstract final class KShadow {
-  static const card = <BoxShadow>[
-    BoxShadow(color: Color(0x0D3D2A2A), blurRadius: 16, offset: Offset(0, 4)),
-  ];
-  static const lift = <BoxShadow>[
-    BoxShadow(color: Color(0x143D2A2A), blurRadius: 28, offset: Offset(0, 8)),
-  ];
+  static const card = <BoxShadow>[];
+  static const lift = <BoxShadow>[];
 }
 
 abstract final class KasatTheme {
+  static SystemUiOverlayStyle overlayFor(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    return SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+      statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor:
+          dark ? const Color(0xFF1D2125) : const Color(0xFFFFFFFF),
+      systemNavigationBarIconBrightness:
+          dark ? Brightness.light : Brightness.dark,
+    );
+  }
+
   static const overlay = SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarBrightness: Brightness.light,
     statusBarIconBrightness: Brightness.dark,
-    systemNavigationBarColor: KC.canvas,
+    systemNavigationBarColor: Color(0xFFFFFFFF),
     systemNavigationBarIconBrightness: Brightness.dark,
   );
 
-  static ThemeData build() {
-    final base = ThemeData.light(useMaterial3: true);
-    return base.copyWith(
-      scaffoldBackgroundColor: KC.canvas,
-      canvasColor: KC.canvas,
+  static ThemeData build() => light();
+
+  static ThemeData light() => _build(Brightness.light);
+
+  static ThemeData dark() => _build(Brightness.dark);
+
+  static ThemeData _build(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    final canvas = dark ? const Color(0xFF1D2125) : const Color(0xFFFFFFFF);
+    final surface = dark ? const Color(0xFF22272B) : const Color(0xFFF7F8F9);
+    final border = dark ? const Color(0xFF384047) : const Color(0xFFDCDFE4);
+    final text = dark ? const Color(0xFFDEE4EA) : const Color(0xFF172B4D);
+    final muted = dark ? const Color(0xFF9FADBC) : const Color(0xFF626F86);
+    const primary = Color(0xFF579DFF);
+    final danger = dark ? const Color(0xFFF87168) : const Color(0xFFC9372C);
+
+    final scheme = ColorScheme(
+      brightness: brightness,
+      primary: primary,
+      onPrimary: KC.onPrimary,
+      secondary: primary,
+      onSecondary: KC.onPrimary,
+      error: danger,
+      onError: canvas,
+      surface: canvas,
+      onSurface: text,
+      surfaceContainerHighest: surface,
+      outline: border,
+      outlineVariant: border,
+    );
+
+    final base = ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: canvas,
+      canvasColor: canvas,
+      dividerColor: border,
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
-      colorScheme: const ColorScheme.light(
-        surface: KC.canvas,
-        primary: KC.primary,
-        onPrimary: Colors.white,
-        secondary: KC.secondary,
-        error: KC.urgent,
-        outline: KC.border,
+      fontFamily: KType._sans,
+      fontFamilyFallback: KType._sansFallback,
+    );
+
+    return base.copyWith(
+      textTheme: base.textTheme.apply(
+        fontFamily: KType._sans,
+        fontFamilyFallback: KType._sansFallback,
+        bodyColor: text,
+        displayColor: text,
       ),
-      textSelectionTheme: const TextSelectionThemeData(
-        cursorColor: KC.primary,
-        selectionColor: Color(0x33E07A9A),
-        selectionHandleColor: KC.primary,
+      appBarTheme: AppBarTheme(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: canvas,
+        foregroundColor: text,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: TextStyle(
+          fontFamily: KType._sans,
+          fontFamilyFallback: KType._sansFallback,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: text,
+        ),
       ),
-      dividerColor: KC.border,
-      iconTheme: const IconThemeData(color: KC.muted, size: 20),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: surface,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(KRadius.md),
+          side: BorderSide(color: border),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: KC.onPrimary,
+          elevation: 0,
+          minimumSize: const Size(64, 40),
+          shape: RoundedRectangleBorder(borderRadius: KRadius.rMd),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: text,
+          elevation: 0,
+          side: BorderSide(color: border),
+          minimumSize: const Size(64, 40),
+          shape: RoundedRectangleBorder(borderRadius: KRadius.rMd),
+        ),
+      ),
+      iconTheme: IconThemeData(color: muted, size: 24),
+      dividerTheme: DividerThemeData(color: border, thickness: 1, space: 1),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: primary,
+        selectionColor: primary.withValues(alpha: 0.28),
+        selectionHandleColor: primary,
+      ),
     );
   }
 }

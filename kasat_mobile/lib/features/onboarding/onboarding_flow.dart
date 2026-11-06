@@ -5,6 +5,7 @@ import '../../data/settings_store.dart';
 import '../../platform/app_disguise_channel.dart';
 import '../../theme/kasat_theme.dart';
 import '../../widgets/kasat_button.dart';
+import '../../widgets/kasat_mark.dart';
 import '../../widgets/panel.dart';
 import '../../widgets/soft_backdrop.dart';
 import '../lock/pin_pad.dart';
@@ -433,7 +434,7 @@ class _DisguiseStep extends StatelessWidget {
                           ),
                         ),
                         if (option == selected)
-                          const Icon(Icons.check_circle_rounded,
+                          Icon(Icons.check_circle_rounded,
                               color: KC.primary, size: 24),
                       ],
                     ),
@@ -465,7 +466,7 @@ class _IconPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (bg, fg, icon) = switch (disguise) {
-      AppDisguise.none => (KC.primarySoft, KC.primary, Icons.spa_outlined),
+      AppDisguise.none => (KC.surface, KC.primary, Icons.circle),
       AppDisguise.notes => (const Color(0xFFF7C94A), Colors.white, Icons.description),
       AppDisguise.calculator => (const Color(0xFF3A3A3E), Colors.white, Icons.calculate),
     };
@@ -475,7 +476,9 @@ class _IconPreview extends StatelessWidget {
       height: 46,
       alignment: Alignment.center,
       decoration: BoxDecoration(color: bg, borderRadius: KRadius.rSm),
-      child: Icon(icon, size: 24, color: fg),
+      child: disguise == AppDisguise.none
+          ? const KasatMark(size: 24)
+          : Icon(icon, size: 24, color: fg),
     );
   }
 }

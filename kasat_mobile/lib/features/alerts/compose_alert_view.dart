@@ -77,7 +77,7 @@ class _ComposeAlertViewState extends State<ComposeAlertView> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_rounded),
+                      icon: Icon(Icons.arrow_back_rounded),
                       color: KC.muted,
                     ),
                     Text('New notice', style: KType.serif(size: 22)),
@@ -88,7 +88,7 @@ class _ComposeAlertViewState extends State<ComposeAlertView> {
                 child: ListView(
                   padding: const EdgeInsets.all(KSpace.xl),
                   children: [
-                    const KNote(
+                    KNote(
                       title: 'This is not a chat',
                       body: 'A first look will read this for sense and for '
                           'unkindness. It cannot tell whether something really '

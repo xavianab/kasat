@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../models/approx_location.dart';
 import '../../../theme/kasat_theme.dart';
 import '../../../widgets/k_field.dart';
-import '../../../widgets/soft_badge.dart';
 
 /// Ethiopian sub-city and nearest landmark selector.
 ///
@@ -32,10 +31,12 @@ class LocationPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final menuItemHeight = 48.0 * (textScale < 1 ? 1 : textScale);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const KFieldLabel('Addis Ababa sub-city (ክፍለ ከተማ)', optional: true),
+        const KFieldLabel('Addis Ababa sub-city (ክፍለ ከተማ)'),
         Container(
           key: subCityDropdownKey,
           padding: const EdgeInsets.symmetric(horizontal: KSpace.md),
@@ -44,28 +45,30 @@ class LocationPicker extends StatelessWidget {
             borderRadius: KRadius.rMd,
             border: Border.all(
               color: selectedSubCity != null ? KC.primary : KC.border,
-              width: 1.4,
             ),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String?>(
               value: selectedSubCity,
               isExpanded: true,
+              itemHeight: menuItemHeight,
               dropdownColor: KC.surface,
               borderRadius: KRadius.rMd,
-              icon: const Icon(
+              icon: Icon(
                 Icons.keyboard_arrow_down_rounded,
                 color: KC.muted,
               ),
               hint: Text(
-                'Choose sub-city (optional)',
+                'Choose sub-city',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: KType.sans(size: 15, color: KC.faint),
               ),
               items: [
                 DropdownMenuItem<String?>(
                   value: null,
                   child: Text(
-                    'Prefer not to say / Skip sub-city',
+                    'Skip',
                     style: KType.sans(size: 14.5, color: KC.muted),
                   ),
                 ),
@@ -74,6 +77,8 @@ class LocationPicker extends StatelessWidget {
                     value: sub.nameEn,
                     child: Text(
                       sub.bilingualLabel,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: KType.sans(
                         size: 15,
                         weight: FontWeight.w500,
@@ -90,11 +95,11 @@ class LocationPicker extends StatelessWidget {
           ),
         ),
         const SizedBox(height: KSpace.lg),
-        const KFieldLabel('Nearest landmark (አቅራቢያ የሚገኝ ምልክት)', optional: true),
+        const KFieldLabel('Nearest landmark (አቅራቢያ የሚገኝ ምልክት)'),
         KTextField(
           key: landmarkFieldKey,
           controller: landmarkController,
-          hint: 'e.g., Near Bole Medhanialem Church, opposite Edna Mall',
+          hint: 'Near a church, school or shop',
           onChanged: (_) => onChanged(),
         ),
         const SizedBox(height: KSpace.md),
@@ -108,10 +113,10 @@ class LocationPicker extends StatelessWidget {
             borderRadius: KRadius.rMd,
             border: Border.all(
               color: resolved != null ? KC.primary : KC.border,
-              width: 1.2,
             ),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
                 Icons.place_outlined,
@@ -121,7 +126,8 @@ class LocationPicker extends StatelessWidget {
               const SizedBox(width: KSpace.sm),
               Expanded(
                 child: Text(
-                  resolved?.displayLabel ?? 'No location attached (optional)',
+                  resolved?.displayLabel ?? 'No location attached',
+                  softWrap: true,
                   style: resolved != null
                       ? KType.sans(
                           size: 13.5,
@@ -130,12 +136,6 @@ class LocationPicker extends StatelessWidget {
                         )
                       : KType.sans(size: 13.5, color: KC.faint),
                 ),
-              ),
-              const SoftBadge(
-                'Optional',
-                color: KC.faint,
-                dense: true,
-                size: 11.5,
               ),
             ],
           ),

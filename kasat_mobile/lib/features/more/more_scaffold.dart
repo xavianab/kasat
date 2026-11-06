@@ -30,7 +30,7 @@ class MoreScaffold extends StatelessWidget {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_rounded),
+                      icon: Icon(Icons.arrow_back_rounded),
                       color: KC.muted,
                     ),
                     Expanded(child: Text(title, style: KType.serif(size: 22))),

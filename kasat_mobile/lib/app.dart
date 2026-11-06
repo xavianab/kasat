@@ -23,6 +23,8 @@ import 'features/welcome/welcome_view.dart';
 import 'i18n/i18n.dart';
 import 'platform/app_disguise_channel.dart';
 import 'theme/kasat_theme.dart';
+import 'widgets/kasat_mark.dart';
+import 'widgets/opening_bloom.dart';
 
 class KasatScope extends InheritedWidget {
   KasatScope({
@@ -139,7 +141,7 @@ class KasatApp extends StatefulWidget {
   State<KasatApp> createState() => _KasatAppState();
 }
 
-class _KasatAppState extends State<KasatApp> {
+class _KasatAppState extends State<KasatApp> with WidgetsBindingObserver {
   static const _privacyChannel = MethodChannel('app.kasat/privacy');
 
   final _navKey = GlobalKey<NavigatorState>();
@@ -156,6 +158,7 @@ class _KasatAppState extends State<KasatApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _clearHazardousDisguiseIfSet();
   }
 
@@ -171,11 +174,26 @@ class _KasatAppState extends State<KasatApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (widget.danger == null) {
       _danger.dispose();
     }
     super.dispose();
   }
+
+  @override
+  void didChangePlatformBrightness() {
+    if (widget.settings.themeMode == KasatThemeMode.system && mounted) {
+      setState(() {});
+    }
+  }
+
+  Brightness get _brightness => switch (widget.settings.themeMode) {
+        KasatThemeMode.light => Brightness.light,
+        KasatThemeMode.dark => Brightness.dark,
+        KasatThemeMode.system =>
+          WidgetsBinding.instance.platformDispatcher.platformBrightness,
+      };
 
   void _unlockPinSession() {
     if (!_pinSessionUnlocked && mounted) {
@@ -232,6 +250,9 @@ class _KasatAppState extends State<KasatApp> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = _brightness;
+    KC.bind(brightness);
+    SystemChrome.setSystemUIOverlayStyle(KasatTheme.overlayFor(brightness));
     return KasatScope(
       repository: widget.repository,
       attachments: widget.attachments,
@@ -257,7 +278,13 @@ class _KasatAppState extends State<KasatApp> {
           title: 'Kasat',
           navigatorKey: _navKey,
           debugShowCheckedModeBanner: false,
-          theme: KasatTheme.build(),
+          theme: KasatTheme.light(),
+          darkTheme: KasatTheme.dark(),
+          themeMode: switch (widget.settings.themeMode) {
+            KasatThemeMode.light => ThemeMode.light,
+            KasatThemeMode.dark => ThemeMode.dark,
+            KasatThemeMode.system => ThemeMode.system,
+          },
           home: RootGate(
             settings: widget.settings,
             onLockSession: _lockPinSession,
@@ -376,7 +403,7 @@ class _RootGateState extends State<RootGate> with WidgetsBindingObserver {
 
     // Zero-setup launch: opens directly with no login or onboarding wall.
     // PIN protection is enforced when saving or viewing saved history/codes.
-    return WelcomeView(offline: !_online);
+    return OpeningBloom(child: WelcomeView(offline: !_online));
   }
 }
 
@@ -385,9 +412,9 @@ class _PrivacyCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: KC.canvas,
-      body: Center(child: Icon(Icons.spa_outlined, size: 34, color: KC.primary)),
+      body: const Center(child: KasatMark(size: 34)),
     );
   }
 }

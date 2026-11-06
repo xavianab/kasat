@@ -168,7 +168,7 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
                         children: [
                           IconButton(
                             onPressed: () => Navigator.of(context).pop(false),
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.close_rounded,
                               color: KC.muted,
                             ),
@@ -191,11 +191,11 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
                             width: 48,
                             height: 48,
                             alignment: Alignment.center,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: KC.primarySoft,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.lock_outline_rounded,
                               size: 22,
                               color: KC.primary,
@@ -236,7 +236,7 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.warning_amber_rounded,
                                   size: 17,
                                   color: KC.urgent,

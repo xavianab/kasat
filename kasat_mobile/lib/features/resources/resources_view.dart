@@ -42,7 +42,7 @@ class ResourcesView extends StatelessWidget {
         ),
         const SizedBox(height: KSpace.lg),
         if (code == 'ET') ...[
-          const KNote(
+          KNote(
             title: 'Prefer to speak with a GBV hotline instead of police?',
             icon: Icons.favorite_outline_rounded,
             color: KC.primary,
@@ -67,7 +67,7 @@ class ResourcesView extends StatelessWidget {
           const SizedBox(height: KSpace.md),
         ],
         if (grouped.isEmpty)
-          const KNote(
+          KNote(
             title: 'No lines for your country yet',
             icon: Icons.travel_explore_outlined,
             color: KC.secondary,
@@ -172,7 +172,7 @@ class _ContactRow extends StatelessWidget {
                             style: KType.code(size: 13, color: KC.secondary),
                           ),
                           if (!contact.verified)
-                            const SoftBadge(
+                            SoftBadge(
                               'Not confirmed yet',
                               color: KC.faint,
                               dense: true,

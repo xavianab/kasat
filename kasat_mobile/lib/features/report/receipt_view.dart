@@ -179,7 +179,7 @@ class _ReceiptViewState extends State<ReceiptView> {
                     const SizedBox(height: KSpace.xl),
                     _TrackingCard(trackingId: _incident.trackingId),
                     const SizedBox(height: KSpace.md),
-                    const KNote(
+                    KNote(
                       title: 'Step 1 — Write this tracking code down now',
                       icon: Icons.edit_note_rounded,
                       color: KC.secondary,
@@ -322,7 +322,7 @@ class _ReceiptViewState extends State<ReceiptView> {
                   KSpace.lg,
                   KSpace.sm,
                 ),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: KC.surface,
                   border: Border(top: BorderSide(color: KC.border)),
                 ),
