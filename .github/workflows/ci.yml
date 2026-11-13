@@ -16,6 +16,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
+          # Pin to the last green CI SDK. Floating `stable` jumped to 3.50.0,
+          # which marks package:flutter/material.dart deprecated (info-level
+          # deprecated_member_use) and fails `flutter analyze` on every UI file.
+          # material_ui is not available on 3.47.x, which this app targets.
+          flutter-version: "3.47.9"
           channel: stable
       - run: flutter pub get
       - run: flutter analyze
