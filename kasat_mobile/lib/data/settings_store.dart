@@ -82,6 +82,8 @@ class SettingsStore {
   static const _dangerBarModeKey = 'kasat.danger_bar_mode.v1';
   static const _themeKey = 'kasat.theme.v1';
   static const _updateNotesKey = 'kasat.update_notifications.v1';
+  static const _shakeToAlertKey = 'kasat.shake_to_alert.v1';
+  static const _shakeToAlertIntroKey = 'kasat.shake_to_alert_intro.v1';
   static const _onboardedKey = 'kasat.onboarded.v1';
   static const _introSeenKey = 'kasat.intro_seen.v1';
   static const _posterTokenKey = 'kasat.alert_poster.v1';
@@ -167,6 +169,20 @@ class SettingsStore {
 
   Future<void> setUpdateNotificationsEnabled(bool value) =>
       _prefs.setBool(_updateNotesKey, value);
+
+  /// Opt-in shake to open the I'M IN DANGER countdown. Off by default.
+  /// Stored on this device only; never synced.
+  bool get shakeToAlertEnabled => _prefs.getBool(_shakeToAlertKey) ?? false;
+
+  Future<void> setShakeToAlertEnabled(bool value) =>
+      _prefs.setBool(_shakeToAlertKey, value);
+
+  /// True after she has seen the first-time shake explanation sheet.
+  bool get shakeToAlertIntroSeen =>
+      _prefs.getBool(_shakeToAlertIntroKey) ?? false;
+
+  Future<void> markShakeToAlertIntroSeen() =>
+      _prefs.setBool(_shakeToAlertIntroKey, true);
 
   /// Clears the stored PIN hash and salt. Used only when the survivor chooses
   /// to wipe her on-device saved history after forgetting her PIN (her cases

@@ -8,6 +8,7 @@ import '../../widgets/kasat_button.dart';
 import '../../widgets/panel.dart';
 import '../../widgets/soft_backdrop.dart';
 import '../accounts/account_setup_view.dart';
+import '../duress/shake_alert_intro_sheet.dart';
 import '../lock/pin_setup_sheet.dart';
 import '../onboarding/country_picker.dart';
 
@@ -24,6 +25,7 @@ class SettingsView extends StatefulWidget {
   static const saveMyDetailsButtonKey = Key('settings-save-my-details');
   static const dangerModeVisibleKey = Key('danger-mode-visible');
   static const dangerModeDiscreetKey = Key('danger-mode-discreet');
+  static const shakeToAlertSwitchKey = Key('settings-shake-to-alert');
 
   @override
   State<SettingsView> createState() => _SettingsViewState();
@@ -197,6 +199,53 @@ class _SettingsViewState extends State<SettingsView> {
                             },
                           ),
                         ],
+                      ),
+                    ),
+                    const KRule(height: KSpace.xl),
+                    _SettingsSection(
+                      title: scope.i18n.t('settings.shakeToAlert'),
+                      subtitle: settings.shakeToAlertEnabled
+                          ? scope.i18n.t('settings.shakeToAlertOn')
+                          : scope.i18n.t('settings.shakeToAlertOff'),
+                      child: KeyedSubtree(
+                        key: SettingsView.shakeToAlertSwitchKey,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              scope.i18n.t('settings.shakeToAlert'),
+                              style:
+                                  KType.sans(size: 14, weight: FontWeight.w600),
+                            ),
+                            subtitle: Text(
+                              scope.i18n.t('settings.shakeToAlertDetail'),
+                              style: KType.sans(
+                                size: 13,
+                                color: KC.muted,
+                                height: 1.4,
+                              ),
+                            ),
+                            value: settings.shakeToAlertEnabled,
+                            onChanged: (on) async {
+                              if (on) {
+                                if (!settings.shakeToAlertIntroSeen) {
+                                  final ok =
+                                      await ShakeAlertIntroSheet.show(context);
+                                  if (!mounted) return;
+                                  if (!ok) return;
+                                  await settings.markShakeToAlertIntroSeen();
+                                }
+                                await settings.setShakeToAlertEnabled(true);
+                                scope.notifySettingsChanged();
+                              } else {
+                                await settings.setShakeToAlertEnabled(false);
+                                scope.notifySettingsChanged();
+                              }
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                        ),
                       ),
                     ),
                     const KRule(height: KSpace.xl),

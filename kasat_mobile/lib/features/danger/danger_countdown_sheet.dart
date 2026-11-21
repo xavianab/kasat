@@ -18,7 +18,17 @@ import '../../theme/kasat_theme.dart';
 /// - Silent mode dims the screen, stops vibration, skips the dialer, and still
 ///   dispatches the urgent alert + live GPS to police.
 class DangerCountdownSheet extends StatefulWidget {
-  const DangerCountdownSheet({super.key});
+  const DangerCountdownSheet({
+    super.key,
+    this.initialSilent = false,
+    this.startedByShake = false,
+  });
+
+  /// Opens already in silent mode (used by shake-to-alert).
+  final bool initialSilent;
+
+  /// Desk-facing flag: mark the resulting alert "Started by shake".
+  final bool startedByShake;
 
   static const cancelButtonKey = Key('danger-cancel-button');
   static const silentToggleKey = Key('danger-silent-toggle');
@@ -27,22 +37,39 @@ class DangerCountdownSheet extends StatefulWidget {
   static const queuedMessageKey = Key('danger-queued-message');
   static const ringKey = Key('danger-countdown-ring');
 
-  static Future<void> show(BuildContext context) {
+  static bool _visible = false;
+
+  /// Clears the in-flight guard (widget tests that tear down mid-route).
+  @visibleForTesting
+  static void debugResetVisible() => _visible = false;
+
+  static Future<void> show(
+    BuildContext context, {
+    bool initialSilent = false,
+    bool startedByShake = false,
+  }) {
+    if (_visible) return Future<void>.value();
+    _visible = true;
     HapticFeedback.heavyImpact();
-    return Navigator.of(context, rootNavigator: true).push<void>(
+    return Navigator.of(context, rootNavigator: true)
+        .push<void>(
       PageRouteBuilder<void>(
         opaque: true,
         barrierDismissible: false,
         transitionDuration: const Duration(milliseconds: 180),
         reverseTransitionDuration: const Duration(milliseconds: 140),
         pageBuilder: (context, animation, secondaryAnimation) {
-          return const DangerCountdownSheet();
+          return DangerCountdownSheet(
+            initialSilent: initialSilent,
+            startedByShake: startedByShake,
+          );
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
       ),
-    );
+    )
+        .whenComplete(() => _visible = false);
   }
 
   @override
@@ -52,7 +79,7 @@ class DangerCountdownSheet extends StatefulWidget {
 class _DangerCountdownSheetState extends State<DangerCountdownSheet>
     with SingleTickerProviderStateMixin {
   late int _secondsRemaining = KasatConfig.dangerCountdown.inSeconds;
-  bool _silent = false;
+  late bool _silent = widget.initialSilent;
   bool _firing = false;
   bool _showQueuedFallback = false;
   Timer? _timer;
@@ -61,6 +88,9 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet>
   bool _started = false;
 
   int get _totalSeconds => KasatConfig.dangerCountdown.inSeconds;
+
+  /// Shake-started silent mode still vibrates (vibration only, no dialer).
+  bool get _shouldVibrate => !_silent || widget.startedByShake;
 
   @override
   void initState() {
@@ -93,7 +123,7 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet>
           final done = _totalSeconds - _secondsRemaining;
           _ring.value = done / _totalSeconds;
         }
-        if (!_silent) {
+        if (_shouldVibrate) {
           HapticFeedback.mediumImpact();
         }
       }
@@ -109,7 +139,7 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet>
 
   void _cancel() {
     _timer?.cancel();
-    if (!_silent) {
+    if (_shouldVibrate) {
       HapticFeedback.lightImpact();
     }
     Navigator.of(context).pop();
@@ -122,11 +152,14 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet>
       _secondsRemaining = 0;
     });
     _ring.value = 1;
-    if (!_silent) {
+    if (_shouldVibrate) {
       HapticFeedback.heavyImpact();
     }
     final scope = KasatScope.of(context);
-    final incident = await scope.danger.escalateNow(silent: _silent);
+    final incident = await scope.danger.escalateNow(
+      silent: _silent,
+      startedByShake: widget.startedByShake,
+    );
     if (!mounted) return;
     if (incident.status == IncidentStatus.queued) {
       setState(() => _showQueuedFallback = true);

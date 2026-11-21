@@ -122,4 +122,20 @@ void main() {
       expect(store.biometricEnabled, isTrue);
     });
   });
+
+  group('shake to alert', () {
+    test('is off by default and stays on this device only', () async {
+      expect(store.shakeToAlertEnabled, isFalse);
+      expect(store.shakeToAlertIntroSeen, isFalse);
+
+      await store.setShakeToAlertEnabled(true);
+      await store.markShakeToAlertIntroSeen();
+
+      expect(store.shakeToAlertEnabled, isTrue);
+      expect(store.shakeToAlertIntroSeen, isTrue);
+
+      await store.setShakeToAlertEnabled(false);
+      expect(store.shakeToAlertEnabled, isFalse);
+    });
+  });
 }

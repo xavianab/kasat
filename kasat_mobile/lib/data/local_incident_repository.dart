@@ -199,6 +199,7 @@ class LocalIncidentRepository implements IncidentRepository {
     bool silentMode = false,
     bool offline = false,
     IncidentCategory? category,
+    bool startedByShake = false,
   }) async {
     final now = DateTime.now();
     final initialStatus = offline ? IncidentStatus.queued : IncidentStatus.sent;
@@ -209,9 +210,11 @@ class LocalIncidentRepository implements IncidentRepository {
     final incident = Incident(
       trackingId: trackingId,
       category: stored,
-      description:
-          'URGENT: Survivor activated the I\'M IN DANGER emergency button. '
-          'Immediate police response requested.',
+      description: startedByShake
+          ? 'URGENT: Survivor activated the I\'M IN DANGER emergency button. '
+              'Started by shake. Immediate police response requested.'
+          : 'URGENT: Survivor activated the I\'M IN DANGER emergency button. '
+              'Immediate police response requested.',
       priority: stored.defaultPriority,
       status: initialStatus,
       countryCode: countryCode,

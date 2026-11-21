@@ -134,7 +134,10 @@ class DangerController extends ChangeNotifier {
   ///    hardcoded) unless [silent] is true.
   /// 2. PORTAL: Writes the survivor's chosen category with `is_emergency=true`
   ///    and live GPS, and starts the 30-minute live location stream.
-  Future<Incident> escalateNow({bool silent = false}) async {
+  Future<Incident> escalateNow({
+    bool silent = false,
+    bool startedByShake = false,
+  }) async {
     // Coalesce repeat activations on the same handset while a danger window is
     // already active so panic-tapping never spawns duplicate alerts.
     if (isLiveLocationActive && _activeTrackingId != null) {
@@ -174,6 +177,7 @@ class DangerController extends ChangeNotifier {
         trackingId: trackingId,
         countryCode: countryCode,
         silentMode: silent,
+        startedByShake: startedByShake,
       ),
     ]);
 
@@ -217,6 +221,7 @@ class DangerController extends ChangeNotifier {
     required String trackingId,
     required String countryCode,
     required bool silentMode,
+    bool startedByShake = false,
   }) async {
     final pos = await _tryReadPosition();
     _lastLatitude = pos?.latitude;
@@ -237,6 +242,7 @@ class DangerController extends ChangeNotifier {
       silentMode: silentMode,
       offline: offline,
       category: category,
+      startedByShake: startedByShake,
     );
   }
 

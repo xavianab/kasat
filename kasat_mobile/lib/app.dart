@@ -287,13 +287,24 @@ class _KasatAppState extends State<KasatApp> with WidgetsBindingObserver {
           builder: (context, child) {
             final media = MediaQuery.of(context);
             return ShakeListener(
-              // Safety fix C: shake-to-SMS is gated off by default because
-              // vehicle/pocket motion can false-fire an SMS.
-              enabled: KasatConfig.enableShakeToSms && widget.duress.hasContact,
+              // One detector: opt-in shake-to-alert, and/or gated shake-to-SMS.
+              // Safety fix C: shake-to-SMS stays behind KASAT_ENABLE_SHAKE_SMS.
+              enabled: widget.settings.shakeToAlertEnabled ||
+                  (KasatConfig.enableShakeToSms && widget.duress.hasContact),
               onShake: () {
-                final contact = widget.duress.read();
                 final navContext = _navKey.currentContext;
-                if (contact == null || navContext == null) return;
+                if (navContext == null) return;
+                if (widget.settings.shakeToAlertEnabled) {
+                  DangerCountdownSheet.show(
+                    navContext,
+                    initialSilent: true,
+                    startedByShake: true,
+                  );
+                  return;
+                }
+                // Existing shake-to-SMS path (unchanged gate).
+                final contact = widget.duress.read();
+                if (contact == null) return;
                 DuressConfirmSheet.show(navContext, contact);
               },
               child: MediaQuery(

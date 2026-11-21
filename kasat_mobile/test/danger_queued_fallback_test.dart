@@ -30,7 +30,10 @@ class _QueuedDangerController extends DangerController {
   int dialerCalls = 0;
 
   @override
-  Future<Incident> escalateNow({bool silent = false}) async {
+  Future<Incident> escalateNow({
+    bool silent = false,
+    bool startedByShake = false,
+  }) async {
     escalateCalls++;
     lastSilent = silent;
     if (!silent) {
@@ -59,6 +62,7 @@ class _QueuedDangerController extends DangerController {
 }
 
 Future<_QueuedDangerController> _pumpApp(WidgetTester tester) async {
+  DangerCountdownSheet.debugResetVisible();
   SharedPreferences.setMockInitialValues({});
   final settings = SettingsStore();
   await settings.init();

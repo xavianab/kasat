@@ -37,6 +37,7 @@ abstract interface class IncidentRepository {
     bool silentMode = false,
     bool offline = false,
     IncidentCategory? category,
+    bool startedByShake = false,
   });
 
   /// Updates the live GPS coordinates on an active emergency report.

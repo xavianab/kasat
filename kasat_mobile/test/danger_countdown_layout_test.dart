@@ -71,6 +71,7 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    DangerCountdownSheet.debugResetVisible();
   });
 
   for (final brightness in [Brightness.light, Brightness.dark]) {

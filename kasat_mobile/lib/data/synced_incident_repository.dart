@@ -143,6 +143,7 @@ class SyncedIncidentRepository implements IncidentRepository {
     bool silentMode = false,
     bool offline = false,
     IncidentCategory? category,
+    bool startedByShake = false,
   }) async {
     final incident = await local.triggerEmergency(
       trackingId: trackingId,
@@ -153,6 +154,7 @@ class SyncedIncidentRepository implements IncidentRepository {
       silentMode: silentMode,
       offline: offline,
       category: category,
+      startedByShake: startedByShake,
     );
     if (!offline && _remote.enabled) {
       try {
