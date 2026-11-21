@@ -12,8 +12,10 @@ export const CORS_HEADERS = {
 
 export const SYSTEM_PROMPT = `You are Kasat support (automated), a calm trauma-informed first responder for survivors of gender-based violence in Ethiopia.
 You are not a human and not a police officer. Never claim to be either.
+Always speak as "we" (Kasat support), never "I". In English use we/us/our. In Amharic use እኛ forms (for example እናምንሻለን and እናመሰግናለን), never first person singular like አመሰግናለሁ.
 Reply in the same language the survivor wrote in (Amharic or English).
 Write 3 to 5 short sentences. Use plain words. Do not use dashes (no em dash, en dash, or hyphenated asides).
+When writing Amharic: always use the feminine form for the survivor, keep sentences short and natural, and do not start with እባክሽ.
 You must:
 - Tell her she is believed and it is not her fault.
 - Explain simply what happens next: a trained officer from the police team for her area will see the report, and her identity stays hidden unless she chooses.
@@ -28,7 +30,7 @@ export const FALLBACK_EN =
   "Thank you for telling us. You are believed. Your report has reached the police team for your area. If you are in danger now, call 991, or 7711 for free support.";
 
 export const FALLBACK_AM =
-  "ስለነገሩን እናመሰግናለን። እናምንዎታለን። ሪፖርትዎ የአካባቢዎ የፖሊስ ቡድን ደርሷል። አሁን አደጋ ላይ ከሆኑ 991 ይደውሉ፣ ወይም ነፃ ድጋፍ ለማግኘት 7711።";
+  "ስለነገሩን እናመሰግናለን። እናምንሻለን። ሪፖርትሽ የአካባቢሽ የፖሊስ ቡድን ደርሷል። አሁን አደጋ ላይ ከሆንሽ 991 ደውዪ፣ ወይም ነፃ ድጋፍ ለማግኘት 7711።";
 
 export function fallbackReply(sourceText: string): string {
   return looksAmharic(sourceText) ? FALLBACK_AM : FALLBACK_EN;
@@ -158,7 +160,12 @@ export async function callAnthropic(opts: {
       },
       body: JSON.stringify({
         model: opts.model,
-        max_tokens: 400,
+        // Haiku 5.5 enables adaptive thinking by default; thinking tokens
+        // count toward max_tokens. A low budget (e.g. 400) often stops after
+        // a thinking block with no text. Disable thinking for this short
+        // trauma-informed reply, and keep enough room for 3–5 sentences.
+        max_tokens: 800,
+        thinking: { type: "disabled" },
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: opts.userText }],
       }),
@@ -168,20 +175,47 @@ export async function callAnthropic(opts: {
     if (!res.ok) {
       return { text: null, error: parseAnthropicErrorBody(res.status, bodyText) };
     }
-    let decoded: { content?: Array<{ text?: string }> };
+    let decoded: {
+      content?: Array<{ type?: string; text?: string; refusal?: string }>;
+      stop_reason?: string | null;
+      model?: string;
+    };
     try {
-      decoded = JSON.parse(bodyText) as { content?: Array<{ text?: string }> };
+      decoded = JSON.parse(bodyText) as typeof decoded;
     } catch {
       return {
         text: null,
         error: { status: res.status, type: "invalid_response", message: "Anthropic returned non-JSON" },
       };
     }
-    const text = decoded.content?.[0]?.text?.trim() ?? "";
+    const blocks = Array.isArray(decoded.content) ? decoded.content : [];
+    // Prefer explicit text blocks; fall back to any block with a text field
+    // (thinking / tool_use first would make content[0].text empty).
+    const textBlock =
+      blocks.find((b) => b?.type === "text" && typeof b.text === "string") ??
+      blocks.find((b) => typeof b?.text === "string");
+    const text = textBlock?.text?.trim() ?? "";
     if (!text) {
+      const refusal = blocks.find((b) => b?.type === "refusal")?.refusal?.slice(0, 120);
+      const summary = blocks
+        .map((b) => `${b?.type ?? "unknown"}:${typeof b?.text === "string" ? b.text.length : 0}`)
+        .join(",") || "no_blocks";
       return {
         text: null,
-        error: { status: res.status, type: "empty_response", message: "Anthropic returned empty content" },
+        error: {
+          status: res.status,
+          type: refusal ? "refusal" : "empty_response",
+          message: [
+            "Anthropic returned empty content",
+            `stop=${decoded.stop_reason ?? "null"}`,
+            `model=${decoded.model ?? opts.model}`,
+            `blocks=${summary}`,
+            refusal ? `refusal=${refusal}` : null,
+          ]
+            .filter(Boolean)
+            .join("; ")
+            .slice(0, 300),
+        },
       };
     }
     // Soft-guard: drop accidental dashes the model may emit.

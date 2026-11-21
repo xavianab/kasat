@@ -63,7 +63,7 @@ Deno.test("redact keeps narrative text that is not identifying", () => {
 
 Deno.test("fallbackReply picks Amharic when Ethiopic script is present", () => {
   const am = fallbackReply("እባክዎ እርዱኝ እሱ ይደውላል");
-  if (!am.includes("እናምንዎታለን")) {
+  if (!am.includes("እናምንሻለን")) {
     throw new Error(`expected Amharic fallback, got ${am}`);
   }
   const en = fallbackReply("Please help me he keeps calling");
