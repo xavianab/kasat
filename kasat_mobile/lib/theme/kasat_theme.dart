@@ -1,86 +1,177 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Kasat Desk tokens. Light and dark share one file.
-/// Widgets read [KC] after [KC.bind] so a theme change repaints them.
+/// Appearance modes. Order matches the Settings picker.
 enum KasatThemeMode {
-  system,
+  kasat,
   light,
-  dark;
+  dark,
+  system;
 
   String get id => name;
 
   String get label => switch (this) {
-        KasatThemeMode.system => 'Match phone',
+        KasatThemeMode.kasat => 'Kasat',
         KasatThemeMode.light => 'Light',
         KasatThemeMode.dark => 'Dark',
+        KasatThemeMode.system => 'Match system',
       };
 
   String get blurb => switch (this) {
-        KasatThemeMode.system => 'Follows the phone’s light or dark setting.',
+        KasatThemeMode.kasat => 'Warm cream from the Kasat website.',
         KasatThemeMode.light => 'White background.',
         KasatThemeMode.dark => 'Dark background.',
+        KasatThemeMode.system => 'Follows the phone light or dark setting.',
       };
 
+  /// Missing value defaults to Kasat for new installs. Stored choices are kept.
   static KasatThemeMode fromId(String? id) => switch (id) {
         'light' => KasatThemeMode.light,
         'dark' => KasatThemeMode.dark,
-        _ => KasatThemeMode.system,
+        'system' => KasatThemeMode.system,
+        'kasat' => KasatThemeMode.kasat,
+        null => KasatThemeMode.kasat,
+        _ => KasatThemeMode.kasat,
       };
 }
 
+enum KasatPalette {
+  kasat,
+  light,
+  dark;
+}
+
+/// Colour tokens. Widgets read [KC] after [KC.bindMode] so a theme change
+/// repaints them. Layout, type, and spacing stay the same across palettes.
 abstract final class KC {
-  static Brightness _brightness = Brightness.light;
+  static KasatPalette _palette = KasatPalette.kasat;
 
-  static void bind(Brightness brightness) => _brightness = brightness;
+  static KasatPalette get palette => _palette;
 
-  static bool get _dark => _brightness == Brightness.dark;
+  static bool get isKasat => _palette == KasatPalette.kasat;
 
-  static const onPrimary = Color(0xFF1D2125);
+  static bool get _dark => _palette == KasatPalette.dark;
 
-  static Color get canvas =>
-      _dark ? const Color(0xFF1D2125) : const Color(0xFFFFFFFF);
+  /// Resolves the active palette from Settings + platform brightness.
+  static void bindMode(KasatThemeMode mode, Brightness platformBrightness) {
+    _palette = switch (mode) {
+      KasatThemeMode.kasat => KasatPalette.kasat,
+      KasatThemeMode.light => KasatPalette.light,
+      KasatThemeMode.dark => KasatPalette.dark,
+      KasatThemeMode.system => platformBrightness == Brightness.dark
+          ? KasatPalette.dark
+          : KasatPalette.light,
+    };
+  }
 
-  static Color get surface =>
-      _dark ? const Color(0xFF22272B) : const Color(0xFFF7F8F9);
+  /// Test helper when a raw brightness is enough (Light / Dark only).
+  static void bind(Brightness brightness) {
+    _palette =
+        brightness == Brightness.dark ? KasatPalette.dark : KasatPalette.light;
+  }
+
+  static void bindPalette(KasatPalette palette) {
+    _palette = palette;
+  }
+
+  /// Page background.
+  static Color get canvas => switch (_palette) {
+        KasatPalette.kasat => const Color(0xFFFFFAF8),
+        KasatPalette.light => const Color(0xFFFFFFFF),
+        KasatPalette.dark => const Color(0xFF1D2125),
+      };
+
+  /// Cards, sheets, inputs, tab bar, app bar.
+  static Color get surface => switch (_palette) {
+        KasatPalette.kasat => const Color(0xFFFFFFFF),
+        KasatPalette.light => const Color(0xFFF7F8F9),
+        KasatPalette.dark => const Color(0xFF22272B),
+      };
 
   static Color get surfaceAlt => surface;
 
-  static Color get border =>
-      _dark ? const Color(0xFF384047) : const Color(0xFFDCDFE4);
+  static Color get border => switch (_palette) {
+        KasatPalette.kasat => const Color(0xFFEAD6DA),
+        KasatPalette.light => const Color(0xFFDCDFE4),
+        KasatPalette.dark => const Color(0xFF384047),
+      };
 
   static Color get borderStrong => border;
 
-  static Color get text =>
-      _dark ? const Color(0xFFDEE4EA) : const Color(0xFF172B4D);
+  static Color get text => switch (_palette) {
+        KasatPalette.kasat => const Color(0xFF3D2A2A),
+        KasatPalette.light => const Color(0xFF172B4D),
+        KasatPalette.dark => const Color(0xFFDEE4EA),
+      };
 
-  static Color get muted =>
-      _dark ? const Color(0xFF9FADBC) : const Color(0xFF626F86);
+  static Color get muted => switch (_palette) {
+        KasatPalette.kasat => const Color(0xFF6B5555),
+        KasatPalette.light => const Color(0xFF626F86),
+        KasatPalette.dark => const Color(0xFF9FADBC),
+      };
 
   static Color get faint => muted;
 
-  static const primary = Color(0xFF579DFF);
+  /// Accent: links, selected tab, focus ring, toggles, progress steps.
+  static Color get primary => switch (_palette) {
+        KasatPalette.kasat => const Color(0xFFC4587C),
+        KasatPalette.light || KasatPalette.dark => const Color(0xFF579DFF),
+      };
 
-  /// Flat tint of the primary fill. No pink wash.
-  static Color get primarySoft => Color.alphaBlend(
-        primary.withValues(alpha: _dark ? 0.18 : 0.14),
-        surface,
-      );
+  /// Links on cream need a warmer, darker tone for contrast.
+  static Color get link => switch (_palette) {
+        KasatPalette.kasat => const Color(0xFFA4532A),
+        KasatPalette.light || KasatPalette.dark => primary,
+      };
+
+  /// Soft tint for selected pills, chips, and info boxes.
+  static Color get primarySoft => switch (_palette) {
+        KasatPalette.kasat => const Color(0xFFF6E4E8),
+        KasatPalette.light || KasatPalette.dark => Color.alphaBlend(
+            primary.withValues(alpha: _dark ? 0.18 : 0.14),
+            surface,
+          ),
+      };
+
+  /// Primary action button fill.
+  static Color get button => switch (_palette) {
+        KasatPalette.kasat => const Color(0xFF3D2A2A),
+        KasatPalette.light || KasatPalette.dark => const Color(0xFF579DFF),
+      };
+
+  /// Text/icon on [button].
+  static Color get onButton => switch (_palette) {
+        KasatPalette.kasat => const Color(0xFFFFFAF8),
+        KasatPalette.light || KasatPalette.dark => const Color(0xFF1D2125),
+      };
+
+  static Color get buttonPressed => switch (_palette) {
+        KasatPalette.kasat => const Color(0xFF2A1C1C),
+        KasatPalette.light || KasatPalette.dark => const Color(0xFF3D7FD9),
+      };
+
+  /// Kept for ThemeData / older call sites; same as [onButton].
+  static Color get onPrimary => onButton;
 
   static Color get secondary => text;
 
   static Color get secondarySoft => surface;
 
-  static Color get urgent =>
-      _dark ? const Color(0xFFF87168) : const Color(0xFFC9372C);
+  /// Danger stays #C9372C in light and Kasat. Dark keeps the brighter tone.
+  static Color get urgent => switch (_palette) {
+        KasatPalette.dark => const Color(0xFFF87168),
+        KasatPalette.kasat || KasatPalette.light => const Color(0xFFC9372C),
+      };
 
   static Color get urgentSoft => Color.alphaBlend(
         urgent.withValues(alpha: _dark ? 0.18 : 0.12),
         surface,
       );
 
-  static Color get calm =>
-      _dark ? const Color(0xFF4BCE97) : const Color(0xFF216E4E);
+  static Color get calm => switch (_palette) {
+        KasatPalette.dark => const Color(0xFF4BCE97),
+        KasatPalette.kasat || KasatPalette.light => const Color(0xFF216E4E),
+      };
 
   static Color get calmSoft => Color.alphaBlend(
         calm.withValues(alpha: _dark ? 0.18 : 0.12),
@@ -187,14 +278,39 @@ abstract final class KShadow {
 }
 
 abstract final class KasatTheme {
+  static SystemUiOverlayStyle overlayForMode(
+    KasatThemeMode mode,
+    Brightness platformBrightness,
+  ) {
+    final palette = switch (mode) {
+      KasatThemeMode.kasat => KasatPalette.kasat,
+      KasatThemeMode.light => KasatPalette.light,
+      KasatThemeMode.dark => KasatPalette.dark,
+      KasatThemeMode.system => platformBrightness == Brightness.dark
+          ? KasatPalette.dark
+          : KasatPalette.light,
+    };
+    return overlayForPalette(palette);
+  }
+
   static SystemUiOverlayStyle overlayFor(Brightness brightness) {
-    final dark = brightness == Brightness.dark;
+    return overlayForPalette(
+      brightness == Brightness.dark ? KasatPalette.dark : KasatPalette.light,
+    );
+  }
+
+  static SystemUiOverlayStyle overlayForPalette(KasatPalette palette) {
+    final dark = palette == KasatPalette.dark;
+    final bar = switch (palette) {
+      KasatPalette.kasat => const Color(0xFFFFFAF8),
+      KasatPalette.light => const Color(0xFFFFFFFF),
+      KasatPalette.dark => const Color(0xFF1D2125),
+    };
     return SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarBrightness: dark ? Brightness.dark : Brightness.light,
       statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
-      systemNavigationBarColor:
-          dark ? const Color(0xFF1D2125) : const Color(0xFFFFFFFF),
+      systemNavigationBarColor: bar,
       systemNavigationBarIconBrightness:
           dark ? Brightness.light : Brightness.dark,
     );
@@ -204,32 +320,40 @@ abstract final class KasatTheme {
     statusBarColor: Colors.transparent,
     statusBarBrightness: Brightness.light,
     statusBarIconBrightness: Brightness.dark,
-    systemNavigationBarColor: Color(0xFFFFFFFF),
+    systemNavigationBarColor: Color(0xFFFFFAF8),
     systemNavigationBarIconBrightness: Brightness.dark,
   );
 
-  static ThemeData build() => light();
+  static ThemeData build() => kasat();
 
-  static ThemeData light() => _build(Brightness.light);
+  static ThemeData light() => _build(KasatPalette.light);
 
-  static ThemeData dark() => _build(Brightness.dark);
+  static ThemeData dark() => _build(KasatPalette.dark);
 
-  static ThemeData _build(Brightness brightness) {
-    final dark = brightness == Brightness.dark;
-    final canvas = dark ? const Color(0xFF1D2125) : const Color(0xFFFFFFFF);
-    final surface = dark ? const Color(0xFF22272B) : const Color(0xFFF7F8F9);
-    final border = dark ? const Color(0xFF384047) : const Color(0xFFDCDFE4);
-    final text = dark ? const Color(0xFFDEE4EA) : const Color(0xFF172B4D);
-    final muted = dark ? const Color(0xFF9FADBC) : const Color(0xFF626F86);
-    const primary = Color(0xFF579DFF);
-    final danger = dark ? const Color(0xFFF87168) : const Color(0xFFC9372C);
+  static ThemeData kasat() => _build(KasatPalette.kasat);
+
+  static ThemeData _build(KasatPalette palette) {
+    final previous = KC.palette;
+    KC.bindPalette(palette);
+    final canvas = KC.canvas;
+    final surface = KC.surface;
+    final border = KC.border;
+    final text = KC.text;
+    final muted = KC.muted;
+    final accent = KC.primary;
+    final button = KC.button;
+    final onButton = KC.onButton;
+    final danger = KC.urgent;
+    final brightness =
+        palette == KasatPalette.dark ? Brightness.dark : Brightness.light;
+    KC.bindPalette(previous);
 
     final scheme = ColorScheme(
       brightness: brightness,
-      primary: primary,
-      onPrimary: KC.onPrimary,
-      secondary: primary,
-      onSecondary: KC.onPrimary,
+      primary: accent,
+      onPrimary: onButton,
+      secondary: accent,
+      onSecondary: onButton,
       error: danger,
       onError: canvas,
       surface: canvas,
@@ -283,8 +407,8 @@ abstract final class KasatTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: primary,
-          foregroundColor: KC.onPrimary,
+          backgroundColor: button,
+          foregroundColor: onButton,
           elevation: 0,
           minimumSize: const Size(64, 40),
           shape: RoundedRectangleBorder(borderRadius: KRadius.rMd),
@@ -299,12 +423,25 @@ abstract final class KasatTheme {
           shape: RoundedRectangleBorder(borderRadius: KRadius.rMd),
         ),
       ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return accent;
+          return muted;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return accent.withValues(alpha: 0.35);
+          }
+          return border;
+        }),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: accent),
       iconTheme: IconThemeData(color: muted, size: 24),
       dividerTheme: DividerThemeData(color: border, thickness: 1, space: 1),
       textSelectionTheme: TextSelectionThemeData(
-        cursorColor: primary,
-        selectionColor: primary.withValues(alpha: 0.28),
-        selectionHandleColor: primary,
+        cursorColor: accent,
+        selectionColor: accent.withValues(alpha: 0.28),
+        selectionHandleColor: accent,
       ),
     );
   }

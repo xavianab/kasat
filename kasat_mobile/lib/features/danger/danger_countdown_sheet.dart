@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,14 +9,14 @@ import '../../core/kasat_config.dart';
 import '../../models/incident_status.dart';
 import '../../theme/kasat_theme.dart';
 
-/// 5-second automatic-escalation countdown modeled on vehicle crash detection
-/// and retail panic buttons.
+/// Full-screen automatic-escalation countdown modeled on vehicle crash
+/// detection and retail panic buttons.
 ///
+/// Behaviour is unchanged from the previous sheet:
 /// - Starts immediately on tap with heavy haptic feedback.
-/// - Large high-contrast CANCEL button cancels immediately with zero side effects.
-/// - Includes a "Silent / discreet mode" toggle for when the abuser is present
-///   (dims the screen, stops vibration, skips opening the phone dialer, and
-///   silently dispatches the URGENT alert + 30-min live GPS to police).
+/// - Large CANCEL button cancels immediately with zero side effects.
+/// - Silent mode dims the screen, stops vibration, skips the dialer, and still
+///   dispatches the urgent alert + live GPS to police.
 class DangerCountdownSheet extends StatefulWidget {
   const DangerCountdownSheet({super.key});
 
@@ -24,16 +25,23 @@ class DangerCountdownSheet extends StatefulWidget {
   static const queuedDoneKey = Key('danger-queued-done');
   static const queuedCallKey = Key('danger-queued-call');
   static const queuedMessageKey = Key('danger-queued-message');
+  static const ringKey = Key('danger-countdown-ring');
 
   static Future<void> show(BuildContext context) {
     HapticFeedback.heavyImpact();
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: false,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const DangerCountdownSheet(),
+    return Navigator.of(context, rootNavigator: true).push<void>(
+      PageRouteBuilder<void>(
+        opaque: true,
+        barrierDismissible: false,
+        transitionDuration: const Duration(milliseconds: 180),
+        reverseTransitionDuration: const Duration(milliseconds: 140),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return const DangerCountdownSheet();
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
     );
   }
 
@@ -41,16 +49,39 @@ class DangerCountdownSheet extends StatefulWidget {
   State<DangerCountdownSheet> createState() => _DangerCountdownSheetState();
 }
 
-class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
+class _DangerCountdownSheetState extends State<DangerCountdownSheet>
+    with SingleTickerProviderStateMixin {
   late int _secondsRemaining = KasatConfig.dangerCountdown.inSeconds;
   bool _silent = false;
   bool _firing = false;
   bool _showQueuedFallback = false;
   Timer? _timer;
+  late final AnimationController _ring;
+  bool _reduceMotion = false;
+  bool _started = false;
+
+  int get _totalSeconds => KasatConfig.dangerCountdown.inSeconds;
 
   @override
   void initState() {
     super.initState();
+    _ring = AnimationController(
+      vsync: this,
+      duration: KasatConfig.dangerCountdown,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    _reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (_reduceMotion) {
+      _ring.value = 0;
+    } else {
+      _ring.forward();
+    }
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       if (_secondsRemaining <= 1) {
@@ -58,6 +89,10 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
         _triggerEscalation();
       } else {
         setState(() => _secondsRemaining--);
+        if (_reduceMotion) {
+          final done = _totalSeconds - _secondsRemaining;
+          _ring.value = done / _totalSeconds;
+        }
         if (!_silent) {
           HapticFeedback.mediumImpact();
         }
@@ -68,6 +103,7 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
   @override
   void dispose() {
     _timer?.cancel();
+    _ring.dispose();
     super.dispose();
   }
 
@@ -85,6 +121,7 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
       _firing = true;
       _secondsRemaining = 0;
     });
+    _ring.value = 1;
     if (!_silent) {
       HapticFeedback.heavyImpact();
     }
@@ -100,18 +137,17 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = _silent ? const Color(0xFF0E0D0D) : const Color(0xFF281113);
-    final textColor = _silent ? const Color(0xFF8C8583) : Colors.white;
     final i18n = KasatScope.of(context).i18n;
+    final canvas = KC.canvas;
+    final bg = _silent
+        ? Color.lerp(canvas, const Color(0xFF000000), 0.55)!
+        : canvas;
+    final textColor = _silent ? KC.muted : KC.text;
 
     if (_showQueuedFallback) {
       return Container(
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(KRadius.xl)),
-        ),
+        color: bg,
         child: SafeArea(
-          top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
               KSpace.xl,
@@ -120,7 +156,7 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
               KSpace.xl,
             ),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
@@ -164,8 +200,8 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF1F1617),
+                        backgroundColor: KC.text,
+                        foregroundColor: KC.canvas,
                         shape: const RoundedRectangleBorder(
                           borderRadius: KRadius.rPill,
                         ),
@@ -179,7 +215,7 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
                         style: KType.sans(
                           size: 15,
                           weight: FontWeight.w700,
-                          color: const Color(0xFF1F1617),
+                          color: KC.canvas,
                         ),
                       ),
                     ),
@@ -215,203 +251,379 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(KRadius.xl)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            KSpace.xl,
-            KSpace.xl,
-            KSpace.xl,
-            KSpace.xl,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: KSpace.md,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _silent
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : KC.urgent,
-                      borderRadius: KRadius.rPill,
-                    ),
-                    child: Text(
-                      _silent ? 'SILENT ALERT' : 'EMERGENCY ESCALATION',
-                      style: KType.sans(
-                        size: 11.5,
-                        weight: FontWeight.w700,
-                        color: textColor,
-                      ).copyWith(letterSpacing: 0.6),
-                    ),
-                  ),
-                  const SizedBox(width: KSpace.sm),
-                  Flexible(
-                    child: Text(
-                      'Line: ${KasatConfig.emergencyNumber} (placeholder)',
-                      textAlign: TextAlign.right,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: KType.code(
-                        size: 11.5,
-                        color: textColor.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: KSpace.xl),
-              Center(
-                child: Container(
-                  width: 116,
-                  height: 116,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _silent
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : KC.urgent.withValues(alpha: 0.22),
-                    border: Border.all(
-                      color: _silent
-                          ? Colors.white.withValues(alpha: 0.2)
-                          : KC.urgent,
-                      width: 3,
-                    ),
-                  ),
-                  child: Text(
-                    _firing ? '…' : '$_secondsRemaining',
-                    style: KType.serif(
-                      size: 54,
-                      weight: FontWeight.w700,
-                      color: textColor,
-                    ),
-                  ),
+    final title = _firing
+        ? i18n.t('danger.sending')
+        : _silent
+            ? i18n.t('danger.silentCountdown', {'secs': '$_secondsRemaining'})
+            : i18n.t('danger.countdown', {'secs': '$_secondsRemaining'});
+    final body = _silent
+        ? i18n.t('danger.bodySilent', {
+            'number': KasatConfig.emergencyNumber,
+          })
+        : i18n.t('danger.body', {
+            'number': KasatConfig.emergencyNumber,
+          });
+    final semantics = i18n.t('danger.semantics', {
+      'secs': '$_secondsRemaining',
+    });
+
+    return ListenableBuilder(
+      listenable: i18n,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: bg,
+          body: SafeArea(
+            child: Semantics(
+              container: true,
+              liveRegion: true,
+              label: semantics,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  KSpace.lg,
+                  KSpace.md,
+                  KSpace.lg,
+                  KSpace.lg,
                 ),
-              ),
-              const SizedBox(height: KSpace.lg),
-              Text(
-                _firing
-                    ? 'Sending urgent alert & live location…'
-                    : _silent
-                        ? 'Silent alert in $_secondsRemaining s. Screen dimmed, no phone call.'
-                        : 'Alerting police & opening dialer in $_secondsRemaining s',
-                textAlign: TextAlign.center,
-                style: KType.serif(
-                  size: 22,
-                  weight: FontWeight.w600,
-                  color: textColor,
-                  height: 1.25,
-                ),
-              ),
-              const SizedBox(height: KSpace.sm),
-              Text(
-                _silent
-                    ? 'Your live GPS location will stream silently to the police portal for ${KasatConfig.dangerLiveLocationMinutes} minutes. The phone dialer will not open.'
-                    : 'At 0, Kasat pins an URGENT alert with your live GPS to the police queue and opens the dialer pre-filled with ${KasatConfig.emergencyNumber} so you tap once to connect.',
-                textAlign: TextAlign.center,
-                style: KType.sans(
-                  size: 13.5,
-                  color: textColor.withValues(alpha: 0.78),
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: KSpace.lg),
-              GestureDetector(
-                key: DangerCountdownSheet.silentToggleKey,
-                onTap: () => setState(() => _silent = !_silent),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: KSpace.md,
-                    vertical: KSpace.md,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: _silent ? 0.06 : 0.1),
-                    borderRadius: KRadius.rMd,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.18),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _silent
-                            ? Icons.visibility_off_rounded
-                            : Icons.volume_off_outlined,
-                        color: textColor,
-                        size: 20,
-                      ),
-                      const SizedBox(width: KSpace.md),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Abuser is nearby (silent mode)',
-                              style: KType.sans(
-                                size: 14,
-                                weight: FontWeight.w600,
-                                color: textColor,
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ClipRect(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return SingleChildScrollView(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: constraints.maxHeight,
+                                ),
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 420,
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        i18n.t('danger.label'),
+                                        textAlign: TextAlign.center,
+                                        style: KType.sans(
+                                          size: 13,
+                                          weight: FontWeight.w600,
+                                          color: KC.urgent,
+                                        ),
+                                      ),
+                                      const SizedBox(height: KSpace.xl),
+                                      _CountdownRing(
+                                        key: DangerCountdownSheet.ringKey,
+                                        progress: _ring,
+                                        reduceMotion: _reduceMotion,
+                                        firing: _firing,
+                                        seconds: _secondsRemaining,
+                                        trackColor: KC.border,
+                                        progressColor: KC.urgent,
+                                        numberColor: KC.text,
+                                      ),
+                                      const SizedBox(height: KSpace.xl),
+                                      Text(
+                                        title,
+                                        textAlign: TextAlign.center,
+                                        style: KType.sans(
+                                          size: 20,
+                                          weight: FontWeight.w600,
+                                          color: KC.text,
+                                          height: 1.25,
+                                        ),
+                                      ),
+                                      const SizedBox(height: KSpace.sm),
+                                      Text(
+                                        body,
+                                        textAlign: TextAlign.center,
+                                        style: KType.sans(
+                                          size: 14,
+                                          color: KC.muted,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                      const SizedBox(height: KSpace.xl),
+                                      _SilentModeCard(
+                                        silent: _silent,
+                                        title: i18n.t('danger.silentModeTitle'),
+                                        detail: i18n.t('danger.silentModeBody'),
+                                        onChanged: (v) =>
+                                            setState(() => _silent = v),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
-                            Text(
-                              'Dims screen, stops vibration, and skips phone call while still sending live GPS to police.',
-                              style: KType.sans(
-                                size: 12,
-                                color: textColor.withValues(alpha: 0.72),
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
+                            );
+                          },
                         ),
                       ),
-                      Switch.adaptive(
-                        value: _silent,
-                        activeThumbColor: KC.calm,
-                        onChanged: (v) => setState(() => _silent = v),
+                    ),
+                    const SizedBox(height: KSpace.md),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton(
+                        key: DangerCountdownSheet.cancelButtonKey,
+                        onPressed: _firing ? null : _cancel,
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: KC.surface,
+                          foregroundColor: KC.text,
+                          disabledForegroundColor: KC.muted,
+                          side: BorderSide(color: KC.border),
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: KRadius.rMd,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: KSpace.md,
+                          ),
+                        ),
+                        child: Text(
+                          i18n.t('danger.cancel'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: KType.sans(
+                            size: 16,
+                            weight: FontWeight.w600,
+                            color: KC.text,
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: KSpace.xl),
-              SizedBox(
-                height: 62,
-                child: ElevatedButton.icon(
-                  key: DangerCountdownSheet.cancelButtonKey,
-                  onPressed: _firing ? null : _cancel,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF1F1617),
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: KRadius.rPill,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SilentModeCard extends StatelessWidget {
+  const _SilentModeCard({
+    required this.silent,
+    required this.title,
+    required this.detail,
+    required this.onChanged,
+  });
+
+  final bool silent;
+  final String title;
+  final String detail;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: KC.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: KRadius.rMd,
+        side: BorderSide(color: KC.border),
+      ),
+      child: InkWell(
+        key: DangerCountdownSheet.silentToggleKey,
+        onTap: () => onChanged(!silent),
+        borderRadius: KRadius.rMd,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            KSpace.md,
+            KSpace.md,
+            KSpace.sm,
+            KSpace.md,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: KType.sans(
+                        size: 14,
+                        weight: FontWeight.w600,
+                        color: KC.text,
+                        height: 1.3,
+                      ),
                     ),
-                    elevation: 0,
-                  ),
-                  icon: const Icon(Icons.close_rounded, size: 24),
-                  label: Text(
-                    'CANCEL. I AM SAFE',
-                    style: KType.sans(
-                      size: 16,
-                      weight: FontWeight.w700,
-                      color: const Color(0xFF1F1617),
-                    ).copyWith(letterSpacing: 0.4),
-                  ),
+                    const SizedBox(height: 4),
+                    Text(
+                      detail,
+                      style: KType.sans(
+                        size: 12.5,
+                        color: KC.muted,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: KSpace.sm),
+              Switch.adaptive(
+                value: silent,
+                activeThumbColor: KC.calm,
+                onChanged: onChanged,
               ),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _CountdownRing extends StatelessWidget {
+  const _CountdownRing({
+    super.key,
+    required this.progress,
+    required this.reduceMotion,
+    required this.firing,
+    required this.seconds,
+    required this.trackColor,
+    required this.progressColor,
+    required this.numberColor,
+  });
+
+  final Animation<double> progress;
+  final bool reduceMotion;
+  final bool firing;
+  final int seconds;
+  final Color trackColor;
+  final Color progressColor;
+  final Color numberColor;
+
+  static const _size = 220.0;
+  static const _stroke = 12.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: progress,
+              builder: (context, _) {
+                return CustomPaint(
+                  size: const Size.square(_size),
+                  painter: _CountdownRingPainter(
+                    progress: firing ? 1 : progress.value,
+                    trackColor: trackColor,
+                    progressColor: progressColor,
+                    strokeWidth: _stroke,
+                    filled: firing,
+                  ),
+                );
+              },
+            ),
+          ),
+          if (firing)
+            const Icon(
+              Icons.phone_rounded,
+              size: 64,
+              color: Colors.white,
+            )
+          else
+            AnimatedSwitcher(
+              duration: reduceMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 150),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.88, end: 1).animate(
+                      animation,
+                    ),
+                    child: child,
+                  ),
+                );
+              },
+              child: Text(
+                '$seconds',
+                key: ValueKey<int>(seconds),
+                style: KType.sans(
+                  size: 88,
+                  weight: FontWeight.w700,
+                  color: numberColor,
+                  height: 1,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CountdownRingPainter extends CustomPainter {
+  _CountdownRingPainter({
+    required this.progress,
+    required this.trackColor,
+    required this.progressColor,
+    required this.strokeWidth,
+    required this.filled,
+  });
+
+  final double progress;
+  final Color trackColor;
+  final Color progressColor;
+  final double strokeWidth;
+  final bool filled;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (math.min(size.width, size.height) - strokeWidth) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    if (filled) {
+      canvas.drawCircle(
+        center,
+        radius + strokeWidth / 2,
+        Paint()
+          ..color = progressColor
+          ..style = PaintingStyle.fill
+          ..isAntiAlias = true,
+      );
+      return;
+    }
+
+    final track = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+    canvas.drawCircle(center, radius, track);
+
+    final sweep = (progress.clamp(0.0, 1.0)) * math.pi * 2;
+    if (sweep <= 0) return;
+
+    final arc = Paint()
+      ..color = progressColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+    canvas.drawArc(rect, -math.pi / 2, sweep, false, arc);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CountdownRingPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.progressColor != progressColor ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.filled != filled;
   }
 }

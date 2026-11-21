@@ -562,7 +562,7 @@ void main() {
     await tester.longPress(find.byKey(PersistentSafetyBar.dangerButtonKey));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('EMERGENCY ESCALATION'), findsOneWidget);
+    expect(find.text('Emergency'), findsOneWidget);
 
     await tester.tap(find.byKey(DangerCountdownSheet.cancelButtonKey));
     await tester.pump();

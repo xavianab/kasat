@@ -114,7 +114,7 @@ class _TransmitDialogState extends State<_TransmitDialog> {
                             ? Icon(Icons.check_circle_rounded,
                                 size: 18, color: KC.calm)
                             : i == _step
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 15,
                                     height: 15,
                                     child: CircularProgressIndicator(

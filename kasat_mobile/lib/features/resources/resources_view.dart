@@ -62,8 +62,8 @@ class ResourcesView extends StatelessWidget {
             title: 'These numbers are not confirmed yet',
             icon: Icons.info_outline_rounded,
             color: KC.secondary,
-            body: '$unverified of the lines below are placeholders while they '
-                'are verified for ${country?.name ?? 'your country'}. This '
+            body: '$unverified of the lines below are not confirmed yet for '
+                '${country?.name ?? 'your country'}. This '
                 'app will not dial an unconfirmed number. If you are in danger '
                 'now, use a number you know.',
           ),

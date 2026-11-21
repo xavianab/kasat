@@ -161,7 +161,7 @@ class _TopBar extends StatelessWidget {
               child: SoftBadge(
                 i18n.t('welcome.langToggle'),
                 icon: Icons.translate_rounded,
-                color: KC.primary,
+                color: KC.link,
                 size: 11,
                 dense: true,
               ),

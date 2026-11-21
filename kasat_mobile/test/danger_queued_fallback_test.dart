@@ -103,7 +103,9 @@ void main() {
     await tester.tap(find.byKey(PersistentSafetyBar.dangerButtonKey));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('EMERGENCY ESCALATION'), findsOneWidget);
+    expect(find.text('Emergency'), findsOneWidget);
+    expect(find.textContaining('Alerting police in'), findsOneWidget);
+    expect(find.byKey(DangerCountdownSheet.ringKey), findsOneWidget);
 
     await tester.pump(KasatConfig.dangerCountdown);
     await tester.pump();
@@ -126,9 +128,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    await tester.tap(find.byKey(DangerCountdownSheet.silentToggleKey));
+    final silent = find.byKey(DangerCountdownSheet.silentToggleKey);
+    await tester.ensureVisible(silent);
     await tester.pump();
-    expect(find.text('SILENT ALERT'), findsOneWidget);
+    await tester.tap(silent);
+    await tester.pump();
+    expect(find.textContaining('Silent alert in'), findsOneWidget);
 
     await tester.pump(KasatConfig.dangerCountdown);
     await tester.pump();

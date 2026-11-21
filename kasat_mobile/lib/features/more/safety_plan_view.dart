@@ -105,8 +105,8 @@ class _SafetyPlanViewState extends State<SafetyPlanView> {
         ),
         const SizedBox(height: KSpace.lg),
         if (!_ready)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: KSpace.xxl),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: KSpace.xxl),
             child: Center(child: CircularProgressIndicator(color: KC.primary)),
           )
         else ...[
@@ -198,10 +198,10 @@ class _PromptRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: checked
-                  ? const Icon(
+                  ? Icon(
                       Icons.check_rounded,
                       size: 16,
-                      color: KC.onPrimary,
+                      color: KC.onButton,
                     )
                   : null,
             ),

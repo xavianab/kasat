@@ -183,12 +183,8 @@ class _KasatAppState extends State<KasatApp> with WidgetsBindingObserver {
     }
   }
 
-  Brightness get _brightness => switch (widget.settings.themeMode) {
-        KasatThemeMode.light => Brightness.light,
-        KasatThemeMode.dark => Brightness.dark,
-        KasatThemeMode.system =>
-          WidgetsBinding.instance.platformDispatcher.platformBrightness,
-      };
+  Brightness get _platformBrightness =>
+      WidgetsBinding.instance.platformDispatcher.platformBrightness;
 
   void _unlockPinSession() {
     if (!_pinSessionUnlocked && mounted) {
@@ -245,9 +241,12 @@ class _KasatAppState extends State<KasatApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = _brightness;
-    KC.bind(brightness);
-    SystemChrome.setSystemUIOverlayStyle(KasatTheme.overlayFor(brightness));
+    final mode = widget.settings.themeMode;
+    final platformBrightness = _platformBrightness;
+    KC.bindMode(mode, platformBrightness);
+    SystemChrome.setSystemUIOverlayStyle(
+      KasatTheme.overlayForMode(mode, platformBrightness),
+    );
     return KasatScope(
       repository: widget.repository,
       attachments: widget.attachments,
@@ -272,10 +271,12 @@ class _KasatAppState extends State<KasatApp> with WidgetsBindingObserver {
           title: 'Kasat',
           navigatorKey: _navKey,
           debugShowCheckedModeBanner: false,
-          theme: KasatTheme.light(),
+          theme: mode == KasatThemeMode.kasat
+              ? KasatTheme.kasat()
+              : KasatTheme.light(),
           darkTheme: KasatTheme.dark(),
-          themeMode: switch (widget.settings.themeMode) {
-            KasatThemeMode.light => ThemeMode.light,
+          themeMode: switch (mode) {
+            KasatThemeMode.kasat || KasatThemeMode.light => ThemeMode.light,
             KasatThemeMode.dark => ThemeMode.dark,
             KasatThemeMode.system => ThemeMode.system,
           },
@@ -312,7 +313,21 @@ class _KasatAppState extends State<KasatApp> with WidgetsBindingObserver {
                       },
                       onQuickExitPressed: _triggerQuickExit,
                     ),
-                    Expanded(child: child!),
+                    // Safety bar already applied the top safe-area inset.
+                    // Zero it for routes below so headers sit flush under the
+                    // bar without a second notch gap (iOS and Android).
+                    Expanded(
+                      child: MediaQuery(
+                        data: media.copyWith(
+                          padding: media.padding.copyWith(top: 0),
+                          viewPadding: media.viewPadding.copyWith(top: 0),
+                          textScaler: TextScaler.linear(
+                            media.textScaler.scale(1).clamp(0.9, 1.3),
+                          ),
+                        ),
+                        child: child!,
+                      ),
+                    ),
                   ],
                 ),
               ),

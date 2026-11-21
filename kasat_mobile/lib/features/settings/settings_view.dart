@@ -12,7 +12,7 @@ import '../lock/pin_setup_sheet.dart';
 import '../onboarding/country_picker.dart';
 
 /// Settings screen:
-/// 1. Appearance (Match phone / Light / Dark).
+/// 1. Appearance (Kasat / Light / Dark / Match system).
 /// 2. Danger button visibility toggle (Full visible bar vs Discreet mode).
 /// 3. Update notifications.
 /// 4. Optional "Save my details" encrypted on-device profile (never synced).
@@ -131,9 +131,18 @@ class _SettingsViewState extends State<SettingsView> {
                                 if (mounted) setState(() {});
                               },
                             ),
-                            if (mode != KasatThemeMode.dark)
+                            if (mode != KasatThemeMode.values.last)
                               const SizedBox(height: KSpace.sm),
                           ],
+                          const SizedBox(height: KSpace.md),
+                          Text(
+                            scope.i18n.t('settings.themeHint'),
+                            style: KType.sans(
+                              size: 13,
+                              color: KC.muted,
+                              height: 1.4,
+                            ),
+                          ),
                         ],
                       ),
                     ),

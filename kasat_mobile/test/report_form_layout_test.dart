@@ -373,7 +373,8 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(find.text('Appearance'), findsOneWidget);
-        expect(find.text('Match phone'), findsWidgets);
+        expect(find.text('Kasat'), findsWidgets);
+        expect(find.text('Match system'), findsWidgets);
         expect(find.text('Light'), findsWidgets);
         expect(find.text('Dark'), findsWidgets);
 

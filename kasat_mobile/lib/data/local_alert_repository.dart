@@ -18,8 +18,9 @@ class LocalAlertRepository implements AlertRepository {
             AnthropicAlertReviewer(callerIdProvider: callerIdProvider),
         _callerIdProvider = callerIdProvider;
 
-  static const _alertsKey = 'kasat.alerts.v1';
-  static const _tipsKey = 'kasat.alert_tips.v1';
+  // v2 drops invented missing-person / neighbourhood seed notices.
+  static const _alertsKey = 'kasat.alerts.v2';
+  static const _tipsKey = 'kasat.alert_tips.v2';
 
   final AlertReviewer _reviewer;
   final String Function()? _callerIdProvider;
@@ -170,59 +171,48 @@ class LocalAlertRepository implements AlertRepository {
     final now = DateTime.now();
     void put(CommunityAlert alert) => _alerts[alert.id] = alert;
 
-    put(
-      CommunityAlert(
-        id: 'ALT-4M7KQ',
-        kind: AlertKind.missingPerson,
-        title: 'Have you seen Tigist, 16?',
-        body:
-            'Last seen near the Merkato bus park on Monday afternoon, wearing a '
-            'green school sweater. Family is asking neighbours to look, not to '
-            'approach. Call the posted line if you recognise her.',
-        countryCode: 'ET',
-        postedAt: now.subtract(const Duration(hours: 11)),
-        expiresAt: now.add(const Duration(days: 13)),
-        visibility: AlertVisibility.live,
-        verifiedSource: true,
-        posterToken: 'SEED-ET',
-        seenCount: 14,
-        reviewNote: 'Seeded. Passed first-pass review.',
+    // General safety tips only. No invented missing-person or neighbourhood notices.
+    // Home renders these via i18n so Amharic swaps with the language toggle;
+    // the seed keeps the alerts feed and repository tests non-empty.
+    const tips = <(String, String, String)>[
+      (
+        'ALT-TIP01',
+        'Use Quick exit',
+        'If someone comes near, tap Quick exit at the top. Kasat closes straight away.',
       ),
-    );
-    put(
-      CommunityAlert(
-        id: 'ALT-9WP2H',
-        kind: AlertKind.safetyNotice,
-        title: 'Street lights out on the north road',
-        body:
-            'The stretch past the clinic has been dark for three nights. Walk '
-            'in pairs if you can, and use the inner path until it is repaired.',
-        countryCode: 'ET',
-        postedAt: now.subtract(const Duration(days: 2)),
-        expiresAt: now.add(const Duration(days: 12)),
-        visibility: AlertVisibility.live,
-        verifiedSource: true,
-        posterToken: 'SEED-ET',
-        seenCount: 31,
+      (
+        'ALT-TIP02',
+        'Keep your code safe',
+        'Your case code is the only way back to your report. Write it somewhere only you will find it.',
       ),
-    );
-    put(
-      CommunityAlert(
-        id: 'ALT-2C8NR',
-        kind: AlertKind.communityWatch,
-        title: 'Evening walk group, Capitol Hill',
-        body:
-            'Neighbours are meeting at 7 at the library steps if anyone wants '
-            'company walking home after dusk this week.',
-        countryCode: 'US',
-        postedAt: now.subtract(const Duration(hours: 6)),
-        expiresAt: now.add(const Duration(days: 13)),
-        visibility: AlertVisibility.live,
-        verifiedSource: true,
-        posterToken: 'SEED-US',
-        seenCount: 8,
+      (
+        'ALT-TIP03',
+        'You can save a draft',
+        'Not ready to send? Save your report on your phone and decide later.',
       ),
-    );
+    ];
+
+    for (final country in const ['ET', 'US']) {
+      for (var i = 0; i < tips.length; i++) {
+        final tip = tips[i];
+        put(
+          CommunityAlert(
+            id: '${tip.$1}-$country',
+            kind: AlertKind.safetyNotice,
+            title: tip.$2,
+            body: tip.$3,
+            countryCode: country,
+            postedAt: now.subtract(Duration(hours: 3 + i)),
+            expiresAt: now.add(const Duration(days: 3650)),
+            visibility: AlertVisibility.live,
+            verifiedSource: true,
+            posterToken: 'SEED-$country',
+            seenCount: 0,
+            reviewNote: 'Seeded safety tip.',
+          ),
+        );
+      }
+    }
     await _persist();
   }
 

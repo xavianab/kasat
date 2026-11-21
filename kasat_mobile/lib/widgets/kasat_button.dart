@@ -51,7 +51,7 @@ class KButton extends StatelessWidget {
     // its life disabled, and a washed-out blush fill still reads as "go".
     final (bg, fg, border) = _enabled
         ? switch (kind) {
-            KButtonKind.primary => (KC.primary, KC.onPrimary, KC.primary),
+            KButtonKind.primary => (KC.button, KC.onButton, KC.button),
             KButtonKind.danger => (KC.urgent, Colors.white, KC.urgent),
             KButtonKind.secondary => (KC.canvas, KC.text, KC.border),
             KButtonKind.soft => (KC.surface, KC.text, KC.border),
@@ -64,6 +64,12 @@ class KButton extends StatelessWidget {
       borderRadius: KRadius.rMd,
       child: InkWell(
         borderRadius: KRadius.rMd,
+        splashColor: kind == KButtonKind.primary
+            ? KC.buttonPressed.withValues(alpha: 0.35)
+            : null,
+        highlightColor: kind == KButtonKind.primary
+            ? KC.buttonPressed.withValues(alpha: 0.22)
+            : null,
         onTap: _enabled
             ? () {
                 HapticFeedback.selectionClick();

@@ -758,6 +758,7 @@ export function DeskProvider({
     const known = new Set(incidentsRef.current.map((item) => item.trackingId));
     let stopped = false;
     let timer: number | null = null;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
     const pull = async (markReadId: string | null) => {
       try {
@@ -793,42 +794,71 @@ export function DeskProvider({
       if (timer != null) window.clearInterval(timer);
       timer = null;
     };
-    const startPoll = () => {
+    const startPoll = (everyMs = 5000) => {
       if (timer != null) return;
       void pull(null);
       timer = window.setInterval(() => {
         void pull(null);
-      }, 30000);
+      }, everyMs);
     };
 
-    const channel = supabase
-      .channel(`desk-station-${stationId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "report_queue_events", filter: `station_id=eq.${stationId}` },
-        (payload) => {
-          const row = (payload.new ?? {}) as Record<string, unknown>;
-          const trackingId = String(row.tracking_code ?? "");
-          const dispatchStatus = typeof row.dispatch_status === "string" ? row.dispatch_status : "";
-          const markRead =
-            trackingId.startsWith("KST-") && dispatchStatus !== "" && dispatchStatus !== "new" ? trackingId : null;
-          void pull(markRead);
-        },
-      )
-      .subscribe((status) => {
-        if (stopped) return;
-        if (status === "SUBSCRIBED") {
-          setLivePaused(false);
-          stopPoll();
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          setLivePaused(true);
-          startPoll();
-        }
-      });
+    // Poll until realtime confirms SUBSCRIBED. Otherwise a hung join leaves
+    // the desk silent until a full page refresh.
+    startPoll(5000);
+
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (stopped) return;
+      if (session?.access_token) {
+        await supabase.realtime.setAuth(session.access_token);
+      }
+
+      channel = supabase
+        .channel(`desk-station-${stationId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "report_queue_events",
+            filter: `station_id=eq.${stationId}`,
+          },
+          (payload) => {
+            const row = (payload.new ?? {}) as Record<string, unknown>;
+            console.log("[kasat desk] report_queue_events", payload.eventType, {
+              tracking_code: row.tracking_code,
+              dispatch_status: row.dispatch_status,
+              is_emergency: row.is_emergency,
+            });
+            const trackingId = String(row.tracking_code ?? "");
+            const dispatchStatus = typeof row.dispatch_status === "string" ? row.dispatch_status : "";
+            const markRead =
+              trackingId.startsWith("KST-") && dispatchStatus !== "" && dispatchStatus !== "new"
+                ? trackingId
+                : null;
+            void pull(markRead);
+          },
+        )
+        .subscribe((status, err) => {
+          console.log("[kasat desk] realtime status", status, err ?? "");
+          if (stopped) return;
+          if (status === "SUBSCRIBED") {
+            setLivePaused(false);
+            stopPoll();
+            void pull(null);
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            setLivePaused(true);
+            startPoll(5000);
+          }
+        });
+    })();
+
     return () => {
       stopped = true;
       stopPoll();
-      void supabase.removeChannel(channel);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [ready, live, stationId]);
 

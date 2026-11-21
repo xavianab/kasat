@@ -154,7 +154,7 @@ class SettingsStore {
   Future<void> setDangerBarMode(DangerBarMode mode) =>
       _prefs.setString(_dangerBarModeKey, mode.id);
 
-  /// Light, dark, or match the phone. Missing value is match phone.
+  /// Kasat, light, dark, or match system. Missing value is Kasat.
   KasatThemeMode get themeMode =>
       KasatThemeMode.fromId(_prefs.getString(_themeKey));
 
