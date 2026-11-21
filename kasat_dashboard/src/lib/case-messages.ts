@@ -2,7 +2,7 @@ import { getSupabaseBrowserClient, isSupabaseConfigured } from "./supabase";
 
 export type ListedCaseMessage = {
   id: string;
-  sender: "officer" | "survivor";
+  sender: "officer" | "survivor" | "automated";
   body: string;
   created_at: string;
   officer_name: string | null;

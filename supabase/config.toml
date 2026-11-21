@@ -36,5 +36,8 @@ verify_jwt = true
 [functions.ai-proxy]
 verify_jwt = true
 
+[functions.first-responder]
+verify_jwt = false
+
 [realtime]
 enabled = true

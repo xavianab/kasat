@@ -734,17 +734,24 @@ function ReplyList({
   replies: { id: string; actor: string; at: string; body: string; sender: string }[];
   empty: string;
 }) {
+  const { t } = useI18n();
   if (replies.length === 0) return <p className="text-sm text-muted">{empty}</p>;
   return (
     <ul className="mt-2 grid gap-2 text-sm">
-      {replies.map((item) => (
-        <li key={item.id} className="rounded-[6px] border border-border p-2">
-          <p>{item.body}</p>
-          <p className="mt-1 text-xs text-muted">
-            {item.actor} · <RelativeTime iso={item.at} />
-          </p>
-        </li>
-      ))}
+      {replies.map((item) => {
+        const automated = item.sender === "automated";
+        return (
+          <li key={item.id} className="rounded-[6px] border border-border p-2">
+            {automated ? (
+              <p className="mb-1 text-xs font-medium text-muted">{t("automatedSupportReply")}</p>
+            ) : null}
+            <p>{item.body}</p>
+            <p className="mt-1 text-xs text-muted">
+              {automated ? t("automatedSupportActor") : item.actor} · <RelativeTime iso={item.at} />
+            </p>
+          </li>
+        );
+      })}
     </ul>
   );
 }

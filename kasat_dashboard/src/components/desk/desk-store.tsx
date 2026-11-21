@@ -61,7 +61,7 @@ export type DeskReply = {
   trackingId: string;
   at: string;
   actor: string;
-  sender: "officer" | "survivor";
+  sender: "officer" | "survivor" | "automated";
   body: string;
 };
 
@@ -172,8 +172,11 @@ function repliesFromServer(trackingId: string, rows: ListedCaseMessage[]): DeskR
     id: row.id,
     trackingId,
     at: row.created_at,
-    actor: row.officer_name ?? (row.sender === "survivor" ? "Survivor" : "Officer"),
-    sender: row.sender,
+    actor:
+      row.sender === "automated"
+        ? row.officer_name ?? "Kasat support (automated)"
+        : row.officer_name ?? (row.sender === "survivor" ? "Survivor" : "Officer"),
+    sender: row.sender as DeskReply["sender"],
     body: row.body,
   }));
 }

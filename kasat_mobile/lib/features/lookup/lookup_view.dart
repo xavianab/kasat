@@ -1009,9 +1009,20 @@ class _CaseRepliesThreadState extends State<_CaseRepliesThread>
         else
           for (final row in _rows) ...[
             Text(
-              row.sender == 'survivor' ? 'You' : 'Officer',
+              row.sender == 'survivor'
+                  ? 'You'
+                  : row.sender == 'automated'
+                      ? 'Kasat support (automated)'
+                      : 'Officer',
               style: KType.sans(size: 12.5, weight: FontWeight.w600),
             ),
+            if (row.sender == 'automated') ...[
+              const SizedBox(height: 2),
+              Text(
+                'Automated support reply',
+                style: KType.sans(size: 11.5, color: KC.muted),
+              ),
+            ],
             const SizedBox(height: 2),
             Text(row.body, style: KType.sans(size: 13.5, height: 1.45)),
             Text(
