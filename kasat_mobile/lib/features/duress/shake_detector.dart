@@ -4,14 +4,15 @@
 /// `userAccelerometerEventStream`), in m/s².
 class ShakeDetector {
   ShakeDetector({
-    this.peakThresholdG = 2.7,
-    this.resetThresholdG = 1.0,
+    this.peakThresholdG = 1.8,
+    this.resetThresholdG = 0.7,
     this.window = const Duration(seconds: 2),
     this.peaksRequired = 3,
     this.cooldown = const Duration(seconds: 30),
     this.gravityMs2 = 9.80665,
   });
 
+  /// Peak must exceed this many g (net of gravity) to count.
   final double peakThresholdG;
   final double resetThresholdG;
   final Duration window;

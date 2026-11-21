@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -17,6 +18,10 @@ class ShakeAlertIntroSheet extends StatefulWidget {
   static const turnOnKey = Key('shake-alert-turn-on');
   static const cancelKey = Key('shake-alert-intro-cancel');
   static const detectedKey = Key('shake-alert-detected');
+  static const peakMeterKey = Key('shake-alert-peak-meter');
+
+  /// Live g meter is for debug / profile / test builds only, never release.
+  static bool get showPeakMeter => !kReleaseMode;
 
   static Future<bool> show(BuildContext context) async {
     final result = await showModalBottomSheet<bool>(
@@ -39,11 +44,34 @@ class _ShakeAlertIntroSheetState extends State<ShakeAlertIntroSheet> {
   bool _practicing = false;
   bool _detected = false;
   final _practiceDetector = ShakeDetector()..resetAll();
+  double _liveG = 0;
+  double _peakG = 0;
+  DateTime? _lastMeterUi;
+
+  void _onMagnitude(double magMs2) {
+    if (!ShakeAlertIntroSheet.showPeakMeter) return;
+    final g = magMs2 / _practiceDetector.gravityMs2;
+    final now = DateTime.now();
+    final peak = g > _peakG ? g : _peakG;
+    // Throttle UI so the sheet stays readable while sampling at game rate.
+    if (_lastMeterUi != null &&
+        now.difference(_lastMeterUi!) < const Duration(milliseconds: 80) &&
+        peak == _peakG) {
+      return;
+    }
+    _lastMeterUi = now;
+    if (!mounted) return;
+    setState(() {
+      _liveG = g;
+      _peakG = peak;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final i18n = KasatScope.of(context).i18n;
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final threshold = _practiceDetector.peakThresholdG;
 
     Widget body = Padding(
       key: ShakeAlertIntroSheet.sheetKey,
@@ -92,6 +120,17 @@ class _ShakeAlertIntroSheetState extends State<ShakeAlertIntroSheet> {
                   color: _detected ? KC.urgent : KC.text,
                 ),
               ),
+              if (ShakeAlertIntroSheet.showPeakMeter) ...[
+                const SizedBox(height: KSpace.sm),
+                Text(
+                  'Live ${_liveG.toStringAsFixed(2)} g   '
+                  'Peak ${_peakG.toStringAsFixed(2)} g   '
+                  'Need ${threshold.toStringAsFixed(1)} g x3',
+                  key: ShakeAlertIntroSheet.peakMeterKey,
+                  textAlign: TextAlign.center,
+                  style: KType.sans(size: 13, color: KC.muted, height: 1.35),
+                ),
+              ],
               const SizedBox(height: KSpace.md),
             ],
             KButton(
@@ -104,6 +143,8 @@ class _ShakeAlertIntroSheetState extends State<ShakeAlertIntroSheet> {
                 setState(() {
                   _practicing = true;
                   _detected = false;
+                  _liveG = 0;
+                  _peakG = 0;
                 });
                 _practiceDetector.resetAll();
               },
@@ -134,6 +175,7 @@ class _ShakeAlertIntroSheetState extends State<ShakeAlertIntroSheet> {
       body = ShakeListener(
         enabled: true,
         detector: _practiceDetector,
+        onMagnitude: _onMagnitude,
         onShake: () {
           HapticFeedback.mediumImpact();
           if (!mounted) return;

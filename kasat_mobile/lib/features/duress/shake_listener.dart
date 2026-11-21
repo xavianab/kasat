@@ -17,6 +17,7 @@ class ShakeListener extends StatefulWidget {
     required this.onShake,
     required this.child,
     this.detector,
+    this.onMagnitude,
     this.userAccelerometerStream,
     this.accelerometerStream,
   });
@@ -27,6 +28,10 @@ class ShakeListener extends StatefulWidget {
 
   /// Optional shared detector (tests). A fresh one is created otherwise.
   final ShakeDetector? detector;
+
+  /// Called on every sample with magnitude in m/s² (net of gravity).
+  /// Used by the practice sheet meter in non-release builds.
+  final ValueChanged<double>? onMagnitude;
 
   /// Injectable streams for tests. Production uses sensors_plus.
   final Stream<UserAccelerometerEvent>? userAccelerometerStream;
@@ -39,8 +44,7 @@ class ShakeListener extends StatefulWidget {
 class _ShakeListenerState extends State<ShakeListener>
     with WidgetsBindingObserver {
   StreamSubscription<dynamic>? _sub;
-  late final ShakeDetector _detector =
-      widget.detector ?? ShakeDetector();
+  late final ShakeDetector _detector = widget.detector ?? ShakeDetector();
   bool _foreground = true;
 
   @override
@@ -75,24 +79,34 @@ class _ShakeListenerState extends State<ShakeListener>
     }
   }
 
+  void _handleMagnitude(double magMs2) {
+    widget.onMagnitude?.call(magMs2);
+    if (_detector.considerMagnitude(DateTime.now(), magMs2)) {
+      widget.onShake();
+    }
+  }
+
   void _listen() {
     _sub?.cancel();
     try {
-      final userStream =
-          widget.userAccelerometerStream ?? userAccelerometerEventStream();
+      // Prefer linear acceleration (gravity already removed) at game rate
+      // so quick triple-shakes are not missed between samples.
+      final userStream = widget.userAccelerometerStream ??
+          userAccelerometerEventStream(
+            samplingPeriod: SensorInterval.gameInterval,
+          );
       _sub = userStream.listen(
         (event) {
           final mag = sqrt(
             event.x * event.x + event.y * event.y + event.z * event.z,
           );
-          if (_detector.considerMagnitude(DateTime.now(), mag)) {
-            widget.onShake();
-          }
+          _handleMagnitude(mag);
         },
         onError: (_) {
           // Fall back to raw accelerometer with gravity subtracted.
           _listenAccelerometerFallback();
         },
+        cancelOnError: false,
       );
     } catch (_) {
       _listenAccelerometerFallback();
@@ -102,18 +116,21 @@ class _ShakeListenerState extends State<ShakeListener>
   void _listenAccelerometerFallback() {
     _sub?.cancel();
     try {
-      final stream = widget.accelerometerStream ?? accelerometerEventStream();
+      final stream = widget.accelerometerStream ??
+          accelerometerEventStream(
+            samplingPeriod: SensorInterval.gameInterval,
+          );
       _sub = stream.listen(
         (event) {
           final raw = sqrt(
             event.x * event.x + event.y * event.y + event.z * event.z,
           );
+          // Net of gravity: | |a| - g |.
           final mag = (raw - _detector.gravityMs2).abs();
-          if (_detector.considerMagnitude(DateTime.now(), mag)) {
-            widget.onShake();
-          }
+          _handleMagnitude(mag);
         },
         onError: (_) {},
+        cancelOnError: false,
       );
     } catch (_) {}
   }

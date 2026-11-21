@@ -4,8 +4,9 @@ import 'package:kasat_mobile/features/duress/shake_detector.dart';
 void main() {
   late ShakeDetector detector;
   final g = 9.80665;
-  double above() => 2.8 * g;
-  double below() => 0.5 * g;
+  // Above the 1.8 g default threshold.
+  double above() => 2.0 * g;
+  double below() => 0.4 * g;
 
   setUp(() {
     detector = ShakeDetector();
@@ -15,6 +16,10 @@ void main() {
     expect(detector.considerMagnitude(t, above()), isFalse);
     detector.considerMagnitude(t.add(const Duration(milliseconds: 20)), below());
   }
+
+  test('default threshold is about 1.8 g', () {
+    expect(detector.peakThresholdG, closeTo(1.8, 0.01));
+  });
 
   test('3 shakes in 2 seconds triggers', () {
     final t0 = DateTime.utc(2026, 1, 1, 12);
@@ -51,7 +56,7 @@ void main() {
 
   test('walking pattern does not trigger', () {
     final t0 = DateTime.utc(2026, 1, 1, 12);
-    // Typical walking user-accel stays well under 2.7 g.
+    // Typical walking user-accel stays well under 1.8 g.
     for (var i = 0; i < 40; i++) {
       final mag = (0.3 + (i.isEven ? 0.4 : 0.1)) * g;
       expect(
@@ -66,16 +71,34 @@ void main() {
 
   test('running pattern does not trigger', () {
     final t0 = DateTime.utc(2026, 1, 1, 12);
-    // Hard running can approach ~2 g but not three 2.7 g peaks.
+    // Normal running peaks around 1.2 to 1.5 g, under the 1.8 g bar.
     for (var i = 0; i < 30; i++) {
       final high = i.isEven;
-      final mag = (high ? 2.0 : 0.4) * g;
+      final mag = (high ? 1.5 : 0.4) * g;
       expect(
         detector.considerMagnitude(
           t0.add(Duration(milliseconds: i * 80)),
           mag,
         ),
         isFalse,
+      );
+    }
+  });
+
+  test('at 1.8 g threshold, normal walking and running still do not trigger', () {
+    final tuned = ShakeDetector(peakThresholdG: 1.8);
+    final t0 = DateTime.utc(2026, 1, 1, 12);
+
+    for (var i = 0; i < 50; i++) {
+      // Walk / jog mix: alternate soft and firm steps under 1.8 g.
+      final mag = (i % 3 == 0 ? 1.4 : (i.isEven ? 0.9 : 0.35)) * g;
+      expect(
+        tuned.considerMagnitude(
+          t0.add(Duration(milliseconds: i * 60)),
+          mag,
+        ),
+        isFalse,
+        reason: 'sample $i at ${(mag / g).toStringAsFixed(2)} g should not fire',
       );
     }
   });
