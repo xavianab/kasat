@@ -1,9 +1,10 @@
 import { DeskProvider } from "@/components/desk/desk-store";
 import { SessionGuard } from "@/components/desk/session-guard";
 import { Shell } from "@/components/desk/shell";
+import { isDemoModeEnabled } from "@/lib/demo-mode";
 import { fixtureIncidents } from "@/lib/fixtures";
 
-const demo = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+const demo = isDemoModeEnabled();
 
 export default function DeskLayout({ children }: { children: React.ReactNode }) {
   return (

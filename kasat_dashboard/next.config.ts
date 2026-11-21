@@ -1,5 +1,15 @@
 import type { NextConfig } from "next";
 
+// Fail closed: a production build must never ship with demo fixtures enabled.
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.NEXT_PUBLIC_DEMO_MODE === "true"
+) {
+  throw new Error(
+    "NEXT_PUBLIC_DEMO_MODE=true is not allowed in a production build. Unset it and rebuild.",
+  );
+}
+
 const config: NextConfig = {
   reactStrictMode: true,
   // The dashboard renders survivor payloads. Nothing here should be indexed,

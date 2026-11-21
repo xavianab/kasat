@@ -88,7 +88,10 @@ npm run dev
 
 Open the URL printed by Next.js (by default `http://localhost:3000`). Sign in with an officer account that exists in your project's Auth + `officers` roster.
 
-To exercise the UI without a database, set `NEXT_PUBLIC_DEMO_MODE=true` in `.env.local` (see `.env.example`).
+To exercise the UI without a database in local development, set
+`NEXT_PUBLIC_DEMO_MODE=true` in `.env.local` (see `.env.example`). That flag is
+ignored in production builds, and `next build` fails if it is set to `true`
+when `NODE_ENV=production`.
 
 ### Database
 

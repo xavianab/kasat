@@ -29,6 +29,7 @@ import {
   type DeskStatus,
   type SpaceDetails,
 } from "@/lib/desk";
+import { isDemoModeEnabled } from "@/lib/demo-mode";
 import { isSupabaseConfigured, getSupabaseBrowserClient } from "@/lib/supabase";
 import type { CategoryCode, Incident, Priority } from "@/lib/types";
 
@@ -194,7 +195,7 @@ export function DeskProvider({
     log: [],
     watches: [],
   });
-  const live = isSupabaseConfigured() && process.env.NEXT_PUBLIC_DEMO_MODE !== "true";
+  const live = isSupabaseConfigured() && !isDemoModeEnabled();
   const [space, setSpace] = useState<SpaceDetails>(() =>
     live ? { ...DEFAULT_SPACE, name: "", description: "" } : DEFAULT_SPACE,
   );
