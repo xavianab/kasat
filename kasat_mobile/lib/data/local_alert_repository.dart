@@ -11,13 +11,18 @@ import '../models/community_alert.dart';
 import 'alert_repository.dart';
 
 class LocalAlertRepository implements AlertRepository {
-  LocalAlertRepository({AlertReviewer? reviewer})
-      : _reviewer = reviewer ?? AnthropicAlertReviewer();
+  LocalAlertRepository({
+    AlertReviewer? reviewer,
+    String Function()? callerIdProvider,
+  })  : _reviewer = reviewer ??
+            AnthropicAlertReviewer(callerIdProvider: callerIdProvider),
+        _callerIdProvider = callerIdProvider;
 
   static const _alertsKey = 'kasat.alerts.v1';
   static const _tipsKey = 'kasat.alert_tips.v1';
 
   final AlertReviewer _reviewer;
+  final String Function()? _callerIdProvider;
   final _changes = StreamController<void>.broadcast();
   final _random = Random.secure();
 
@@ -81,7 +86,11 @@ class LocalAlertRepository implements AlertRepository {
       throw StateError('Only a verified source can post an alert.');
     }
 
-    final review = await _reviewer.review(title: title, body: body);
+    final review = await _reviewer.review(
+      title: title,
+      body: body,
+      callerId: _callerIdProvider?.call(),
+    );
     final now = DateTime.now();
     final alert = CommunityAlert(
       id: AlertId.generate(),

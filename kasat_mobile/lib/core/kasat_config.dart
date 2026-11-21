@@ -79,6 +79,11 @@ abstract final class KasatConfig {
   /// Anthropic is never called from the handset. Alert review goes through
   /// the `ai-proxy` Edge Function so the API key never ships in the binary
   /// and the survivor's IP is not sent to a third party.
+  ///
+  /// `AI_PROXY_APP_SECRET` must match the Edge Function secret of the same
+  /// name. Pass at build time via `--dart-define=AI_PROXY_APP_SECRET=...`
+  /// (or the `dart_defines.local.json` file). It is not the anon key.
+  static const aiProxyAppSecret = String.fromEnvironment('AI_PROXY_APP_SECRET');
   static const anthropicApiKey = '';
   static const anthropicModel = 'claude-sonnet-4-6';
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app.dart';
+import 'core/alert_review.dart';
 import 'core/network_status.dart';
 import 'core/update_notifier.dart';
 import 'data/attachment_store.dart';
@@ -31,7 +32,9 @@ Future<void> main() async {
   final settings = SettingsStore();
   await settings.init();
 
-  final alerts = LocalAlertRepository();
+  final alerts = LocalAlertRepository(
+    callerIdProvider: () => aiProxyCallerId(settings.deviceSecret()),
+  );
   await alerts.init();
 
   final identity = IdentityStore();

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 import 'kasat_config.dart';
@@ -13,13 +14,28 @@ class ReviewResult {
   final String note;
 }
 
+/// Context string for deriving the ai-proxy caller id. The raw device secret
+/// never leaves the handset; only SHA-256(secret || this) is sent.
+const kAiProxyCallerContext = 'kasat-ai-proxy-v1';
+
+/// Hex SHA-256 of [deviceSecret] concatenated with [kAiProxyCallerContext].
+String aiProxyCallerId(String deviceSecret) {
+  return sha256
+      .convert(utf8.encode('$deviceSecret$kAiProxyCallerContext'))
+      .toString();
+}
+
 /// First-pass filter for a community alert.
 ///
 /// This is not a fact checker. It cannot confirm a person is missing. It can
 /// only catch incoherent, contradictory, or obviously abusive drafts before a
 /// person has to look at them.
 abstract interface class AlertReviewer {
-  Future<ReviewResult> review({required String title, required String body});
+  Future<ReviewResult> review({
+    required String title,
+    required String body,
+    String? callerId,
+  });
 }
 
 /// Sends the draft through the Kasat `ai-proxy` Edge Function. The Anthropic
@@ -30,20 +46,37 @@ class AnthropicAlertReviewer implements AlertReviewer {
     http.Client? client,
     String? supabaseUrl,
     String? supabaseAnonKey,
+    String? proxySecret,
+    this._callerIdProvider,
   })  : _client = client ?? http.Client(),
         _supabaseUrl = supabaseUrl ?? KasatConfig.supabaseUrl,
-        _supabaseAnonKey = supabaseAnonKey ?? KasatConfig.supabaseAnonKey;
+        _supabaseAnonKey = supabaseAnonKey ?? KasatConfig.supabaseAnonKey,
+        _proxySecret = proxySecret ?? KasatConfig.aiProxyAppSecret;
 
   final http.Client _client;
   final String _supabaseUrl;
   final String _supabaseAnonKey;
+  final String _proxySecret;
+  final String Function()? _callerIdProvider;
 
   @override
-  Future<ReviewResult> review({required String title, required String body}) async {
-    if (_supabaseUrl.isEmpty || _supabaseAnonKey.isEmpty) {
+  Future<ReviewResult> review({
+    required String title,
+    required String body,
+    String? callerId,
+  }) async {
+    if (_supabaseUrl.isEmpty || _supabaseAnonKey.isEmpty || _proxySecret.isEmpty) {
       return const ReviewResult(
         verdict: ReviewVerdict.pending,
         note: 'Review service is not configured. Held for a person.',
+      );
+    }
+
+    final resolvedCaller = (callerId ?? _callerIdProvider?.call() ?? '').trim();
+    if (resolvedCaller.length < 32) {
+      return const ReviewResult(
+        verdict: ReviewVerdict.pending,
+        note: 'Review caller is not ready. Held for a person.',
       );
     }
 
@@ -54,11 +87,13 @@ class AnthropicAlertReviewer implements AlertReviewer {
           'content-type': 'application/json',
           'apikey': _supabaseAnonKey,
           'Authorization': 'Bearer $_supabaseAnonKey',
+          'x-kasat-proxy-secret': _proxySecret,
         },
         body: jsonEncode({
           'kind': 'review',
           'title': title,
           'body': body,
+          'caller_id': resolvedCaller,
         }),
       );
 

@@ -10,7 +10,11 @@ class _FixedReviewer implements AlertReviewer {
   final ReviewResult result;
 
   @override
-  Future<ReviewResult> review({required String title, required String body}) async {
+  Future<ReviewResult> review({
+    required String title,
+    required String body,
+    String? callerId,
+  }) async {
     return result;
   }
 }
