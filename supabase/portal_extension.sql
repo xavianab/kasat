@@ -1,10 +1,9 @@
--- Kasat law-enforcement portal — additive schema
+-- Kasat law-enforcement portal — additive schema (historical / unused by the
+-- current shared-reports design).
 --
--- Safe to run on a database that already has supabase/schema.sql from the
--- mobile-app repo. Does not change anonymous insert or tracking-code lookup.
--- The survivor-facing table remains `incidents` (there is no `reports` table).
---
--- Apply in the Supabase SQL editor after the base schema.
+-- Do not apply this file to a current project. The live schema is defined only
+-- by supabase/migrations/. supabase/schema.sql is a pointer to those
+-- migrations, not a base dump to run before this file.
 
 create extension if not exists "pgcrypto";
 

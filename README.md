@@ -25,7 +25,7 @@ an independent penetration test.
 | --- | --- | --- |
 | `kasat_mobile/` | Flutter survivor app: report intake, lookup, resources, discretionary UI (PIN / leave), and an "I'm in Danger" path | Implemented. Works offline with an on-device store. When Supabase URL and anon key are passed at build time, it syncs through narrow RPCs (`create_draft_report`, `send_draft_report`, `trigger_or_coalesce_emergency`, and related functions). |
 | `kasat_dashboard/` | Next.js officer desk ("Kasat Desk"): login, station queues, case detail, notes/replies, access log, attachments | Implemented against the same Supabase project (officer auth, `list_station_reports`, dispatch transitions, realtime on `report_queue_events`). Can also run against local sample data when demo mode is enabled. |
-| `supabase/` | Database schema evolution: `migrations/`, plus `schema.sql`, seeds, and Edge Functions under `functions/` | **Source of truth for the live design is `supabase/migrations/`** (shared `reports` table, stations/officers, RLS, SECURITY DEFINER RPCs, queue events). `schema.sql` is an earlier snapshot that still describes an `incidents` model and should not be treated as current without checking the migrations. |
+| `supabase/` | Database schema evolution: `migrations/`, plus `schema.sql` (pointer only), seeds, and Edge Functions under `functions/` | **Source of truth is `supabase/migrations/`** (shared `reports` table, stations/officers, RLS, SECURITY DEFINER RPCs, queue events). `schema.sql` is only a pointer to those migrations; do not apply it. |
 
 ## Privacy and security design
 
@@ -92,7 +92,7 @@ To exercise the UI without a database, set `NEXT_PUBLIC_DEMO_MODE=true` in `.env
 
 ### Database
 
-Apply migrations from `supabase/migrations/` to your own project with the Supabase CLI or dashboard. Do not use production credentials in local examples. Prefer reading the migrations over `schema.sql` when the two disagree.
+Apply migrations from `supabase/migrations/` to your own project with the Supabase CLI or dashboard. Do not use production credentials in local examples. `schema.sql` is only a pointer; migrations are the source of truth.
 
 ## Emergency and support numbers
 
