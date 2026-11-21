@@ -91,5 +91,10 @@
   "duress.fakeBody": "ስልኩን አሁን አትንኪው።",
   "duress.cancel": "አሁን አይደለም",
   "receipt.queuedTitle": "በዚህ ስልክ ተቀምጧል",
-  "receipt.queuedBody": "ግንኙነት ስላልነበረ ገና አልሄደም። ስልኩ ወደ መስመር ሲመለስ በራሱ ይላካል።"
+  "receipt.queuedBody": "ግንኙነት ስላልነበረ ገና አልሄደም። ስልኩ ወደ መስመር ሲመለስ በራሱ ይላካል።",
+  "danger.queuedTitle": "ማስጠንቀቂያው በዚህ ስልክ ተቀምጧል",
+  "danger.queuedBody": "ጣቢያው አሁን ማስጠንቀቂያውን መቀበል አልቻለም። እዚህ ተቀምጧል እና መላክን ይቀጥላል። የስልክ መደወያው በ{number} ተከፍቷል።",
+  "danger.queuedBodySilent": "ጣቢያው አሁን ማስጠንቀቂያውን መቀበል አልቻለም። እዚህ ተቀምጧል እና መላክን ይቀጥላል። ጥሪ አልተደረገም። ከፈለግሽ {number} መደወል ትችያለሽ።",
+  "danger.queuedCall": "{number} ደውዪ",
+  "danger.queuedDone": "እሺ"
 }

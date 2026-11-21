@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../app.dart';
 import '../../core/kasat_config.dart';
+import '../../models/incident_status.dart';
 import '../../theme/kasat_theme.dart';
 
 /// 5-second automatic-escalation countdown modeled on vehicle crash detection
@@ -20,6 +21,9 @@ class DangerCountdownSheet extends StatefulWidget {
 
   static const cancelButtonKey = Key('danger-cancel-button');
   static const silentToggleKey = Key('danger-silent-toggle');
+  static const queuedDoneKey = Key('danger-queued-done');
+  static const queuedCallKey = Key('danger-queued-call');
+  static const queuedMessageKey = Key('danger-queued-message');
 
   static Future<void> show(BuildContext context) {
     HapticFeedback.heavyImpact();
@@ -41,6 +45,7 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
   late int _secondsRemaining = KasatConfig.dangerCountdown.inSeconds;
   bool _silent = false;
   bool _firing = false;
+  bool _showQueuedFallback = false;
   Timer? _timer;
 
   @override
@@ -84,8 +89,12 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
       HapticFeedback.heavyImpact();
     }
     final scope = KasatScope.of(context);
-    await scope.danger.escalateNow(silent: _silent);
+    final incident = await scope.danger.escalateNow(silent: _silent);
     if (!mounted) return;
+    if (incident.status == IncidentStatus.queued) {
+      setState(() => _showQueuedFallback = true);
+      return;
+    }
     Navigator.of(context).pop();
   }
 
@@ -93,6 +102,118 @@ class _DangerCountdownSheetState extends State<DangerCountdownSheet> {
   Widget build(BuildContext context) {
     final bgColor = _silent ? const Color(0xFF0E0D0D) : const Color(0xFF281113);
     final textColor = _silent ? const Color(0xFF8C8583) : Colors.white;
+    final i18n = KasatScope.of(context).i18n;
+
+    if (_showQueuedFallback) {
+      return Container(
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(KRadius.xl)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              KSpace.xl,
+              KSpace.xl,
+              KSpace.xl,
+              KSpace.xl,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  i18n.t('danger.queuedTitle'),
+                  textAlign: TextAlign.center,
+                  style: KType.serif(
+                    size: 22,
+                    weight: FontWeight.w600,
+                    color: textColor,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: KSpace.md),
+                Text(
+                  key: DangerCountdownSheet.queuedMessageKey,
+                  _silent
+                      ? i18n.t(
+                          'danger.queuedBodySilent',
+                          {'number': KasatConfig.emergencyNumber},
+                        )
+                      : i18n.t(
+                          'danger.queuedBody',
+                          {'number': KasatConfig.emergencyNumber},
+                        ),
+                  textAlign: TextAlign.center,
+                  style: KType.sans(
+                    size: 14.5,
+                    color: textColor.withValues(alpha: 0.85),
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: KSpace.xl),
+                if (_silent) ...[
+                  SizedBox(
+                    height: 56,
+                    child: ElevatedButton(
+                      key: DangerCountdownSheet.queuedCallKey,
+                      onPressed: () {
+                        unawaited(
+                          KasatScope.of(context).danger.openEmergencyDialer(),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF1F1617),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: KRadius.rPill,
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        i18n.t(
+                          'danger.queuedCall',
+                          {'number': KasatConfig.emergencyNumber},
+                        ),
+                        style: KType.sans(
+                          size: 15,
+                          weight: FontWeight.w700,
+                          color: const Color(0xFF1F1617),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: KSpace.md),
+                ],
+                SizedBox(
+                  height: 56,
+                  child: OutlinedButton(
+                    key: DangerCountdownSheet.queuedDoneKey,
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: textColor,
+                      side: BorderSide(color: textColor.withValues(alpha: 0.35)),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: KRadius.rPill,
+                      ),
+                    ),
+                    child: Text(
+                      i18n.t('danger.queuedDone'),
+                      style: KType.sans(
+                        size: 15,
+                        weight: FontWeight.w700,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Container(
       decoration: BoxDecoration(

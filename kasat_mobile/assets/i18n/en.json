@@ -73,5 +73,10 @@
   "duress.fakeBody": "Keep the phone still.",
   "duress.cancel": "Not now",
   "receipt.queuedTitle": "Saved on this phone",
-  "receipt.queuedBody": "There was no connection, so nothing left yet. It will send on its own when this phone is back online."
+  "receipt.queuedBody": "There was no connection, so nothing left yet. It will send on its own when this phone is back online.",
+  "danger.queuedTitle": "Alert saved on this phone",
+  "danger.queuedBody": "The station could not take the alert just now. It is saved here and will keep trying. The phone dialer was opened with {number}.",
+  "danger.queuedBodySilent": "The station could not take the alert just now. It is saved here and will keep trying. No call was placed. You can call {number} if you choose.",
+  "danger.queuedCall": "Call {number}",
+  "danger.queuedDone": "OK"
 }

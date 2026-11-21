@@ -141,7 +141,7 @@ class DangerController extends ChangeNotifier {
       final existingId = _activeTrackingId!;
       _silentMode = _silentMode || silent;
       if (!silent) {
-        unawaited(_openEmergencyDialer());
+        unawaited(openEmergencyDialer());
       }
       final pos = await _tryReadPosition();
       if (pos != null) {
@@ -169,7 +169,7 @@ class DangerController extends ChangeNotifier {
 
     // Fire phone dialer and portal dispatch in parallel.
     final results = await Future.wait<dynamic>([
-      if (!silent) _openEmergencyDialer() else Future<void>.value(),
+      if (!silent) openEmergencyDialer() else Future<void>.value(),
       _dispatchEmergencyReport(
         trackingId: trackingId,
         countryCode: countryCode,
@@ -196,6 +196,8 @@ class DangerController extends ChangeNotifier {
   ///   system-selected default Phone dialer (`RoleManager.ROLE_DIALER`).
   /// Pre-filling the system dialer via `tel:` so she taps once to connect is
   /// the strict legal and technical minimum on both platforms.
+  Future<void> openEmergencyDialer() => _openEmergencyDialer();
+
   Future<void> _openEmergencyDialer() async {
     final rawNumber = KasatConfig.emergencyNumber;
     final dialable = rawNumber.replaceAll(RegExp(r'[^0-9+]'), '');
